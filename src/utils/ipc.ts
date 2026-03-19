@@ -21,6 +21,7 @@ export async function getProviderConfigs(): Promise<ProviderConfigItem[]> {
 export async function saveProviderConfig(config: {
   providerId: ProviderId;
   apiKey: string;
+  oauthToken: string;
   enabled: boolean;
 }): Promise<void> {
   return invoke("save_provider_config", { config });

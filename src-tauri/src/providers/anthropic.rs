@@ -44,6 +44,7 @@ impl UsageProvider for AnthropicProvider {
             has_balance: false,
             has_usage: true,
             has_rate_limit: true,
+            has_subscription: true,
         }
     }
 

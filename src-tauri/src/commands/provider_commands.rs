@@ -27,23 +27,38 @@ pub async fn fetch_all_usage(
             .get_key(provider_id, pid.env_key_name())
             .await;
 
-        match api_key {
-            Some(key) if !key.is_empty() => {
-                let summary = provider_manager.fetch_usage(provider_id, &key).await;
-                results.push(summary);
-            }
-            _ => {
-                results.push(UsageSummary {
-                    provider_id: pid,
-                    display_name: provider_id.clone(),
-                    enabled: true,
-                    status: ProviderStatus::Error,
-                    usage: None,
-                    rate_limit: None,
-                    last_updated: None,
-                    error_message: Some("未配置 API Key".into()),
-                });
-            }
+        let oauth_token = if let Some(env_name) = pid.env_oauth_token_name() {
+            key_store
+                .get_key(&format!("{}_oauth", provider_id), env_name)
+                .await
+        } else {
+            None
+        };
+
+        let has_any_credential = api_key.as_ref().map_or(false, |k| !k.is_empty())
+            || oauth_token.as_ref().map_or(false, |t| !t.is_empty());
+
+        if has_any_credential {
+            let summary = provider_manager
+                .fetch_usage(
+                    provider_id,
+                    api_key.as_deref(),
+                    oauth_token.as_deref(),
+                )
+                .await;
+            results.push(summary);
+        } else {
+            results.push(UsageSummary {
+                provider_id: pid,
+                display_name: provider_id.clone(),
+                enabled: true,
+                status: ProviderStatus::Error,
+                usage: None,
+                subscription: None,
+                rate_limit: None,
+                last_updated: None,
+                error_message: Some("未配置 API Key 或 OAuth Token".into()),
+            });
         }
     }
 
@@ -66,10 +81,19 @@ pub async fn fetch_provider_usage(
 
     let api_key = key_store
         .get_key(&provider_id, pid.env_key_name())
-        .await
-        .ok_or_else(|| "未配置 API Key".to_string())?;
+        .await;
 
-    Ok(provider_manager.fetch_usage(&provider_id, &api_key).await)
+    let oauth_token = if let Some(env_name) = pid.env_oauth_token_name() {
+        key_store
+            .get_key(&format!("{}_oauth", provider_id), env_name)
+            .await
+    } else {
+        None
+    };
+
+    Ok(provider_manager
+        .fetch_usage(&provider_id, api_key.as_deref(), oauth_token.as_deref())
+        .await)
 }
 
 /// 获取所有供应商配置
@@ -89,6 +113,12 @@ pub async fn get_provider_configs(
         item.api_key = key_store
             .get_masked_key(pid_str, item.provider_id.env_key_name())
             .await;
+
+        if let Some(env_name) = item.provider_id.env_oauth_token_name() {
+            item.oauth_token = key_store
+                .get_masked_key(&format!("{}_oauth", pid_str), env_name)
+                .await;
+        }
     }
 
     Ok(items)
@@ -114,9 +144,16 @@ pub async fn save_provider_config(
         )
         .await?;
 
-    // 保存 API Key（如果提供了非掩码的 Key）
+    // 保存 API Key
     if !config.api_key.is_empty() && !config.api_key.contains("...") {
         key_store.set_key(&pid_str, &config.api_key).await?;
+    }
+
+    // 保存 OAuth Token
+    if !config.oauth_token.is_empty() && !config.oauth_token.contains("...") {
+        key_store
+            .set_key(&format!("{}_oauth", pid_str), &config.oauth_token)
+            .await?;
     }
 
     Ok(())

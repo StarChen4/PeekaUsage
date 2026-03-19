@@ -6,9 +6,10 @@ export interface ProviderCapabilities {
   hasBalance: boolean;
   hasUsage: boolean;
   hasRateLimit: boolean;
+  hasSubscription: boolean;
 }
 
-/** 用量数据 */
+/** 用量数据（按量 API） */
 export interface UsageData {
   totalUsed: number;
   totalBudget: number | null;
@@ -16,6 +17,21 @@ export interface UsageData {
   currency: string;
   periodStart: string | null;
   periodEnd: string | null;
+}
+
+/** 订阅用量窗口 */
+export interface SubscriptionWindow {
+  label: string;
+  utilization: number;
+  resetsAt: string | null;
+}
+
+/** 订阅用量数据 */
+export interface SubscriptionUsage {
+  planName: string | null;
+  windows: SubscriptionWindow[];
+  status: ProviderStatus;
+  errorMessage: string | null;
 }
 
 /** 速率限制数据 */
@@ -36,6 +52,7 @@ export interface UsageSummary {
   enabled: boolean;
   status: ProviderStatus;
   usage: UsageData | null;
+  subscription: SubscriptionUsage | null;
   rateLimit: RateLimitData | null;
   lastUpdated: string | null;
   errorMessage: string | null;
@@ -47,5 +64,6 @@ export interface ProviderConfigItem {
   displayName: string;
   enabled: boolean;
   apiKey: string;
+  oauthToken: string;
   capabilities: ProviderCapabilities;
 }

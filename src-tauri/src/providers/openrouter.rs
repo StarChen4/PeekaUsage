@@ -63,6 +63,7 @@ impl UsageProvider for OpenRouterProvider {
             has_balance: true,
             has_usage: true,
             has_rate_limit: true,
+            has_subscription: false,
         }
     }
 

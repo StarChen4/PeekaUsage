@@ -68,6 +68,7 @@ impl UsageProvider for OpenAIProvider {
             has_balance: true,
             has_usage: true,
             has_rate_limit: false,
+            has_subscription: true,
         }
     }
 

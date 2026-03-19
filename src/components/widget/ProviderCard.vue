@@ -4,6 +4,7 @@ import type { UsageSummary } from "../../types/provider";
 import { formatCurrency, calcUsagePercent } from "../../utils/formatters";
 import UsageProgressBar from "./UsageProgressBar.vue";
 import RateLimitBadge from "./RateLimitBadge.vue";
+import SubscriptionBadge from "./SubscriptionBadge.vue";
 
 const props = defineProps<{
   provider: UsageSummary;
@@ -17,6 +18,8 @@ const usagePercent = computed(() => {
   );
 });
 
+const hasSubscription = computed(() => !!props.provider.subscription);
+const hasApiUsage = computed(() => !!props.provider.usage);
 </script>
 
 <template>
@@ -24,28 +27,31 @@ const usagePercent = computed(() => {
     <div class="card-header">
       <span class="provider-name">{{ provider.displayName }}</span>
       <span v-if="provider.status === 'loading'" class="status-loading">⟳</span>
-      <span v-if="provider.usage" class="usage-amount">
-        {{ formatCurrency(provider.usage.totalUsed, provider.usage.currency) }}
-      </span>
     </div>
 
-    <div v-if="provider.usage && provider.usage.totalBudget" class="card-body">
-      <UsageProgressBar :percent="usagePercent" />
-      <div class="balance-row">
-        <span class="balance-label">余额:</span>
-        <span class="balance-value">
-          {{ formatCurrency(provider.usage.remaining ?? 0, provider.usage.currency) }}
-        </span>
-      </div>
-    </div>
+    <!-- 订阅用量 -->
+    <SubscriptionBadge
+      v-if="hasSubscription"
+      :subscription="provider.subscription!"
+    />
 
-    <div v-if="provider.usage && !provider.usage.totalBudget" class="card-body">
-      <div class="balance-row">
-        <span class="balance-label">已用:</span>
-        <span class="balance-value">
-          {{ formatCurrency(provider.usage.totalUsed, provider.usage.currency) }}
+    <!-- 按量 API 用量 -->
+    <div v-if="hasApiUsage" class="api-section">
+      <div v-if="hasSubscription" class="api-label">按量 API</div>
+
+      <div class="api-header">
+        <span class="usage-amount">
+          {{ formatCurrency(provider.usage!.totalUsed, provider.usage!.currency) }}
+        </span>
+        <span v-if="provider.usage!.remaining != null" class="balance-info">
+          余额: {{ formatCurrency(provider.usage!.remaining!, provider.usage!.currency) }}
         </span>
       </div>
+
+      <UsageProgressBar
+        v-if="provider.usage!.totalBudget"
+        :percent="usagePercent"
+      />
     </div>
 
     <RateLimitBadge
@@ -53,7 +59,10 @@ const usagePercent = computed(() => {
       :rate-limit="provider.rateLimit"
     />
 
-    <div v-if="provider.status === 'error'" class="error-msg">
+    <div
+      v-if="provider.status === 'error' && !hasSubscription && !hasApiUsage"
+      class="error-msg"
+    >
       {{ provider.errorMessage }}
     </div>
   </div>
@@ -101,29 +110,36 @@ const usagePercent = computed(() => {
   to { transform: rotate(360deg); }
 }
 
+.api-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+  border-top: 1px dashed var(--color-border);
+}
+
+.api-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.api-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .usage-amount {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-primary-hover);
 }
 
-.card-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.balance-row {
-  display: flex;
-  justify-content: space-between;
+.balance-info {
   font-size: 11px;
-}
-
-.balance-label {
-  color: var(--color-text-muted);
-}
-
-.balance-value {
   color: var(--color-text-secondary);
 }
 
