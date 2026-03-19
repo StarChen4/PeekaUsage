@@ -1,0 +1,51 @@
+/** 供应商 ID */
+export type ProviderId = "openai" | "anthropic" | "openrouter";
+
+/** 供应商能力 */
+export interface ProviderCapabilities {
+  hasBalance: boolean;
+  hasUsage: boolean;
+  hasRateLimit: boolean;
+}
+
+/** 用量数据 */
+export interface UsageData {
+  totalUsed: number;
+  totalBudget: number | null;
+  remaining: number | null;
+  currency: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+}
+
+/** 速率限制数据 */
+export interface RateLimitData {
+  requestsPerMinute: number | null;
+  requestsPerMinuteLimit: number | null;
+  tokensPerMinute: number | null;
+  tokensPerMinuteLimit: number | null;
+}
+
+/** 供应商状态 */
+export type ProviderStatus = "idle" | "loading" | "success" | "error";
+
+/** 供应商摘要（从后端返回） */
+export interface UsageSummary {
+  providerId: ProviderId;
+  displayName: string;
+  enabled: boolean;
+  status: ProviderStatus;
+  usage: UsageData | null;
+  rateLimit: RateLimitData | null;
+  lastUpdated: string | null;
+  errorMessage: string | null;
+}
+
+/** 供应商配置（前端用） */
+export interface ProviderConfigItem {
+  providerId: ProviderId;
+  displayName: string;
+  enabled: boolean;
+  apiKey: string;
+  capabilities: ProviderCapabilities;
+}
