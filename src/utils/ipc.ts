@@ -46,3 +46,21 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
 export async function setWindowOpacity(opacity: number): Promise<void> {
   return invoke("set_window_opacity", { opacity });
 }
+
+/** 检测到的 OAuth Token */
+export interface DetectedToken {
+  token: string;
+  source: string;
+  subscriptionType: string | null;
+}
+
+/** 检测到的 Token 集合 */
+export interface DetectedTokens {
+  anthropic: DetectedToken | null;
+  openai: DetectedToken | null;
+}
+
+/** 自动检测本地 OAuth Token */
+export async function detectOAuthTokens(): Promise<DetectedTokens> {
+  return invoke<DetectedTokens>("detect_oauth_tokens");
+}

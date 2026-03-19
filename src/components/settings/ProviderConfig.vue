@@ -2,7 +2,7 @@
 import { ref, watch } from "vue";
 import type { ProviderConfigItem } from "../../types/provider";
 import ApiKeyInput from "./ApiKeyInput.vue";
-import { saveProviderConfig, validateApiKey } from "../../utils/ipc";
+import { saveProviderConfig, validateApiKey, detectOAuthTokens } from "../../utils/ipc";
 
 const props = defineProps<{
   config: ProviderConfigItem;
@@ -17,6 +17,8 @@ const oauthToken = ref(props.config.oauthToken);
 const enabled = ref(props.config.enabled);
 const validating = ref(false);
 const validationResult = ref<boolean | null>(null);
+const detecting = ref(false);
+const detectResult = ref<string | null>(null);
 
 watch(() => props.config, (c) => {
   apiKey.value = c.apiKey;
@@ -34,6 +36,28 @@ async function onValidate() {
     validationResult.value = false;
   } finally {
     validating.value = false;
+  }
+}
+
+async function onDetectToken() {
+  detecting.value = true;
+  detectResult.value = null;
+  try {
+    const tokens = await detectOAuthTokens();
+    const found = props.config.providerId === "anthropic"
+      ? tokens.anthropic
+      : tokens.openai;
+    if (found) {
+      oauthToken.value = found.token;
+      const sub = found.subscriptionType ? ` (${found.subscriptionType})` : "";
+      detectResult.value = `已从 ${found.source} 检测到${sub}`;
+    } else {
+      detectResult.value = "未找到本地凭据";
+    }
+  } catch (e: any) {
+    detectResult.value = `检测失败: ${e}`;
+  } finally {
+    detecting.value = false;
   }
 }
 
@@ -71,18 +95,28 @@ async function onSave() {
         </div>
       </div>
 
-      <!-- 订阅 OAuth Token（仅 OpenAI / Anthropic） -->
+      <!-- 订阅 OAuth Token -->
       <div v-if="config.capabilities.hasSubscription" class="field-group">
         <label class="field-label">OAuth Token（订阅计划）</label>
         <ApiKeyInput
           v-model="oauthToken"
-          :placeholder="config.providerId === 'anthropic' ? 'sk-ant-oat01-...' : 'Bearer token...'"
+          :placeholder="config.providerId === 'anthropic' ? 'sk-ant-oat01-...' : 'eyJ...'"
         />
+        <div class="config-actions">
+          <button class="btn btn-sm btn-detect" @click="onDetectToken" :disabled="detecting">
+            {{ detecting ? "检测中..." : "自动检测" }}
+          </button>
+        </div>
+        <div v-if="detectResult" class="detect-result">{{ detectResult }}</div>
         <div class="field-hint">
-          {{ config.providerId === 'anthropic'
-            ? '从 Claude Code 凭据中获取，用于查询 Pro/Max 订阅用量'
-            : '从 Codex CLI 凭据中获取，用于查询 ChatGPT Plus/Pro 订阅用量'
-          }}
+          <template v-if="config.providerId === 'anthropic'">
+            自动检测读取 <code>~/.claude/.credentials.json</code><br>
+            或手动：运行 Claude Code 登录后从该文件提取 accessToken
+          </template>
+          <template v-else>
+            自动检测读取 <code>~/.codex/auth.json</code><br>
+            或手动：运行 <code>codex --login</code> 登录后从该文件提取 access_token
+          </template>
         </div>
       </div>
 
@@ -146,13 +180,26 @@ async function onSave() {
 .field-hint {
   font-size: 9px;
   color: var(--color-text-muted);
-  line-height: 1.3;
+  line-height: 1.4;
+}
+
+.field-hint code {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0 3px;
+  border-radius: 2px;
+  font-size: 9px;
 }
 
 .config-actions {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+}
+
+.detect-result {
+  font-size: 10px;
+  color: var(--color-success);
+  padding: 2px 0;
 }
 
 .save-btn {
@@ -186,6 +233,16 @@ async function onSave() {
 
 .btn-primary:hover {
   background: var(--color-primary-hover);
+}
+
+.btn-detect {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: var(--color-info);
+}
+
+.btn-detect:hover {
+  background: rgba(59, 130, 246, 0.25);
 }
 
 .valid-mark {

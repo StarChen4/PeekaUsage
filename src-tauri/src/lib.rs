@@ -56,6 +56,7 @@ pub fn run() {
             commands::settings_commands::get_settings,
             commands::settings_commands::save_settings,
             commands::window_commands::set_window_opacity,
+            commands::window_commands::detect_oauth_tokens,
         ])
         .run(tauri::generate_context!())
         .expect("启动应用失败");
