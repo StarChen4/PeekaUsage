@@ -1,119 +1,212 @@
-# How Much Have I Cost - AI 用量监控桌面浮窗
+# How Much Have I Cost
 
-一个轻量级桌面浮窗应用，用于实时监控多个 AI 服务商的 API 用量和订阅计划消耗情况。
+一个基于 Tauri v2 的桌面浮窗，用来监控 OpenAI、Anthropic、OpenRouter 的 API 用量和订阅计划消耗。
 
-基于 **Tauri v2 + Vue 3 + TypeScript + Rust** 构建。
+前端使用 Vue 3 + TypeScript，后端使用 Rust。主界面是一个常驻右上角风格的小组件窗口，支持托盘、轮询、订阅检测、设置面板和卡片拖拽排序。
 
-## 功能特性
+## 当前能力
 
-- **多服务商支持**: OpenAI、Anthropic、OpenRouter
-- **按量 API 监控**: 实时显示 API 调用费用、余额、速率限制
-- **订阅计划监控**: 显示 ChatGPT Plus/Pro、Claude Pro/Max 等订阅的用量窗口和利用率
-- **OAuth Token 自动检测**: 从本地 Claude Code / Codex CLI 凭据文件自动读取 Token
-- **系统托盘**: 最小化到托盘，右键菜单控制显示/隐藏/刷新/设置
-- **透明浮窗**: 无边框透明窗口，始终置顶，可调节透明度
-- **定时轮询**: 可配置的自动刷新间隔（默认 5 分钟）
-- **密钥安全存储**: API Key 加密存储 + 环境变量优先
+- 支持 OpenAI、Anthropic、OpenRouter 三个供应商
+- 同时展示按量 API 用量、订阅窗口、速率限制和错误状态
+- 支持从本地 Claude Code / Codex CLI 自动检测 OAuth Token
+- 支持系统托盘显示、隐藏、刷新、打开设置
+- 支持窗口透明度、始终置顶、启动项、轮询间隔等设置
+- 支持在主界面拖动供应商卡片调整顺序，并在松手后持久化布局
+- 支持设置页启用/停用供应商后立即同步到主界面
+- 支持保存供应商配置时显示“保存中 / 成功 / 失败”反馈
 
-## 前置要求
+## 最近更新
 
-- [Node.js](https://nodejs.org/) >= 18
-- [Rust](https://rustup.rs/) (通过 rustup 安装)
-- [Git](https://git-scm.com/)
+### OAuth 检测修复
 
-## 开发环境运行
+- OpenAI 的 `~/.codex/auth.json` 现在同时兼容两种 `tokens.access_token` 结构：
+- 旧格式：按数字索引拆开的对象
+- 新格式：直接字符串
+- 检测逻辑位于 `src-tauri/src/commands/window_commands.rs`
+
+### 设置保存与主界面同步修复
+
+- 设置页取消勾选供应商后，主界面会在保存后同步移除对应卡片
+- 清空 API Key / OAuth Token 并保存时，会真正清掉已存凭据，不再沿用旧值
+- 保存按钮现在有明确的保存状态反馈
+
+### 托盘修复
+
+- 现在只创建一个托盘图标
+- 托盘图标使用应用默认图标
+- 左键单击不会再触发两次显示/隐藏切换
+- 窗口最小化到任务栏后，也能通过托盘恢复
+- 托盘创建完全由 Rust 控制，不再依赖 `tauri.conf.json` 自动创建
+
+### 主界面拖拽排序
+
+- 主界面供应商卡片支持拖拽换序
+- 拖动过程中其余卡片会实时推挤避让
+- 松手后会保存当前顺序
+- 刷新数据、切换设置、重启应用后仍保持同一顺序
+
+## 环境要求
+
+- Node.js 18+
+- Rust 工具链
+- Windows 开发环境
+
+如果 `cargo` 不在 PATH 中，先补上：
 
 ```bash
-# 1. 克隆项目
-git clone <repo-url>
-cd how-much-have-i-cost
+export PATH="$PATH:$HOME/.cargo/bin"
+```
 
-# 2. 安装前端依赖
+## 开发命令
+
+```bash
+# 安装依赖
 npm install
 
-# 3. 确保 Rust 工具链在 PATH 中
-# Windows 用户可能需要手动添加:
-# export PATH="$PATH:$HOME/.cargo/bin"
+# 仅启动前端
+npm run dev
 
-# 4. 启动开发模式（同时启动 Vite 前端 + Tauri Rust 后端）
+# 启动完整桌面应用
 npm run tauri dev
-```
 
-首次运行会编译 Rust 依赖，耗时较长（约 1-3 分钟），后续增量编译会快很多。
-
-启动成功后会出现一个 280x400 的透明浮窗。
-
-## 构建生产版本
-
-```bash
+# 构建生产版本
 npm run tauri build
+
+# 前端类型检查
+npx vue-tsc --noEmit
+
+# Rust 检查
+cargo check
 ```
 
-产物位于 `src-tauri/target/release/bundle/`，包含 NSIS 安装包（Windows）。
+首次 `npm run tauri dev` 会触发完整 Rust 编译，通常比前端启动慢得多。
 
-## 配置说明
+## 使用说明
 
-### API Key 配置
+### API Key
 
-在浮窗右下角点击齿轮图标进入设置面板，为各服务商填入 API Key：
+在设置页为供应商填写 API Key，或通过环境变量提供。
 
 | 服务商 | Key 格式 | 环境变量 |
 |--------|---------|----------|
 | OpenAI | `sk-...` | `OPENAI_API_KEY` |
-| Anthropic | `sk-ant-admin-...`（需要 Admin Key） | `ANTHROPIC_API_KEY` |
+| Anthropic | `sk-ant-admin-...` | `ANTHROPIC_API_KEY` |
 | OpenRouter | `sk-or-...` | `OPENROUTER_API_KEY` |
 
-> 环境变量优先级高于设置面板中保存的 Key。
+说明：
 
-### 订阅计划监控（OAuth Token）
+- Anthropic 的按量费用接口要求 Admin Key，普通 Key 无法获取成本数据
+- 环境变量优先级高于设置页保存值
 
-订阅用量监控需要 OAuth Token，可通过以下方式获取：
+### OAuth Token
 
-- **Anthropic**: 安装并登录 [Claude Code](https://claude.ai/code)，Token 自动保存在 `~/.claude/.credentials.json`
-- **OpenAI**: 安装并登录 [Codex CLI](https://github.com/openai/codex)，Token 自动保存在 `~/.codex/auth.json`
+订阅计划监控依赖本地 OAuth Token。
 
-在设置面板中点击「自动检测」按钮可自动读取本地凭据。
+| 来源 | 文件路径 | 读取字段 |
+|------|---------|----------|
+| Claude Code | `~/.claude/.credentials.json` | `claudeAiOauth.accessToken` |
+| Codex CLI | `~/.codex/auth.json` | `tokens.access_token` |
+
+说明：
+
+- OpenAI 订阅数据来自 `chatgpt.com/backend-api/wham/usage`
+- Anthropic 订阅数据来自 `api.anthropic.com/api/oauth/usage`
+- 设置页“自动检测”会扫描本地上述凭据文件
+
+## 交互说明
+
+### 托盘
+
+- 关闭主窗口默认不是退出，而是隐藏到托盘
+- 左键单击托盘图标切换主窗口显示
+- 右键托盘图标可打开菜单
+- 菜单项支持显示/隐藏、刷新、打开设置、退出
+
+### 主界面
+
+- 右下角按钮可刷新数据和打开设置
+- 供应商卡片支持直接拖拽换序
+- 卡片顺序会持久化到本地配置文件
 
 ## 项目结构
 
+```text
+src/
+  App.vue                         根组件，处理 widget/settings 视图切换
+  components/
+    widget/
+      WidgetContainer.vue         主界面卡片列表、拖拽排序、底部状态
+      ProviderCard.vue            单个供应商卡片
+    settings/
+      SettingsPanel.vue           设置页容器
+      ProviderConfig.vue          单个供应商设置卡片
+  composables/
+    useProviders.ts               主数据初始化与刷新编排
+    usePolling.ts                 自动轮询
+  stores/
+    provider.ts                   用量数据状态
+    settings.ts                   应用设置状态
+  utils/
+    ipc.ts                        前端 IPC 封装
+
+src-tauri/src/
+  lib.rs                          Tauri 命令注册与应用初始化
+  commands/
+    provider_commands.rs          供应商配置、保存顺序、拉取用量
+    window_commands.rs            OAuth 检测、窗口相关命令
+  config/
+    app_config.rs                 配置文件与 provider_order 持久化
+    encryption.rs                 密钥存储
+  providers/
+    mod.rs                        ProviderManager
+    subscription.rs               订阅计划查询
+    types.rs                      Rust 类型定义
+  tray/
+    mod.rs                        托盘创建与托盘事件
 ```
-how-much-have-i-cost/
-├── src-tauri/                # Rust 后端
-│   └── src/
-│       ├── lib.rs            # Tauri 应用入口 & 插件注册
-│       ├── main.rs           # Windows 控制台隐藏
-│       ├── commands/         # IPC 命令（前后端通信）
-│       ├── config/           # 配置持久化 & 密钥存储
-│       ├── providers/        # 服务商抽象层（trait + 实现）
-│       ├── tray/             # 系统托盘
-│       └── polling/          # 轮询占位（前端驱动）
-├── src/                      # Vue 3 前端
-│   ├── App.vue               # 根组件（视图切换 + 托盘事件监听）
-│   ├── components/
-│   │   ├── widget/           # 浮窗组件（卡片、进度条、徽章等）
-│   │   ├── settings/         # 设置面板组件
-│   │   └── common/           # 公共组件（标题栏）
-│   ├── stores/               # Pinia 状态管理
-│   ├── composables/          # 组合式函数（轮询、窗口控制）
-│   ├── types/                # TypeScript 类型定义
-│   └── utils/                # 工具函数（IPC 封装、格式化）
-├── package.json
-├── vite.config.ts
-└── tsconfig.json
+
+## 关键实现约束
+
+- 前后端类型必须同步维护：
+- Rust：`src-tauri/src/providers/types.rs`
+- TypeScript：`src/types/provider.ts`
+- 字段命名通过 serde 映射，Rust 使用 snake_case，TS 使用 camelCase
+
+- 托盘只能保留 Rust 手动创建这一套：
+- 不要在 `src-tauri/tauri.conf.json` 里重新加回自动托盘配置
+
+- 供应商显示顺序由后端配置管理：
+- `src-tauri/src/config/app_config.rs` 中的 `provider_order`
+- `fetch_all_usage` 会按保存顺序返回结果
+
+- 关闭窗口是隐藏到托盘，不是退出应用
+
+## 新 Agent 接手建议
+
+建议按这个顺序读代码：
+
+1. `AGENTS.md`
+2. `CLAUDE.md`
+3. `src-tauri/src/lib.rs`
+4. `src-tauri/src/config/app_config.rs`
+5. `src-tauri/src/commands/provider_commands.rs`
+6. `src-tauri/src/commands/window_commands.rs`
+7. `src-tauri/src/tray/mod.rs`
+8. `src/components/widget/WidgetContainer.vue`
+9. `src/components/settings/ProviderConfig.vue`
+10. `src/components/settings/SettingsPanel.vue`
+
+## 验证清单
+
+每次涉及前后端逻辑改动，至少执行：
+
+```bash
+npx vue-tsc --noEmit
+cargo check
 ```
 
-## 推荐 IDE 配置
+如果改了以下部分，建议额外手动验证：
 
-- [VS Code](https://code.visualstudio.com/) + [Vue - Official](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
-
-## 技术栈
-
-| 层级 | 技术 |
-|------|------|
-| 桌面框架 | Tauri v2 |
-| 前端 | Vue 3 + TypeScript + Vite 6 |
-| 样式 | Tailwind CSS v4 |
-| 状态管理 | Pinia 3 |
-| 后端 | Rust + Tokio + Reqwest |
-| HTTP | reqwest (rustls-tls) |
-| 打包 | NSIS (Windows) |
+- 托盘：验证单击、右键菜单、最小化后恢复
+- 设置页：验证保存反馈、启停供应商同步、自动检测
+- 主界面：验证拖拽推挤动画、松手保存、重启后顺序保持

@@ -2,106 +2,304 @@
 
 ## 项目概述
 
-Tauri v2 桌面应用，监控 OpenAI / Anthropic / OpenRouter 的 API 用量和订阅计划消耗。
-Rust 后端处理 HTTP 请求、密钥存储、系统托盘；Vue 3 前端负责 UI 渲染和状态管理。
+这是一个 Tauri v2 桌面应用，用于监控 OpenAI、Anthropic、OpenRouter 的 API 用量与订阅计划消耗。
+
+- Rust 后端负责 provider 请求、配置持久化、密钥存储、托盘和窗口命令
+- Vue 3 前端负责主界面、设置页、轮询和交互动画
+- 当前 UI 形态是小尺寸透明浮窗，无路由，依赖 `App.vue` 内部切换 `widget / settings`
+
+## 最近已落地的更新
+
+### 1. OpenAI OAuth 自动检测兼容新旧格式
+
+文件：`src-tauri/src/commands/window_commands.rs`
+
+当前 `~/.codex/auth.json` 的 `tokens.access_token` 需要同时兼容：
+
+- 旧格式：`{"0":"e","1":"y",...}`
+- 新格式：`"eyJ..."`
+
+不要再假设它一定是索引对象。现在由 `parse_codex_access_token()` 统一处理。
+
+### 2. 设置保存链路修复
+
+文件：
+
+- `src/components/settings/ProviderConfig.vue`
+- `src/components/settings/SettingsPanel.vue`
+- `src-tauri/src/commands/provider_commands.rs`
+
+当前行为：
+
+- 设置页禁用供应商后，保存会同步影响主界面卡片
+- 清空 API Key / OAuth Token 后保存，会真正清除已存值
+- 保存时有明确状态反馈
+
+### 3. 托盘逻辑修复
+
+文件：
+
+- `src-tauri/src/tray/mod.rs`
+- `src-tauri/tauri.conf.json`
+
+当前行为：
+
+- 托盘只保留一份，由 Rust 手动创建
+- 左键只处理一次点击，不再重复触发
+- 托盘显示窗口前会先 `unminimize()`
+- `tauri.conf.json` 中不要重新加回自动托盘配置
+
+### 4. 主界面卡片拖拽排序
+
+文件：
+
+- `src/components/widget/WidgetContainer.vue`
+- `src-tauri/src/config/app_config.rs`
+- `src-tauri/src/commands/provider_commands.rs`
+- `src/utils/ipc.ts`
+
+当前行为：
+
+- 主界面卡片支持拖拽换序
+- 拖动中其他卡片会实时推挤
+- 松手后保存排序
+- 排序持久化到 `provider_order`
+- 刷新和重启后维持顺序
 
 ## 开发命令
 
 ```bash
-# 开发模式（需要 cargo 在 PATH 中）
-npm run tauri dev
-
-# 构建生产版本
-npm run tauri build
-
-# 仅前端开发服务器
+npm install
 npm run dev
-
-# 类型检查
+npm run tauri dev
 npx vue-tsc --noEmit
+cargo check
+npm run tauri build
 ```
 
-Windows 环境下如果 cargo 不在 PATH 中，先执行：
+Windows 环境如果 `cargo` 不在 PATH 中，先执行：
+
 ```bash
 export PATH="$PATH:$HOME/.cargo/bin"
 ```
 
 ## 架构要点
 
-### Rust 后端 (src-tauri/src/)
+### Rust 后端
 
-- **Provider Trait 模式**: `providers/traits.rs` 定义 `UsageProvider` trait，每个服务商实现该 trait
-- **ProviderManager** (`providers/mod.rs`): 注册表模式管理所有 provider，统一调度 API 调用 + 订阅查询
-- **SubscriptionFetcher** (`providers/subscription.rs`): 独立模块处理 OAuth 订阅用量，调用 `api.anthropic.com/api/oauth/usage` 和 `chatgpt.com/backend-api/wham/usage`
-- **IPC 命令** (`commands/`): 通过 `#[tauri::command]` 暴露给前端，所有命令在 `lib.rs` 中注册
-- **配置持久化** (`config/`): `AppConfig` 管理 JSON 配置，`KeyStore` 管理 base64 编码的密钥存储
-- **状态管理**: `AppConfig`、`KeyStore`、`ProviderManager` 通过 `app.manage()` 注入为 Tauri State
+#### Provider 抽象
 
-### Vue 前端 (src/)
+- `src-tauri/src/providers/traits.rs` 定义 `UsageProvider`
+- `src-tauri/src/providers/mod.rs` 中的 `ProviderManager` 统一管理 provider 注册、用量拉取和校验
+- `src-tauri/src/providers/subscription.rs` 负责 OAuth 订阅数据抓取
 
-- **Pinia Store**: `providerStore` (用量数据) + `settingsStore` (应用设置)
-- **Composables**: `usePolling` (定时器)、`useProviders` (初始化编排)、`useWindowControls` (窗口控制)
-- **视图切换**: `App.vue` 通过 `currentView` 在 widget/settings 之间切换，无路由
-- **托盘事件**: 前端监听 `tray-refresh`、`tray-open-settings` 等自定义事件
+#### IPC 命令
 
-### 数据流
+- `src-tauri/src/commands/provider_commands.rs`
+  - 获取配置
+  - 保存供应商配置
+  - 拉取用量
+  - 保存供应商顺序
+- `src-tauri/src/commands/window_commands.rs`
+  - OAuth 自动检测
+  - 窗口相关命令
 
+#### 配置与密钥
+
+- `src-tauri/src/config/app_config.rs`
+  - 管理 `config.json`
+  - 持久化应用设置、供应商启用状态、`provider_order`
+- `src-tauri/src/config/encryption.rs`
+  - 管理 key/token 存取
+
+#### 托盘
+
+- `src-tauri/src/tray/mod.rs`
+  - 创建单一托盘
+  - 处理左键显示/隐藏
+  - 处理菜单刷新、打开设置、退出
+
+### Vue 前端
+
+#### 状态
+
+- `src/stores/provider.ts` 管理主界面数据
+- `src/stores/settings.ts` 管理设置页数据
+
+#### 组合式逻辑
+
+- `src/composables/useProviders.ts`
+  - 初始化主数据
+  - 手动刷新
+  - 与轮询衔接
+- `src/composables/usePolling.ts`
+  - 周期性拉取用量
+
+#### 主要组件
+
+- `src/components/widget/WidgetContainer.vue`
+  - 渲染主界面卡片列表
+  - 拖拽排序
+  - 排序保存反馈
+- `src/components/settings/ProviderConfig.vue`
+  - 单个供应商配置卡片
+  - 保存状态反馈
+- `src/components/settings/SettingsPanel.vue`
+  - 设置页容器与保存编排
+
+## 当前数据流
+
+```text
+前端初始化 / 轮询
+  -> IPC: fetch_all_usage
+  -> AppConfig.get_enabled_providers()
+  -> ProviderManager.fetch_usage()
+  -> UsageSummary[]
+  -> Pinia providerStore
+  -> WidgetContainer / ProviderCard 渲染
 ```
-前端轮询 → IPC invoke → ProviderManager.fetch_usage()
-  → UsageProvider.fetch_usage() (API Key 按量数据)
-  + SubscriptionFetcher.fetch_*() (OAuth 订阅数据)
-  → UsageSummary → 前端 Pinia Store → 组件渲染
+
+排序数据流：
+
+```text
+WidgetContainer 拖拽结束
+  -> ipc.saveProviderOrder(order)
+  -> provider_commands.save_provider_order()
+  -> AppConfig.save_provider_order()
+  -> config.json.provider_order
+  -> 下次 fetch_all_usage 按该顺序返回
 ```
 
-## 关键类型
+## 关键类型与同步约束
 
-- `ProviderId`: 枚举 (openai / anthropic / openrouter)
-- `UsageData`: API 按量使用数据 (total_used, budget, remaining)
-- `SubscriptionUsage`: 订阅用量 (plan_name, windows[])
-- `SubscriptionWindow`: 单个用量窗口 (label, utilization%, resets_at)
-- `UsageSummary`: 聚合结果 (usage + subscription + rate_limit + status)
+关键类型：
 
-Rust 类型定义在 `src-tauri/src/providers/types.rs`，TypeScript 镜像在 `src/types/provider.ts`。
-**两边必须保持同步**，字段名 Rust 用 snake_case，TS 用 camelCase，通过 serde `rename_all` 映射。
+- `ProviderId`
+- `UsageData`
+- `SubscriptionUsage`
+- `SubscriptionWindow`
+- `UsageSummary`
 
-## 添加新 Provider 的步骤
+定义位置：
 
-1. 在 `ProviderId` 枚举添加新变体，实现 `as_str()`、`env_key_name()` 等方法
-2. 创建 `src-tauri/src/providers/new_provider.rs`，实现 `UsageProvider` trait
-3. 在 `ProviderManager::new()` 中注册新 provider
-4. 在 `src/types/provider.ts` 中同步添加对应类型
-5. 前端设置面板会自动渲染新 provider 的配置卡片
+- Rust：`src-tauri/src/providers/types.rs`
+- TypeScript：`src/types/provider.ts`
 
-## OAuth Token 凭据位置
+要求：
 
-| 来源 | 文件路径 | Token 字段 |
-|------|---------|-----------|
-| Claude Code | `~/.claude/.credentials.json` | `claudeAiOauth.accessToken` (sk-ant-oat01-...) |
-| Codex CLI | `~/.codex/auth.json` | `tokens.access_token` (indexed object → join 为 JWT) |
+- 两边必须同步
+- Rust 使用 snake_case
+- TS 使用 camelCase
+- 通过 serde `rename_all` 映射
 
-Codex 的 `access_token` 是索引对象 `{"0":"e","1":"y",...}`，需按数字键排序后拼接成字符串。
-实现见 `commands/window_commands.rs` 的 `indexed_object_to_string()`。
+## 配置文件与本地凭据
 
-## API 端点汇总
+### 应用配置
+
+`config.json` 当前至少包含：
+
+- `settings`
+- `providers`
+- `provider_order`
+
+### OAuth 凭据位置
+
+| 来源 | 路径 | 字段 |
+|------|------|------|
+| Claude Code | `~/.claude/.credentials.json` | `claudeAiOauth.accessToken` |
+| Codex CLI | `~/.codex/auth.json` | `tokens.access_token` |
+
+## API 端点
 
 ### 按量 API
+
 | 服务商 | 端点 | 认证 |
 |--------|------|------|
-| OpenAI | `/v1/organization/costs`, `/v1/dashboard/billing/subscription` | API Key |
-| Anthropic | `/v1/organizations/cost_report` | Admin API Key (sk-ant-admin-...) |
-| OpenRouter | `/api/v1/credits`, `/api/v1/key` | API Key |
+| OpenAI | `/v1/organization/costs`、`/v1/dashboard/billing/subscription` | API Key |
+| Anthropic | `/v1/organizations/cost_report` | Admin API Key |
+| OpenRouter | `/api/v1/credits`、`/api/v1/key` | API Key |
 
 ### 订阅 OAuth
+
 | 服务商 | 端点 | 认证 |
 |--------|------|------|
 | Anthropic | `api.anthropic.com/api/oauth/usage` | OAuth Token |
-| OpenAI | `chatgpt.com/backend-api/wham/usage` | OAuth Token (Bearer) |
+| OpenAI | `chatgpt.com/backend-api/wham/usage` | OAuth Token |
 
-## 注意事项
+## 添加新 Provider 的步骤
 
-- Tauri v2 的 `WebviewWindow` 没有 `set_opacity()` 方法，透明度通过前端 CSS 控制
-- Anthropic 的按量 API 需要 **Admin API Key** (`sk-ant-admin-...`)，普通 API Key 无法获取费用数据
-- OpenAI 订阅端点在 `chatgpt.com` 而非 `api.openai.com`
-- 关闭窗口行为是隐藏到托盘而非退出应用（`on_window_event` 中拦截 `CloseRequested`）
-- 首次 Rust 编译较慢（1-3 分钟），后续增量编译快
-- 开发时 Vite 使用端口 1420，如果被占用需先 kill 占用进程
+1. 在 Rust `ProviderId` 添加新枚举值和辅助方法
+2. 新建 provider 文件并实现 `UsageProvider`
+3. 在 `ProviderManager::new()` 注册
+4. 在 TS `ProviderId` 与相关类型中同步新增
+5. 检查设置页与主界面是否依赖硬编码供应商列表
+6. 如需支持拖拽顺序，更新 `save_provider_order()` 的允许列表和 `provider_rank()`
+
+## 重要注意事项
+
+- 不要把托盘重新配回 `tauri.conf.json`
+- 不要假设 OpenAI OAuth token 一定是对象格式
+- 不要忘记设置页保存后要刷新前端 provider 数据
+- 不要只改前端排序，不改后端 `provider_order` 持久化
+- 关闭窗口默认应隐藏到托盘，而不是退出
+- Tauri v2 的 `WebviewWindow` 没有 `set_opacity()`，透明度由前端控制
+
+## 常用排查入口
+
+### 托盘异常
+
+先看：
+
+- `src-tauri/src/tray/mod.rs`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/capabilities/default.json`
+
+重点查：
+
+- 是否重复创建托盘
+- 是否处理了 `MouseButtonState::Up`
+- 恢复窗口前是否 `unminimize()`
+
+### 设置不同步
+
+先看：
+
+- `src/components/settings/ProviderConfig.vue`
+- `src/components/settings/SettingsPanel.vue`
+- `src-tauri/src/commands/provider_commands.rs`
+
+重点查：
+
+- 保存后是否刷新 provider store
+- 空值是否真的清掉密钥
+- disabled provider 是否仍被主界面保留
+
+### 排序异常
+
+先看：
+
+- `src/components/widget/WidgetContainer.vue`
+- `src-tauri/src/config/app_config.rs`
+- `src/utils/ipc.ts`
+
+重点查：
+
+- 拖拽结束是否调用 `saveProviderOrder`
+- `provider_order` 是否正确写入配置
+- `fetch_all_usage` 返回顺序是否经过 `get_enabled_providers()`
+
+## 建议验证
+
+涉及逻辑改动时至少执行：
+
+```bash
+npx vue-tsc --noEmit
+cargo check
+```
+
+涉及交互改动时建议再手动验证：
+
+- 托盘左键、右键菜单、最小化后恢复
+- 设置页保存反馈和启停同步
+- OAuth 自动检测
+- 主界面拖拽推挤、松手保存、重启后顺序保持
