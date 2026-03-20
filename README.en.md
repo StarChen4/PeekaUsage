@@ -2,7 +2,9 @@
 
 [中文 README](./README.md)
 
-A small desktop widget for keeping an eye on API costs and subscription usage.
+A small desktop widget that tries to ease AI token anxiety.
+
+It does not actually fix the anxiety. When your API keys already feel scarce, repeatedly opening Claude Code or Codex in the CLI just to run `/usage` or `/status` gets old fast. This app pins the numbers to the corner of your desktop so checking usage hurts a little less.
 
 This project is built with Tauri v2, Vue 3 + TypeScript on the frontend, and Rust on the backend. It sits quietly in the corner of your desktop and helps you check how much OpenAI, Anthropic, and OpenRouter are costing you.
 

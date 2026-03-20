@@ -2,7 +2,9 @@
 
 [English README](./README.en.md)
 
-一个用来盯 API 花费和订阅消耗的小浮窗。
+一个试图缓解 AI Token 焦虑的小浮窗。
+
+好吧，它并不能真正解决焦虑。API Key 本来就不多，用着就已经心疼了；Claude Code、Codex 跑一阵之后，想看用了多少，还得反复打开 CLI 敲 `/usage`、`/status`，又累又难受。这个项目就是把这些信息钉到桌面角落里，至少少切几次终端，少受一点折磨。
 
 它基于 Tauri v2，前端是 Vue 3 + TypeScript，后端是 Rust。打开后会常驻桌面角落，适合顺手看看 OpenAI、Anthropic、OpenRouter 这几个服务现在用了多少、还剩多少。
 
