@@ -138,7 +138,28 @@ async function onProviderRemoved() {
 <template>
   <div class="settings-panel">
     <div class="settings-header">
-      <button class="back-btn" @click="$emit('back')">返回</button>
+      <button
+        class="back-btn"
+        type="button"
+        aria-label="返回"
+        @click="$emit('back')"
+      >
+        <svg
+          class="back-icon"
+          viewBox="0 0 16 16"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M9.5 3.5L5 8l4.5 4.5"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
       <span class="settings-title">设置</span>
     </div>
 
@@ -234,12 +255,44 @@ async function onProviderRemoved() {
 }
 
 .back-btn {
-  background: none;
-  border: none;
-  color: var(--color-primary);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 12px;
-  padding: 2px 4px;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.back-btn:hover {
+  background: var(--color-muted-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.back-btn:active {
+  transform: translateX(-1px);
+}
+
+.back-btn:focus-visible {
+  outline: none;
+  border-color: var(--color-primary-soft-border);
+  box-shadow: 0 0 0 3px var(--color-primary-soft-bg);
+}
+
+.back-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .settings-title {

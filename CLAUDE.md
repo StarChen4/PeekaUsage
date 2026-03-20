@@ -1,5 +1,10 @@
 # CLAUDE.md - AI 用量监控桌面浮窗
 
+## 补充更新
+
+- `src/components/settings/SettingsPanel.vue` 的设置页返回入口已改为左向箭头图标按钮，不再显示紫色文字按钮
+- 返回按钮的 `hover` 和 `focus` 交互态要继续跟随应用主题风格
+
 ## 项目概览
 
 这是一个 Tauri v2 桌面应用，用于监控 OpenAI、Anthropic、OpenRouter 的 API 用量与订阅计划消耗。
