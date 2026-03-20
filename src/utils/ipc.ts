@@ -27,6 +27,10 @@ export async function saveProviderConfig(config: {
   return invoke("save_provider_config", { config });
 }
 
+export async function saveProviderOrder(order: ProviderId[]): Promise<void> {
+  return invoke("save_provider_order", { order });
+}
+
 /** 验证 API Key */
 export async function validateApiKey(providerId: ProviderId, apiKey: string): Promise<boolean> {
   return invoke<boolean>("validate_api_key", { providerId, apiKey });

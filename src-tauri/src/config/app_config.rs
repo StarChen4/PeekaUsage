@@ -55,6 +55,8 @@ pub struct ProviderEntry {
 pub struct ConfigFile {
     pub settings: AppSettings,
     pub providers: HashMap<String, ProviderEntry>,
+    #[serde(default)]
+    pub provider_order: Vec<String>,
 }
 
 impl Default for ConfigFile {
@@ -62,6 +64,7 @@ impl Default for ConfigFile {
         Self {
             settings: AppSettings::default(),
             providers: HashMap::new(),
+            provider_order: Vec::new(),
         }
     }
 }
@@ -133,13 +136,50 @@ impl AppConfig {
         self.save().await
     }
 
+    pub async fn save_provider_order(&self, order: Vec<String>) -> Result<(), String> {
+        {
+            let mut config = self.config.write().await;
+            config.provider_order = order;
+        }
+        self.save().await
+    }
+
     pub async fn get_enabled_providers(&self) -> Vec<String> {
         let config = self.config.read().await;
-        config
+        let mut enabled: Vec<String> = config
             .providers
             .iter()
             .filter(|(_, e)| e.enabled)
             .map(|(k, _)| k.clone())
-            .collect()
+            .collect();
+
+        enabled.sort_by(|left, right| {
+            let left_index = config
+                .provider_order
+                .iter()
+                .position(|id| id == left)
+                .unwrap_or(usize::MAX);
+            let right_index = config
+                .provider_order
+                .iter()
+                .position(|id| id == right)
+                .unwrap_or(usize::MAX);
+
+            left_index
+                .cmp(&right_index)
+                .then_with(|| provider_rank(left).cmp(&provider_rank(right)))
+                .then_with(|| left.cmp(right))
+        });
+
+        enabled
+    }
+}
+
+fn provider_rank(provider_id: &str) -> usize {
+    match provider_id {
+        "openai" => 0,
+        "anthropic" => 1,
+        "openrouter" => 2,
+        _ => usize::MAX,
     }
 }

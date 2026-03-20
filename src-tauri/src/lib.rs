@@ -52,6 +52,7 @@ pub fn run() {
             commands::provider_commands::fetch_provider_usage,
             commands::provider_commands::get_provider_configs,
             commands::provider_commands::save_provider_config,
+            commands::provider_commands::save_provider_order,
             commands::provider_commands::validate_api_key,
             commands::settings_commands::get_settings,
             commands::settings_commands::save_settings,

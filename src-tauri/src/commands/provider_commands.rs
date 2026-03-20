@@ -168,3 +168,22 @@ pub async fn validate_api_key(
 ) -> Result<bool, String> {
     provider_manager.validate_key(&provider_id, &api_key).await
 }
+
+#[tauri::command]
+pub async fn save_provider_order(
+    order: Vec<String>,
+    app_config: State<'_, AppConfig>,
+) -> Result<(), String> {
+    let mut deduped = Vec::new();
+
+    for provider_id in order {
+        if !matches!(provider_id.as_str(), "openai" | "anthropic" | "openrouter") {
+            continue;
+        }
+        if !deduped.contains(&provider_id) {
+            deduped.push(provider_id);
+        }
+    }
+
+    app_config.save_provider_order(deduped).await
+}
