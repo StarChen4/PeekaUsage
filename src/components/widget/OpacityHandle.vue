@@ -3,9 +3,9 @@ import { useWindowControls } from "../../composables/useWindowControls";
 
 const { isDraggingOpacity, opacity, startOpacityDrag } = useWindowControls();
 
-function onMouseDown(e: MouseEvent) {
-  e.preventDefault();
-  startOpacityDrag(e.clientY);
+function onMouseDown(event: MouseEvent) {
+  event.preventDefault();
+  startOpacityDrag(event.clientY);
 }
 </script>
 
@@ -14,7 +14,7 @@ function onMouseDown(e: MouseEvent) {
     class="opacity-handle"
     :class="{ dragging: isDraggingOpacity }"
     @mousedown="onMouseDown"
-    :title="`透明度: ${opacity}%`"
+    :title="`透明度 ${opacity}%`"
   >
     <div class="handle-track">
       <div class="handle-fill" :style="{ height: `${opacity}%` }"></div>
@@ -46,7 +46,7 @@ function onMouseDown(e: MouseEvent) {
 .handle-track {
   width: 3px;
   height: 80%;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-progress-track);
   border-radius: 2px;
   overflow: hidden;
   display: flex;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import type { ProviderConfigItem, ProviderId } from "../../types/provider";
-import type { PollingInterval } from "../../types/settings";
+import type { PollingInterval, ThemeMode } from "../../types/settings";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
@@ -18,6 +18,11 @@ const supportedProviders = ref<ProviderConfigItem[]>([]);
 const creatingProviderId = ref<ProviderId | null>(null);
 
 const pollingOptions: PollingInterval[] = [1, 2, 5, 10, 30];
+const themeOptions: Array<{ value: ThemeMode; label: string }> = [
+  { value: "system", label: "跟随系统" },
+  { value: "light", label: "明亮主题" },
+  { value: "dark", label: "暗黑主题" },
+];
 
 const configuredProviderIds = computed(() => new Set(providerConfigs.value.map((item) => item.providerId)));
 const availableProviders = computed(() => {
@@ -69,13 +74,18 @@ async function loadProviderData() {
 
 onMounted(loadProviderData);
 
-async function onPollingChange(e: Event) {
-  const value = parseInt((e.target as HTMLSelectElement).value, 10) as PollingInterval;
+async function onPollingChange(event: Event) {
+  const value = parseInt((event.target as HTMLSelectElement).value, 10) as PollingInterval;
   await settingsStore.saveSettings({ pollingInterval: value });
 }
 
-async function onAlwaysOnTopChange(e: Event) {
-  const checked = (e.target as HTMLInputElement).checked;
+async function onThemeChange(event: Event) {
+  const value = (event.target as HTMLSelectElement).value as ThemeMode;
+  await settingsStore.saveSettings({ theme: value });
+}
+
+async function onAlwaysOnTopChange(event: Event) {
+  const checked = (event.target as HTMLInputElement).checked;
   await settingsStore.saveSettings({ alwaysOnTop: checked });
 }
 
@@ -118,7 +128,7 @@ async function onProviderRemoved() {
 <template>
   <div class="settings-panel">
     <div class="settings-header">
-      <button class="back-btn" @click="$emit('back')">← 返回</button>
+      <button class="back-btn" @click="$emit('back')">返回</button>
       <span class="settings-title">设置</span>
     </div>
 
@@ -130,6 +140,14 @@ async function onProviderRemoved() {
           <select :value="settingsStore.settings.pollingInterval" @change="onPollingChange">
             <option v-for="option in pollingOptions" :key="option" :value="option">
               {{ option }} 分钟
+            </option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>主题</label>
+          <select :value="settingsStore.settings.theme" @change="onThemeChange">
+            <option v-for="option in themeOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
             </option>
           </select>
         </div>
@@ -250,11 +268,13 @@ async function onProviderRemoved() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--spacing-md);
   font-size: 12px;
 }
 
 .setting-row select {
-  background: rgba(0, 0, 0, 0.3);
+  min-width: 108px;
+  background: var(--color-input-bg);
   border: 1px solid var(--color-border);
   color: var(--color-text);
   border-radius: var(--radius-sm);
@@ -270,9 +290,9 @@ async function onProviderRemoved() {
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  border: 1px solid rgba(59, 130, 246, 0.24);
-  background: rgba(59, 130, 246, 0.14);
-  color: #bfdbfe;
+  border: 1px solid var(--color-primary-soft-border);
+  background: var(--color-primary-soft-bg);
+  color: var(--color-primary-soft-text);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -284,6 +304,6 @@ async function onProviderRemoved() {
   padding: 16px;
   font-size: 12px;
   color: var(--color-text-secondary);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--color-muted-surface);
 }
 </style>

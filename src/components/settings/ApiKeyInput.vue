@@ -12,8 +12,8 @@ const emit = defineEmits<{
 
 const showKey = ref(false);
 
-function onInput(e: Event) {
-  emit("update:modelValue", (e.target as HTMLInputElement).value);
+function onInput(event: Event) {
+  emit("update:modelValue", (event.target as HTMLInputElement).value);
 }
 </script>
 
@@ -34,7 +34,7 @@ function onInput(e: Event) {
       :title="showKey ? '隐藏' : '显示'"
       type="button"
     >
-      {{ showKey ? "🙈" : "👁" }}
+      {{ showKey ? "隐藏" : "显示" }}
     </button>
   </div>
 </template>
@@ -43,7 +43,7 @@ function onInput(e: Event) {
 .key-input-wrapper {
   display: flex;
   align-items: center;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--color-input-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   overflow: hidden;

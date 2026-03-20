@@ -409,12 +409,12 @@ function getCardClass(providerId: ProviderId) {
 }
 
 .card-shell.is-dragging :deep(.provider-card) {
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.42);
-  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: var(--shadow-drag);
+  border-color: var(--color-border-hover);
 }
 
 .card-shell.is-shifting :deep(.provider-card) {
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: var(--color-border-hover);
 }
 
 .empty-state {
@@ -481,7 +481,7 @@ function getCardClass(providerId: ProviderId) {
 }
 
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-ghost-bg-hover);
   border-color: var(--color-border);
 }
 

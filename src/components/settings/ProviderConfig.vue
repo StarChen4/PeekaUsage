@@ -498,7 +498,7 @@ async function onRemove() {
 
 .provider-select {
   width: 100%;
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--color-input-bg);
   border: 1px solid var(--color-border);
   color: var(--color-text);
   border-radius: var(--radius-sm);
@@ -536,9 +536,9 @@ async function onRemove() {
   flex-direction: column;
   gap: var(--spacing-xs);
   padding: var(--spacing-sm);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--color-muted-surface-border);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--color-muted-surface);
 }
 
 .api-key-header {
@@ -550,7 +550,7 @@ async function onRemove() {
 .key-name-input {
   flex: 1;
   min-width: 0;
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--color-input-bg);
   border: 1px solid var(--color-border);
   color: var(--color-text);
   border-radius: var(--radius-sm);
@@ -571,7 +571,7 @@ async function onRemove() {
 }
 
 .field-hint code {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-ghost-bg);
   padding: 0 3px;
   border-radius: 2px;
   font-size: 10px;
@@ -589,15 +589,15 @@ async function onRemove() {
 }
 
 .save-result.is-success {
-  background: rgba(16, 185, 129, 0.12);
-  color: #7cf2c0;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: var(--color-success-soft-bg);
+  color: var(--color-success-soft-text);
+  border: 1px solid var(--color-success-soft-border);
 }
 
 .save-result.is-error {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ffb4b4;
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: var(--color-danger-soft-bg);
+  color: var(--color-danger-soft-text);
+  border: 1px solid var(--color-danger-soft-border);
 }
 
 .valid-mark {
@@ -622,7 +622,7 @@ async function onRemove() {
   padding: 0;
   border-radius: 999px;
   border: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--color-ghost-bg);
   color: var(--color-text-secondary);
   display: inline-flex;
   align-items: center;
@@ -633,7 +633,7 @@ async function onRemove() {
 }
 
 .collapse-toggle:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-ghost-bg-hover);
   color: var(--color-text);
 }
 
@@ -656,7 +656,7 @@ async function onRemove() {
 
 .btn {
   border: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--color-ghost-bg);
   color: var(--color-text);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -673,19 +673,19 @@ async function onRemove() {
 }
 
 .btn-primary {
-  background: rgba(59, 130, 246, 0.16);
-  border-color: rgba(59, 130, 246, 0.28);
-  color: #bfdbfe;
+  background: var(--color-primary-soft-bg);
+  border-color: var(--color-primary-soft-border);
+  color: var(--color-primary-soft-text);
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--color-ghost-bg);
 }
 
 .btn-danger {
-  background: rgba(239, 68, 68, 0.14);
-  border-color: rgba(239, 68, 68, 0.28);
-  color: #fecaca;
+  background: var(--color-danger-soft-bg);
+  border-color: var(--color-danger-soft-border);
+  color: var(--color-danger-soft-text);
 }
 
 .btn-ghost {

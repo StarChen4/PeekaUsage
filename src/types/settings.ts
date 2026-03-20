@@ -2,6 +2,7 @@ import type { ProviderId } from "./provider";
 
 /** 轮询间隔选项（分钟） */
 export type PollingInterval = 1 | 2 | 5 | 10 | 30;
+export type ThemeMode = "system" | "light" | "dark";
 
 /** 应用设置 */
 export interface AppSettings {
@@ -9,6 +10,7 @@ export interface AppSettings {
   alwaysOnTop: boolean;
   launchAtStartup: boolean;
   windowOpacity: number;
+  theme: ThemeMode;
   windowPosition: { x: number; y: number } | null;
   windowSize: { width: number; height: number } | null;
   providerCardExpanded: Partial<Record<ProviderId, boolean>>;
@@ -20,6 +22,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   alwaysOnTop: true,
   launchAtStartup: false,
   windowOpacity: 100,
+  theme: "system",
   windowPosition: null,
   windowSize: null,
   providerCardExpanded: createDefaultProviderCardExpanded(),

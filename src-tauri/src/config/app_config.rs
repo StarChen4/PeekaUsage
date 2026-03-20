@@ -12,10 +12,21 @@ pub struct AppSettings {
     pub always_on_top: bool,
     pub launch_at_startup: bool,
     pub window_opacity: f64,
+    #[serde(default)]
+    pub theme: ThemeMode,
     pub window_position: Option<WindowPosition>,
     pub window_size: Option<WindowSize>,
     #[serde(default = "default_provider_card_expanded")]
     pub provider_card_expanded: HashMap<String, bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ThemeMode {
+    #[default]
+    System,
+    Light,
+    Dark,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,6 +48,7 @@ impl Default for AppSettings {
             always_on_top: true,
             launch_at_startup: false,
             window_opacity: 100.0,
+            theme: ThemeMode::default(),
             window_position: None,
             window_size: None,
             provider_card_expanded: default_provider_card_expanded(),

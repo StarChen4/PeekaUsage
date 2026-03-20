@@ -37,7 +37,7 @@ const clampedPercent = computed(() => Math.max(0, Math.min(100, props.percent)))
 .progress-track {
   flex: 1;
   height: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-progress-track);
   border-radius: 3px;
   overflow: hidden;
 }

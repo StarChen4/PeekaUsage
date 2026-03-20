@@ -35,7 +35,7 @@ defineProps<{
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-ghost-bg);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
 }

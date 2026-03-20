@@ -200,11 +200,11 @@ function usagePercent(item: ApiKeyUsageSummary) {
   gap: 4px;
   padding: 8px;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-usage-item-bg);
 }
 
 .api-key-usage.is-error {
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--color-usage-item-error-bg);
 }
 
 .api-key-header {

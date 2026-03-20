@@ -13,12 +13,12 @@ const { minimizeWindow, closeToTray } = useWindowControls();
     <div class="titlebar-actions">
       <button class="titlebar-btn" @click="minimizeWindow" title="最小化">
         <svg width="10" height="10" viewBox="0 0 10 10">
-          <rect x="0" y="4" width="10" height="1.5" fill="currentColor" rx="0.5"/>
+          <rect x="0" y="4" width="10" height="1.5" fill="currentColor" rx="0.5" />
         </svg>
       </button>
       <button class="titlebar-btn titlebar-btn-close" @click="closeToTray" title="隐藏到托盘">
         <svg width="10" height="10" viewBox="0 0 10 10">
-          <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
         </svg>
       </button>
     </div>
@@ -32,7 +32,7 @@ const { minimizeWindow, closeToTray } = useWindowControls();
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--spacing-sm);
-  background: rgba(20, 20, 20, 0.6);
+  background: var(--color-titlebar-bg);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
@@ -77,7 +77,7 @@ const { minimizeWindow, closeToTray } = useWindowControls();
 }
 
 .titlebar-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-ghost-bg-hover);
   color: var(--color-text);
 }
 
