@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import type { ProviderConfigItem } from "../../types/provider";
+import { computed, onMounted, ref } from "vue";
+import type { ProviderConfigItem, ProviderId } from "../../types/provider";
 import type { PollingInterval } from "../../types/settings";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
-import { getProviderConfigs } from "../../utils/ipc";
+import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
 import ProviderConfig from "./ProviderConfig.vue";
 
 defineEmits<{
@@ -14,23 +14,64 @@ defineEmits<{
 const settingsStore = useSettingsStore();
 const providerStore = useProviderStore();
 const providerConfigs = ref<ProviderConfigItem[]>([]);
+const supportedProviders = ref<ProviderConfigItem[]>([]);
+const creatingProviderId = ref<ProviderId | null>(null);
 
 const pollingOptions: PollingInterval[] = [1, 2, 5, 10, 30];
 
-async function loadProviderConfigs() {
+const configuredProviderIds = computed(() => new Set(providerConfigs.value.map((item) => item.providerId)));
+const availableProviders = computed(() => {
+  return supportedProviders.value.filter((item) => !configuredProviderIds.value.has(item.providerId));
+});
+
+const draftProviderConfig = computed<ProviderConfigItem | null>(() => {
+  if (!creatingProviderId.value) {
+    return null;
+  }
+
+  const provider = availableProviders.value.find((item) => item.providerId === creatingProviderId.value);
+  if (!provider) {
+    return null;
+  }
+
+  return {
+    ...provider,
+    enabled: true,
+    apiKeys: [
+      {
+        id: `${provider.providerId}-draft-key`,
+        name: "密钥 1",
+        value: "",
+      },
+    ],
+    oauthToken: "",
+  };
+});
+
+async function loadProviderData() {
   try {
-    providerConfigs.value = await getProviderConfigs();
+    const [configs, supported] = await Promise.all([
+      getProviderConfigs(),
+      getSupportedProviders(),
+    ]);
+
+    providerConfigs.value = configs;
+    supportedProviders.value = supported;
+
+    if (creatingProviderId.value && !availableProviders.value.some((item) => item.providerId === creatingProviderId.value)) {
+      creatingProviderId.value = availableProviders.value[0]?.providerId ?? null;
+    }
   } catch {
     providerConfigs.value = [];
-    // 加载失败时使用空列表
+    supportedProviders.value = [];
   }
 }
 
-onMounted(loadProviderConfigs);
+onMounted(loadProviderData);
 
 async function onPollingChange(e: Event) {
-  const val = parseInt((e.target as HTMLSelectElement).value) as PollingInterval;
-  await settingsStore.saveSettings({ pollingInterval: val });
+  const value = parseInt((e.target as HTMLSelectElement).value, 10) as PollingInterval;
+  await settingsStore.saveSettings({ pollingInterval: value });
 }
 
 async function onAlwaysOnTopChange(e: Event) {
@@ -38,26 +79,39 @@ async function onAlwaysOnTopChange(e: Event) {
   await settingsStore.saveSettings({ alwaysOnTop: checked });
 }
 
-/* function onProviderSavedLegacy() {
-  // 可以在此触发刷新
-} */
-
-async function onProviderSaved() {
-  await loadProviderConfigs();
+async function reloadProviders() {
+  await loadProviderData();
   await providerStore.refreshAll();
 }
 
-function isProviderExpanded(providerId: ProviderConfigItem["providerId"]) {
+function startCreateProvider() {
+  creatingProviderId.value = availableProviders.value[0]?.providerId ?? null;
+}
+
+function cancelCreateProvider() {
+  creatingProviderId.value = null;
+}
+
+function isProviderExpanded(providerId: ProviderId) {
   return settingsStore.settings.providerCardExpanded[providerId] ?? true;
 }
 
-async function onProviderExpandedChange(providerId: ProviderConfigItem["providerId"], expanded: boolean) {
+async function onProviderExpandedChange(providerId: ProviderId, expanded: boolean) {
   await settingsStore.saveSettings({
     providerCardExpanded: {
       ...settingsStore.settings.providerCardExpanded,
       [providerId]: expanded,
     },
   });
+}
+
+async function onProviderSaved() {
+  creatingProviderId.value = null;
+  await reloadProviders();
+}
+
+async function onProviderRemoved() {
+  await reloadProviders();
 }
 </script>
 
@@ -70,13 +124,12 @@ async function onProviderExpandedChange(providerId: ProviderConfigItem["provider
 
     <div class="settings-body">
       <section class="settings-section">
-        <h3 class="section-title provider-section-title">供应商</h3>
         <h3 class="section-title">通用</h3>
         <div class="setting-row">
           <label>轮询间隔</label>
           <select :value="settingsStore.settings.pollingInterval" @change="onPollingChange">
-            <option v-for="opt in pollingOptions" :key="opt" :value="opt">
-              {{ opt }} 分钟
+            <option v-for="option in pollingOptions" :key="option" :value="option">
+              {{ option }} 分钟
             </option>
           </select>
         </div>
@@ -91,8 +144,33 @@ async function onProviderExpandedChange(providerId: ProviderConfigItem["provider
       </section>
 
       <section class="settings-section">
-        <h3 class="section-title">供应商</h3>
-        <h3 class="section-title">{{ '\u4f9b\u5e94\u5546' }}</h3>
+        <div class="section-header">
+          <h3 class="section-title">供应商</h3>
+          <button
+            v-if="!creatingProviderId && availableProviders.length > 0"
+            class="add-provider-btn"
+            type="button"
+            @click="startCreateProvider"
+          >
+            +
+          </button>
+        </div>
+
+        <ProviderConfig
+          v-if="draftProviderConfig"
+          :config="draftProviderConfig"
+          :expanded="true"
+          :mode="'create'"
+          :selectable-providers="availableProviders"
+          @provider-change="creatingProviderId = $event"
+          @canceled="cancelCreateProvider"
+          @saved="onProviderSaved"
+        />
+
+        <div v-if="providerConfigs.length === 0 && !draftProviderConfig" class="provider-empty-state">
+          <span>还没有添加供应商，点击右上角的 + 开始配置。</span>
+        </div>
+
         <ProviderConfig
           v-for="config in providerConfigs"
           :key="config.providerId"
@@ -100,6 +178,7 @@ async function onProviderExpandedChange(providerId: ProviderConfigItem["provider
           :expanded="isProviderExpanded(config.providerId)"
           @expanded-change="onProviderExpandedChange(config.providerId, $event)"
           @saved="onProviderSaved"
+          @removed="onProviderRemoved"
         />
       </section>
     </div>
@@ -152,17 +231,19 @@ async function onProviderExpandedChange(providerId: ProviderConfigItem["provider
   gap: var(--spacing-sm);
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
 .section-title {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--color-text-muted);
   font-weight: 600;
-}
-
-.provider-section-title,
-.settings-section:nth-of-type(2) > .section-title:first-child {
-  display: none;
 }
 
 .setting-row {
@@ -183,5 +264,26 @@ async function onProviderExpandedChange(providerId: ProviderConfigItem["provider
 
 .setting-row input[type="checkbox"] {
   accent-color: var(--color-primary);
+}
+
+.add-provider-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  background: rgba(59, 130, 246, 0.14);
+  color: #bfdbfe;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.provider-empty-state {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.02);
 }
 </style>

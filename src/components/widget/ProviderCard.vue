@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { UsageSummary } from "../../types/provider";
-import { formatCurrency, calcUsagePercent } from "../../utils/formatters";
+import type { ApiKeyUsageSummary, UsageSummary } from "../../types/provider";
+import { calcUsagePercent, formatCurrency } from "../../utils/formatters";
 import UsageProgressBar from "./UsageProgressBar.vue";
 import RateLimitBadge from "./RateLimitBadge.vue";
 import SubscriptionBadge from "./SubscriptionBadge.vue";
@@ -11,16 +11,17 @@ const props = defineProps<{
   provider: UsageSummary;
 }>();
 
-const usagePercent = computed(() => {
-  if (!props.provider.usage) return 0;
-  return calcUsagePercent(
-    props.provider.usage.totalUsed,
-    props.provider.usage.totalBudget
-  );
-});
-
 const hasSubscription = computed(() => !!props.provider.subscription);
-const hasApiUsage = computed(() => !!props.provider.usage);
+const hasApiUsage = computed(() => props.provider.apiKeyUsages.length > 0);
+const hasMultipleApiKeys = computed(() => props.provider.apiKeyUsages.length > 1);
+
+function usagePercent(item: ApiKeyUsageSummary) {
+  if (!item.usage) {
+    return 0;
+  }
+
+  return calcUsagePercent(item.usage.totalUsed, item.usage.totalBudget);
+}
 </script>
 
 <template>
@@ -33,35 +34,59 @@ const hasApiUsage = computed(() => !!props.provider.usage);
       <span v-if="provider.status === 'loading'" class="status-loading">⟳</span>
     </div>
 
-    <!-- 订阅用量 -->
     <SubscriptionBadge
       v-if="hasSubscription"
       :subscription="provider.subscription!"
     />
 
-    <!-- 按量 API 用量 -->
     <div v-if="hasApiUsage" class="api-section">
-      <div v-if="hasSubscription" class="api-label">按量 API</div>
-
-      <div class="api-header">
-        <span class="usage-amount">
-          {{ formatCurrency(provider.usage!.totalUsed, provider.usage!.currency) }}
-        </span>
-        <span v-if="provider.usage!.remaining != null" class="balance-info">
-          余额: {{ formatCurrency(provider.usage!.remaining!, provider.usage!.currency) }}
-        </span>
+      <div class="api-header-block">
+        <div v-if="hasSubscription" class="api-label">按量 API</div>
+        <div v-if="provider.usage" class="api-total">
+          <span class="api-total-label">{{ hasMultipleApiKeys ? "合计" : "当前" }}</span>
+          <span class="usage-amount">
+            {{ formatCurrency(provider.usage.totalUsed, provider.usage.currency) }}
+          </span>
+          <span v-if="provider.usage.remaining != null" class="balance-info">
+            余额: {{ formatCurrency(provider.usage.remaining, provider.usage.currency) }}
+          </span>
+        </div>
       </div>
 
-      <UsageProgressBar
-        v-if="provider.usage!.totalBudget"
-        :percent="usagePercent"
-      />
-    </div>
+      <div
+        v-for="item in provider.apiKeyUsages"
+        :key="item.keyId"
+        class="api-key-usage"
+        :class="{ 'is-error': item.status === 'error' }"
+      >
+        <div class="api-key-header">
+          <span class="api-key-name">{{ item.keyName }}</span>
+          <span v-if="item.usage" class="api-key-amount">
+            {{ formatCurrency(item.usage.totalUsed, item.usage.currency) }}
+          </span>
+        </div>
 
-    <RateLimitBadge
-      v-if="provider.rateLimit"
-      :rate-limit="provider.rateLimit"
-    />
+        <div v-if="item.usage" class="api-key-meta">
+          <span v-if="item.usage.remaining != null" class="balance-info">
+            余额: {{ formatCurrency(item.usage.remaining, item.usage.currency) }}
+          </span>
+        </div>
+
+        <UsageProgressBar
+          v-if="item.usage?.totalBudget"
+          :percent="usagePercent(item)"
+        />
+
+        <div v-if="item.errorMessage" class="api-key-error">
+          {{ item.errorMessage }}
+        </div>
+
+        <RateLimitBadge
+          v-if="item.rateLimit && provider.apiKeyUsages.length === 1"
+          :rate-limit="item.rateLimit"
+        />
+      </div>
+    </div>
 
     <div
       v-if="provider.status === 'error' && !hasSubscription && !hasApiUsage"
@@ -126,9 +151,15 @@ const hasApiUsage = computed(() => !!props.provider.usage);
 .api-section {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
   padding-top: var(--spacing-xs);
   border-top: 1px dashed var(--color-border);
+}
+
+.api-header-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .api-label {
@@ -139,13 +170,20 @@ const hasApiUsage = computed(() => !!props.provider.usage);
   letter-spacing: 0.3px;
 }
 
-.api-header {
+.api-total {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.usage-amount {
+.api-total-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.usage-amount,
+.api-key-amount {
   font-size: 13px;
   font-weight: 700;
   color: var(--color-primary-hover);
@@ -156,9 +194,42 @@ const hasApiUsage = computed(() => !!props.provider.usage);
   color: var(--color-text-secondary);
 }
 
+.api-key-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.api-key-usage.is-error {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.api-key-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.api-key-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.api-key-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.api-key-error,
 .error-msg {
   font-size: 10px;
   color: var(--color-danger);
-  padding: 2px 0;
 }
 </style>

@@ -67,6 +67,18 @@ pub struct UsageData {
     pub period_end: Option<String>,
 }
 
+/// 单个 API Key 的用量摘要
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiKeyUsageSummary {
+    pub key_id: String,
+    pub key_name: String,
+    pub status: ProviderStatus,
+    pub usage: Option<UsageData>,
+    pub rate_limit: Option<RateLimitData>,
+    pub error_message: Option<String>,
+}
+
 /// 订阅用量窗口
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -125,6 +137,8 @@ pub struct UsageSummary {
     pub display_name: String,
     pub enabled: bool,
     pub status: ProviderStatus,
+    #[serde(default)]
+    pub api_key_usages: Vec<ApiKeyUsageSummary>,
     pub usage: Option<UsageData>,
     pub subscription: Option<SubscriptionUsage>,
     pub rate_limit: Option<RateLimitData>,
@@ -132,15 +146,34 @@ pub struct UsageSummary {
     pub error_message: Option<String>,
 }
 
+/// 供应商的命名 API Key（前端传入）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderApiKeyInput {
+    pub id: String,
+    pub name: String,
+    pub value: String,
+}
+
 /// 供应商配置（从前端传入）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderConfig {
     pub provider_id: ProviderId,
-    pub api_key: String,
     pub enabled: bool,
     #[serde(default)]
+    pub api_keys: Vec<ProviderApiKeyInput>,
+    #[serde(default)]
     pub oauth_token: String,
+}
+
+/// 返回前端的 API Key 配置项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderApiKeyItem {
+    pub id: String,
+    pub name: String,
+    pub value: String,
 }
 
 /// 供应商配置项（返回给前端，不含完整 Key）
@@ -150,7 +183,8 @@ pub struct ProviderConfigItem {
     pub provider_id: ProviderId,
     pub display_name: String,
     pub enabled: bool,
-    pub api_key: String,
+    #[serde(default)]
+    pub api_keys: Vec<ProviderApiKeyItem>,
     pub oauth_token: String,
     pub capabilities: ProviderCapabilities,
 }

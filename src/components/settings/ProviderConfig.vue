@@ -1,88 +1,126 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import type { ProviderConfigItem } from "../../types/provider";
+import type { ProviderApiKeyItem, ProviderConfigItem, ProviderId } from "../../types/provider";
 import ApiKeyInput from "./ApiKeyInput.vue";
-import { detectOAuthTokens, saveProviderConfig, validateApiKey } from "../../utils/ipc";
+import {
+  detectOAuthTokens,
+  removeProviderConfig,
+  saveProviderConfig,
+  validateApiKey,
+} from "../../utils/ipc";
 import ProviderIcon from "../common/ProviderIcon.vue";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: ProviderConfigItem;
   expanded: boolean;
-}>();
+  mode?: "edit" | "create";
+  selectableProviders?: ProviderConfigItem[];
+}>(), {
+  mode: "edit",
+  selectableProviders: () => [],
+});
 
 const emit = defineEmits<{
   saved: [];
+  canceled: [];
+  removed: [];
   "expanded-change": [expanded: boolean];
+  "provider-change": [providerId: ProviderId];
 }>();
 
-const apiKey = ref(props.config.apiKey);
-const oauthToken = ref(props.config.oauthToken);
-const enabled = ref(props.config.enabled);
-const validating = ref(false);
-const validationResult = ref<boolean | null>(null);
+const apiKeys = ref<ProviderApiKeyItem[]>([]);
+const oauthToken = ref("");
+const validatingKeyId = ref<string | null>(null);
+const validationResults = ref<Record<string, boolean | null>>({});
 const detecting = ref(false);
 const detectResult = ref<string | null>(null);
 const saving = ref(false);
+const removing = ref(false);
 const saveResult = ref<{ type: "success" | "error"; message: string } | null>(null);
-const pendingSavedConfig = ref<{
-  apiKey: string;
-  oauthToken: string;
-  enabled: boolean;
-} | null>(null);
-
-const apiKeyLabel = "API Key\uff08\u6309\u91cf\u8ba1\u8d39\uff09";
-const oauthTokenLabel = "OAuth Token\uff08\u8ba2\u9605\u8ba1\u5212\uff09";
-const validatingLabel = "\u9a8c\u8bc1\u4e2d...";
-const validateLabel = "\u9a8c\u8bc1";
-const validLabel = "\u6709\u6548";
-const invalidLabel = "\u65e0\u6548";
-const detectingLabel = "\u68c0\u6d4b\u4e2d...";
-const detectLabel = "\u81ea\u52a8\u68c0\u6d4b";
-const expandLabel = "\u5c55\u5f00";
-const collapseLabel = "\u6536\u8d77";
-const noChangesHint = "\u5f53\u524d\u4f9b\u5e94\u5546\u5df2\u53d6\u6d88\u52fe\u9009\u3002\u70b9\u51fb\u4fdd\u5b58\u540e\uff0c\u4e3b\u754c\u9762\u4f1a\u9690\u85cf\u8be5\u4f9b\u5e94\u5546\u5361\u7247\u3002";
-const anthropicHintPrefix = "\u81ea\u52a8\u68c0\u6d4b\u8bfb\u53d6 ";
-const anthropicHintSuffix = "\u6216\u624b\u52a8\uff1a\u8fd0\u884c Claude Code \u767b\u5f55\u540e\u4ece\u8be5\u6587\u4ef6\u63d0\u53d6 ";
-const openaiHintPrefix = "\u81ea\u52a8\u68c0\u6d4b\u8bfb\u53d6 ";
-const openaiHintSuffix = "\u6216\u624b\u52a8\uff1a\u8fd0\u884c ";
-const openaiHintSuffixTail = " \u767b\u5f55\u540e\u4ece\u8be5\u6587\u4ef6\u63d0\u53d6 ";
 
 let syncingFromProps = false;
+let keepSaveResultOnNextSync = false;
+
+const isCreateMode = computed(() => props.mode === "create");
+const selectedProvider = computed(() => {
+  if (isCreateMode.value) {
+    return props.selectableProviders.find((item) => item.providerId === props.config.providerId) ?? props.config;
+  }
+  return props.config;
+});
+
+const canDetectOAuth = computed(() => selectedProvider.value.capabilities.hasSubscription);
+const hasAnyCredential = computed(() => {
+  return sanitizedApiKeys(apiKeys.value).length > 0 || oauthToken.value.trim().length > 0;
+});
 
 const hasChanges = computed(() => {
-  return (
-    apiKey.value !== props.config.apiKey ||
-    oauthToken.value !== props.config.oauthToken ||
-    enabled.value !== props.config.enabled
-  );
+  const current = JSON.stringify({
+    apiKeys: sanitizedApiKeys(apiKeys.value),
+    oauthToken: oauthToken.value.trim(),
+  });
+  const original = JSON.stringify({
+    apiKeys: sanitizedApiKeys(props.config.apiKeys),
+    oauthToken: props.config.oauthToken.trim(),
+  });
+
+  return current !== original;
 });
 
 const saveButtonLabel = computed(() => {
   if (saving.value) {
-    return "\u4fdd\u5b58\u4e2d...";
+    return isCreateMode.value ? "添加中..." : "保存中...";
   }
 
-  if (saveResult.value?.type === "success" && !hasChanges.value) {
-    return "\u5df2\u4fdd\u5b58";
+  if (!isCreateMode.value && saveResult.value?.type === "success" && !hasChanges.value) {
+    return "已保存";
   }
 
-  return "\u4fdd\u5b58";
+  return isCreateMode.value ? "确认" : "保存";
 });
 
-function maskCredential(value: string) {
-  if (!value) {
-    return "";
+function createKeyId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `key-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+function createEmptyApiKey(index: number): ProviderApiKeyItem {
+  return {
+    id: createKeyId(),
+    name: `密钥 ${index + 1}`,
+    value: "",
+  };
+}
+
+function cloneApiKeys(source: ProviderApiKeyItem[]) {
+  if (source.length === 0) {
+    return [createEmptyApiKey(0)];
   }
 
-  if (value.includes("...")) {
-    return value;
-  }
+  return source.map((item, index) => ({
+    id: item.id || createKeyId(),
+    name: item.name || `密钥 ${index + 1}`,
+    value: item.value,
+  }));
+}
 
-  if (value.length > 8) {
-    return `${value.slice(0, 4)}...${value.slice(-4)}`;
-  }
+function sanitizedApiKeys(items: ProviderApiKeyItem[]) {
+  return items
+    .map((item, index) => ({
+      id: item.id,
+      name: item.name.trim() || `密钥 ${index + 1}`,
+      value: item.value.trim(),
+    }))
+    .filter((item) => item.value.length > 0);
+}
 
-  return "****";
+function clearTransientState() {
+  validatingKeyId.value = null;
+  validationResults.value = {};
+  detecting.value = false;
+  detectResult.value = null;
 }
 
 function clearSaveResult() {
@@ -97,61 +135,81 @@ function toggleExpanded() {
   emit("expanded-change", !props.expanded);
 }
 
+function addApiKey() {
+  apiKeys.value = [...apiKeys.value, createEmptyApiKey(apiKeys.value.length)];
+  clearSaveResult();
+}
+
+function removeApiKey(index: number) {
+  if (apiKeys.value.length === 1) {
+    apiKeys.value = [createEmptyApiKey(0)];
+  } else {
+    apiKeys.value = apiKeys.value.filter((_, currentIndex) => currentIndex !== index);
+  }
+  clearSaveResult();
+}
+
+function updateProvider(providerId: ProviderId) {
+  emit("provider-change", providerId);
+}
+
+function onProviderSelect(event: Event) {
+  updateProvider((event.target as HTMLSelectElement).value as ProviderId);
+}
+
 watch(
   () => props.config,
   (config) => {
-    const matchesPendingSavedConfig =
-      pendingSavedConfig.value?.apiKey === config.apiKey &&
-      pendingSavedConfig.value?.oauthToken === config.oauthToken &&
-      pendingSavedConfig.value?.enabled === config.enabled;
-
     syncingFromProps = true;
-    apiKey.value = config.apiKey;
+    apiKeys.value = cloneApiKeys(config.apiKeys);
     oauthToken.value = config.oauthToken;
-    enabled.value = config.enabled;
     syncingFromProps = false;
 
-    validationResult.value = null;
-    detectResult.value = null;
+    clearTransientState();
 
-    if (matchesPendingSavedConfig) {
-      pendingSavedConfig.value = null;
+    if (keepSaveResultOnNextSync) {
+      keepSaveResultOnNextSync = false;
       return;
     }
 
-    pendingSavedConfig.value = null;
     clearSaveResult();
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
 
-watch([apiKey, oauthToken, enabled], () => {
+watch([apiKeys, oauthToken], () => {
   if (syncingFromProps) {
     return;
   }
 
-  pendingSavedConfig.value = null;
+  clearTransientState();
   clearSaveResult();
-});
+}, { deep: true });
 
-async function onValidate() {
-  if (!apiKey.value) {
+async function onValidate(index: number) {
+  const target = apiKeys.value[index];
+  const value = target?.value.trim();
+  if (!target || !value || value.includes("...")) {
     return;
   }
 
-  validating.value = true;
-  validationResult.value = null;
+  validatingKeyId.value = target.id;
+  validationResults.value[target.id] = null;
 
   try {
-    validationResult.value = await validateApiKey(props.config.providerId, apiKey.value);
+    validationResults.value[target.id] = await validateApiKey(props.config.providerId, value);
   } catch {
-    validationResult.value = false;
+    validationResults.value[target.id] = false;
   } finally {
-    validating.value = false;
+    validatingKeyId.value = null;
   }
 }
 
 async function onDetectToken() {
+  if (!canDetectOAuth.value) {
+    return;
+  }
+
   detecting.value = true;
   detectResult.value = null;
 
@@ -161,21 +219,25 @@ async function onDetectToken() {
 
     if (found) {
       oauthToken.value = found.token;
-      const subscriptionType = found.subscriptionType ? ` (${found.subscriptionType})` : "";
-      detectResult.value = `\u5df2\u4ece ${found.source} \u68c0\u6d4b\u5230 Token${subscriptionType}`;
+      const subscriptionType = found.subscriptionType ? `（${found.subscriptionType}）` : "";
+      detectResult.value = `已从 ${found.source} 检测到 Token${subscriptionType}`;
     } else {
-      detectResult.value = "\u672a\u627e\u5230\u672c\u5730 OAuth Token\u3002";
+      detectResult.value = "未找到本地 OAuth Token。";
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    detectResult.value = `\u68c0\u6d4b\u5931\u8d25\uff1a${message}`;
+    detectResult.value = `检测失败：${message}`;
   } finally {
     detecting.value = false;
   }
 }
 
 async function onSave() {
-  if (saving.value || !hasChanges.value) {
+  if (saving.value || !hasAnyCredential.value) {
+    return;
+  }
+
+  if (!isCreateMode.value && !hasChanges.value) {
     return;
   }
 
@@ -185,105 +247,165 @@ async function onSave() {
   try {
     await saveProviderConfig({
       providerId: props.config.providerId,
-      apiKey: apiKey.value,
-      oauthToken: oauthToken.value,
-      enabled: enabled.value,
+      apiKeys: sanitizedApiKeys(apiKeys.value),
+      oauthToken: oauthToken.value.trim(),
+      enabled: true,
     });
 
-    pendingSavedConfig.value = {
-      apiKey: maskCredential(apiKey.value),
-      oauthToken: maskCredential(oauthToken.value),
-      enabled: enabled.value,
-    };
+    if (isCreateMode.value) {
+      emit("saved");
+      return;
+    }
 
-    setSaveResult(
-      "success",
-      enabled.value
-        ? "\u4fdd\u5b58\u6210\u529f\uff0c\u4e3b\u754c\u9762\u5df2\u540c\u6b65\u5237\u65b0\u3002"
-        : "\u5df2\u7981\u7528\u5e76\u4fdd\u5b58\uff0c\u4e3b\u754c\u9762\u5c06\u79fb\u9664\u8be5\u4f9b\u5e94\u5546\u3002"
-    );
-
+    keepSaveResultOnNextSync = true;
+    setSaveResult("success", "保存成功，主界面已同步刷新。");
     emit("saved");
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    setSaveResult("error", `\u4fdd\u5b58\u5931\u8d25\uff1a${message}`);
+    setSaveResult("error", `保存失败：${message}`);
   } finally {
     saving.value = false;
+  }
+}
+
+async function onRemove() {
+  if (removing.value) {
+    return;
+  }
+
+  const confirmed = window.confirm(`确认移除 ${props.config.displayName} 吗？已保存的 Key 和 OAuth Token 会一并清除。`);
+  if (!confirmed) {
+    return;
+  }
+
+  removing.value = true;
+  clearSaveResult();
+
+  try {
+    await removeProviderConfig(props.config.providerId);
+    emit("removed");
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    setSaveResult("error", `移除失败：${message}`);
+  } finally {
+    removing.value = false;
   }
 }
 </script>
 
 <template>
-  <div class="provider-config">
+  <div class="provider-config" :class="{ 'is-create': isCreateMode }">
     <div class="config-header">
-      <label class="switch-label">
-        <input v-model="enabled" type="checkbox" />
-        <span class="provider-title">
-          <ProviderIcon :provider-id="config.providerId" :size="20" />
-          <span class="provider-name">{{ config.displayName }}</span>
-        </span>
-      </label>
-
-      <button
-        class="collapse-toggle"
-        type="button"
-        :aria-label="props.expanded ? collapseLabel : expandLabel"
-        :aria-expanded="props.expanded"
-        @click="toggleExpanded"
-      >
-        <svg
-          class="collapse-icon"
-          :class="{ 'is-expanded': props.expanded }"
-          viewBox="0 0 12 12"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path d="M2.5 4.5L6 8L9.5 4.5" />
-        </svg>
-      </button>
-    </div>
-
-    <div v-show="props.expanded" class="config-body">
-      <template v-if="enabled">
-        <div class="field-group">
-          <label class="field-label">{{ apiKeyLabel }}</label>
-          <ApiKeyInput v-model="apiKey" placeholder="sk-..." />
-          <div class="config-actions">
-            <button class="btn btn-sm" :disabled="validating || !apiKey" type="button" @click="onValidate">
-              {{ validating ? validatingLabel : validateLabel }}
-            </button>
-            <span v-if="validationResult === true" class="valid-mark">{{ validLabel }}</span>
-            <span v-if="validationResult === false" class="invalid-mark">{{ invalidLabel }}</span>
-          </div>
-        </div>
-
-        <div v-if="config.capabilities.hasSubscription" class="field-group">
-          <label class="field-label">{{ oauthTokenLabel }}</label>
-          <ApiKeyInput
-            v-model="oauthToken"
-            :placeholder="config.providerId === 'anthropic' ? 'sk-ant-oat01-...' : 'eyJ...'"
-          />
-          <div class="config-actions">
-            <button class="btn btn-sm btn-detect" :disabled="detecting" type="button" @click="onDetectToken">
-              {{ detecting ? detectingLabel : detectLabel }}
-            </button>
-          </div>
-          <div v-if="detectResult" class="detect-result">{{ detectResult }}</div>
-          <div class="field-hint">
-            <template v-if="config.providerId === 'anthropic'">
-              {{ anthropicHintPrefix }}<code>~/.claude/.credentials.json</code><br />
-              {{ anthropicHintSuffix }}<code>accessToken</code>
-            </template>
-            <template v-else>
-              {{ openaiHintPrefix }}<code>~/.codex/auth.json</code><br />
-              {{ openaiHintSuffix }}<code>codex --login</code>{{ openaiHintSuffixTail }}<code>access_token</code>
-            </template>
-          </div>
+      <template v-if="isCreateMode">
+        <div class="provider-select-wrap">
+          <label class="field-label">选择供应商</label>
+          <select
+            class="provider-select"
+            :value="config.providerId"
+            @change="onProviderSelect"
+          >
+            <option
+              v-for="provider in selectableProviders"
+              :key="provider.providerId"
+              :value="provider.providerId"
+            >
+              {{ provider.displayName }}
+            </option>
+          </select>
         </div>
       </template>
 
-      <div v-else class="disabled-hint">
-        {{ noChangesHint }}
+      <template v-else>
+        <div class="provider-title">
+          <ProviderIcon :provider-id="config.providerId" :size="20" />
+          <span class="provider-name">{{ config.displayName }}</span>
+        </div>
+
+        <button
+          class="collapse-toggle"
+          type="button"
+          :aria-expanded="expanded"
+          :aria-label="expanded ? '收起' : '展开'"
+          @click="toggleExpanded"
+        >
+          <svg
+            class="collapse-icon"
+            :class="{ 'is-expanded': expanded }"
+            viewBox="0 0 12 12"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="M2.5 4.5L6 8L9.5 4.5" />
+          </svg>
+        </button>
+      </template>
+    </div>
+
+    <div v-show="isCreateMode || expanded" class="config-body">
+      <div class="field-group">
+        <div class="field-row">
+          <label class="field-label">API Key（按量计费）</label>
+          <button class="btn btn-sm btn-secondary" type="button" @click="addApiKey">
+            + 添加 Key
+          </button>
+        </div>
+
+        <div v-for="(item, index) in apiKeys" :key="item.id" class="api-key-card">
+          <div class="api-key-header">
+            <input
+              v-model="item.name"
+              class="key-name-input"
+              type="text"
+              :placeholder="`密钥 ${index + 1}`"
+            />
+            <button class="btn btn-sm btn-ghost" type="button" @click="removeApiKey(index)">
+              删除
+            </button>
+          </div>
+
+          <ApiKeyInput v-model="item.value" placeholder="sk-..." />
+
+          <div class="config-actions">
+            <button
+              class="btn btn-sm"
+              :disabled="validatingKeyId === item.id || !item.value.trim() || item.value.includes('...')"
+              type="button"
+              @click="onValidate(index)"
+            >
+              {{ validatingKeyId === item.id ? "验证中..." : "验证" }}
+            </button>
+            <span v-if="validationResults[item.id] === true" class="valid-mark">有效</span>
+            <span v-else-if="validationResults[item.id] === false" class="invalid-mark">无效</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="canDetectOAuth" class="field-group">
+        <label class="field-label">OAuth Token（订阅计划）</label>
+        <ApiKeyInput
+          v-model="oauthToken"
+          :placeholder="config.providerId === 'anthropic' ? 'sk-ant-oat01-...' : 'eyJ...'"
+        />
+        <div class="config-actions">
+          <button class="btn btn-sm btn-detect" :disabled="detecting" type="button" @click="onDetectToken">
+            {{ detecting ? "检测中..." : "自动检测" }}
+          </button>
+        </div>
+        <div v-if="detectResult" class="detect-result">{{ detectResult }}</div>
+        <div class="field-hint">
+          <template v-if="config.providerId === 'anthropic'">
+            自动检测读取 <code>~/.claude/.credentials.json</code><br />
+            手动获取可读取 <code>accessToken</code>
+          </template>
+          <template v-else>
+            自动检测读取 <code>~/.codex/auth.json</code><br />
+            手动获取可运行 <code>codex --login</code> 后读取 <code>access_token</code>
+          </template>
+        </div>
+      </div>
+
+      <div v-if="!hasAnyCredential" class="field-hint">
+        请至少填写一个 API Key；支持订阅的供应商可额外填写一个 OAuth Token。
       </div>
 
       <div
@@ -294,15 +416,41 @@ async function onSave() {
         {{ saveResult.message }}
       </div>
 
-      <button
-        class="btn btn-sm btn-primary save-btn"
-        :class="{ 'is-saved': saveResult?.type === 'success' && !hasChanges }"
-        :disabled="saving || !hasChanges"
-        type="button"
-        @click="onSave"
-      >
-        {{ saveButtonLabel }}
-      </button>
+      <div class="footer-actions">
+        <template v-if="isCreateMode">
+          <button class="btn btn-sm btn-secondary" type="button" @click="$emit('canceled')">
+            取消
+          </button>
+          <button
+            class="btn btn-sm btn-primary"
+            :disabled="saving || !hasAnyCredential"
+            type="button"
+            @click="onSave"
+          >
+            {{ saveButtonLabel }}
+          </button>
+        </template>
+
+        <template v-else>
+          <button
+            class="btn btn-sm btn-danger"
+            :disabled="saving || removing"
+            type="button"
+            @click="onRemove"
+          >
+            {{ removing ? "移除中..." : "移除" }}
+          </button>
+          <button
+            class="btn btn-sm btn-primary"
+            :class="{ 'is-saved': saveResult?.type === 'success' && !hasChanges }"
+            :disabled="saving || !hasChanges || !hasAnyCredential"
+            type="button"
+            @click="onSave"
+          >
+            {{ saveButtonLabel }}
+          </button>
+        </template>
+      </div>
     </div>
   </div>
 </template>
@@ -315,7 +463,11 @@ async function onSave() {
   padding: var(--spacing-md);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
+}
+
+.provider-config.is-create {
+  border-style: dashed;
 }
 
 .config-header {
@@ -323,19 +475,6 @@ async function onSave() {
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-sm);
-}
-
-.switch-label {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  cursor: pointer;
-  font-size: 13px;
-  min-width: 0;
-}
-
-.switch-label input[type="checkbox"] {
-  accent-color: var(--color-primary);
 }
 
 .provider-title {
@@ -350,10 +489,131 @@ async function onSave() {
   line-height: 1.1;
 }
 
+.provider-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  width: 100%;
+}
+
+.provider-select {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
 .config-body {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.api-key-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.api-key-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.key-name-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.config-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.field-hint {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.field-hint code {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0 3px;
+  border-radius: 2px;
+  font-size: 10px;
+}
+
+.detect-result {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+}
+
+.save-result {
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.save-result.is-success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #7cf2c0;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.save-result.is-error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ffb4b4;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.valid-mark {
+  font-size: 11px;
+  color: var(--color-success);
+}
+
+.invalid-mark {
+  font-size: 11px;
+  color: var(--color-danger);
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
 }
 
 .collapse-toggle {
@@ -394,118 +654,41 @@ async function onSave() {
   transform-origin: center;
 }
 
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.field-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
-.field-hint,
-.disabled-hint {
-  font-size: 9px;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-}
-
-.field-hint code {
-  background: rgba(255, 255, 255, 0.06);
-  padding: 0 3px;
-  border-radius: 2px;
-  font-size: 9px;
-}
-
-.config-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.detect-result,
-.save-result {
-  font-size: 10px;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-}
-
-.detect-result {
-  color: var(--color-success);
-  background: rgba(34, 197, 94, 0.08);
-}
-
-.save-result.is-success {
-  color: var(--color-success);
-  background: rgba(34, 197, 94, 0.08);
-}
-
-.save-result.is-error {
-  color: var(--color-danger);
-  background: rgba(239, 68, 68, 0.08);
-}
-
-.save-btn {
-  align-self: flex-end;
-  min-width: 72px;
-}
-
 .btn {
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--color-text);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 11px;
-  transition: all 0.15s;
-}
-
-.btn:hover {
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
 .btn-primary {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.28);
+  color: #bfdbfe;
 }
 
-.btn-primary:hover {
-  background: var(--color-primary-hover);
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.save-btn.is-saved,
-.save-btn.is-saved:hover {
-  background: rgba(34, 197, 94, 0.18);
-  border-color: rgba(34, 197, 94, 0.35);
-  color: var(--color-success);
+.btn-danger {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #fecaca;
 }
 
-.btn-detect {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: var(--color-info);
-}
-
-.btn-detect:hover {
-  background: rgba(59, 130, 246, 0.25);
-}
-
-.valid-mark {
-  color: var(--color-success);
-  font-size: 11px;
-}
-
-.invalid-mark {
-  color: var(--color-danger);
-  font-size: 11px;
+.btn-ghost {
+  background: transparent;
 }
 </style>

@@ -52,13 +52,22 @@ fn default_provider_card_expanded() -> HashMap<String, bool> {
     ])
 }
 
+/// 供应商下单个 API Key 的元数据
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderApiKeyEntry {
+    pub id: String,
+    pub name: String,
+}
+
 /// 供应商持久化配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderEntry {
     pub provider_id: String,
     pub enabled: bool,
-    // api_key 存储在加密模块中，这里不存明文
+    #[serde(default)]
+    pub api_keys: Vec<ProviderApiKeyEntry>,
 }
 
 /// 配置文件内容
@@ -110,7 +119,6 @@ impl AppConfig {
         let content = serde_json::to_string_pretty(&*config)
             .map_err(|e| format!("序列化配置失败: {}", e))?;
 
-        // 确保目录存在
         if let Some(parent) = self.config_path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("创建配置目录失败: {}", e))?;
@@ -139,12 +147,29 @@ impl AppConfig {
         config.providers.get(provider_id).cloned()
     }
 
-    pub async fn save_provider_entry(&self, provider_id: &str, entry: ProviderEntry) -> Result<(), String> {
+    pub async fn save_provider_entry(
+        &self,
+        provider_id: &str,
+        entry: ProviderEntry,
+    ) -> Result<(), String> {
         {
             let mut config = self.config.write().await;
             config.providers.insert(provider_id.to_string(), entry);
         }
         self.save().await
+    }
+
+    pub async fn get_configured_providers(&self) -> Vec<String> {
+        let config = self.config.read().await;
+        let mut configured: Vec<String> = config
+            .providers
+            .iter()
+            .filter(|(_, entry)| entry.enabled)
+            .map(|(provider_id, _)| provider_id.clone())
+            .collect();
+
+        configured.sort_by(|left, right| compare_provider_order(&config.provider_order, left, right));
+        configured
     }
 
     pub async fn save_provider_order(&self, order: Vec<String>) -> Result<(), String> {
@@ -156,34 +181,24 @@ impl AppConfig {
     }
 
     pub async fn get_enabled_providers(&self) -> Vec<String> {
-        let config = self.config.read().await;
-        let mut enabled: Vec<String> = config
-            .providers
-            .iter()
-            .filter(|(_, e)| e.enabled)
-            .map(|(k, _)| k.clone())
-            .collect();
-
-        enabled.sort_by(|left, right| {
-            let left_index = config
-                .provider_order
-                .iter()
-                .position(|id| id == left)
-                .unwrap_or(usize::MAX);
-            let right_index = config
-                .provider_order
-                .iter()
-                .position(|id| id == right)
-                .unwrap_or(usize::MAX);
-
-            left_index
-                .cmp(&right_index)
-                .then_with(|| provider_rank(left).cmp(&provider_rank(right)))
-                .then_with(|| left.cmp(right))
-        });
-
-        enabled
+        self.get_configured_providers().await
     }
+}
+
+fn compare_provider_order(order: &[String], left: &str, right: &str) -> std::cmp::Ordering {
+    let left_index = order
+        .iter()
+        .position(|id| id == left)
+        .unwrap_or(usize::MAX);
+    let right_index = order
+        .iter()
+        .position(|id| id == right)
+        .unwrap_or(usize::MAX);
+
+    left_index
+        .cmp(&right_index)
+        .then_with(|| provider_rank(left).cmp(&provider_rank(right)))
+        .then_with(|| left.cmp(right))
 }
 
 fn provider_rank(provider_id: &str) -> usize {

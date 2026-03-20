@@ -45,12 +45,23 @@ export interface RateLimitData {
 /** 供应商状态 */
 export type ProviderStatus = "idle" | "loading" | "success" | "error";
 
-/** 供应商摘要（从后端返回） */
+/** 单个 API Key 的用量摘要 */
+export interface ApiKeyUsageSummary {
+  keyId: string;
+  keyName: string;
+  status: ProviderStatus;
+  usage: UsageData | null;
+  rateLimit: RateLimitData | null;
+  errorMessage: string | null;
+}
+
+/** 供应商用量摘要（从后端返回） */
 export interface UsageSummary {
   providerId: ProviderId;
   displayName: string;
   enabled: boolean;
   status: ProviderStatus;
+  apiKeyUsages: ApiKeyUsageSummary[];
   usage: UsageData | null;
   subscription: SubscriptionUsage | null;
   rateLimit: RateLimitData | null;
@@ -58,12 +69,19 @@ export interface UsageSummary {
   errorMessage: string | null;
 }
 
+/** 命名 API Key 配置 */
+export interface ProviderApiKeyItem {
+  id: string;
+  name: string;
+  value: string;
+}
+
 /** 供应商配置（前端用） */
 export interface ProviderConfigItem {
   providerId: ProviderId;
   displayName: string;
   enabled: boolean;
-  apiKey: string;
+  apiKeys: ProviderApiKeyItem[];
   oauthToken: string;
   capabilities: ProviderCapabilities;
 }

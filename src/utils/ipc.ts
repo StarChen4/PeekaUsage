@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { UsageSummary, ProviderConfigItem, ProviderId } from "../types/provider";
+import type {
+  UsageSummary,
+  ProviderConfigItem,
+  ProviderId,
+  ProviderApiKeyItem,
+} from "../types/provider";
 import type { AppSettings } from "../types/settings";
 
 /** 获取所有供应商用量摘要 */
@@ -12,19 +17,29 @@ export async function fetchProviderUsage(providerId: ProviderId): Promise<UsageS
   return invoke<UsageSummary>("fetch_provider_usage", { providerId });
 }
 
-/** 获取供应商配置列表 */
+/** 获取已添加的供应商配置列表 */
 export async function getProviderConfigs(): Promise<ProviderConfigItem[]> {
   return invoke<ProviderConfigItem[]>("get_provider_configs");
+}
+
+/** 获取支持的供应商列表 */
+export async function getSupportedProviders(): Promise<ProviderConfigItem[]> {
+  return invoke<ProviderConfigItem[]>("get_supported_providers");
 }
 
 /** 保存供应商配置 */
 export async function saveProviderConfig(config: {
   providerId: ProviderId;
-  apiKey: string;
+  apiKeys: ProviderApiKeyItem[];
   oauthToken: string;
   enabled: boolean;
 }): Promise<void> {
   return invoke("save_provider_config", { config });
+}
+
+/** 移除供应商配置 */
+export async function removeProviderConfig(providerId: ProviderId): Promise<void> {
+  return invoke("remove_provider_config", { providerId });
 }
 
 export async function saveProviderOrder(order: ProviderId[]): Promise<void> {
