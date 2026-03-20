@@ -462,6 +462,8 @@ function getCardClass(providerId: ProviderId) {
               :key="option.value"
               class="theme-option"
               :class="{ 'is-selected': settingsStore.settings.theme === option.value }"
+              :title="option.label"
+              :aria-label="option.label"
               @click="selectTheme(option.value)"
             >
               <span class="theme-option-icon">
@@ -501,19 +503,6 @@ function getCardClass(providerId: ProviderId) {
                     stroke="currentColor"
                     stroke-linecap="round"
                     stroke-width="1.8"
-                  />
-                </svg>
-              </span>
-              <span class="theme-option-label">{{ option.label }}</span>
-              <span class="theme-option-check" aria-hidden="true">
-                <svg viewBox="0 0 16 16">
-                  <path
-                    d="M3.5 8.2 6.5 11 12.5 5"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.7"
                   />
                 </svg>
               </span>
@@ -707,10 +696,9 @@ function getCardClass(providerId: ProviderId) {
   right: 0;
   bottom: calc(100% + 6px);
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 108px;
-  padding: 6px;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -722,10 +710,10 @@ function getCardClass(providerId: ProviderId) {
 .theme-option {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 32px;
-  padding: 6px 8px;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -753,36 +741,8 @@ function getCardClass(providerId: ProviderId) {
 }
 
 .theme-option-icon svg {
-  width: 14px;
-  height: 14px;
-}
-
-.theme-option-label {
-  flex: 1;
-  font-size: 11px;
-  line-height: 1;
-  text-align: left;
-}
-
-.theme-option-check {
-  width: 12px;
-  height: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transform: scale(0.85);
-  transition: all 0.15s ease;
-}
-
-.theme-option-check svg {
-  width: 12px;
-  height: 12px;
-}
-
-.theme-option.is-selected .theme-option-check {
-  opacity: 1;
-  transform: scale(1);
+  width: 15px;
+  height: 15px;
 }
 
 .icon-btn {
