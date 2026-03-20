@@ -8,6 +8,7 @@ import {
   saveProviderConfig,
   validateApiKey,
 } from "../../utils/ipc";
+import AppSelect from "../common/AppSelect.vue";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
 import ProviderIcon from "../common/ProviderIcon.vue";
 
@@ -49,6 +50,13 @@ const selectedProvider = computed(() => {
     return props.selectableProviders.find((item) => item.providerId === props.config.providerId) ?? props.config;
   }
   return props.config;
+});
+const selectableProviderOptions = computed(() => {
+  return props.selectableProviders.map((item) => ({
+    value: item.providerId,
+    label: item.displayName,
+    providerId: item.providerId,
+  }));
 });
 
 const canDetectOAuth = computed(() => selectedProvider.value.capabilities.hasSubscription);
@@ -156,8 +164,8 @@ function updateProvider(providerId: ProviderId) {
   emit("provider-change", providerId);
 }
 
-function onProviderSelect(event: Event) {
-  updateProvider((event.target as HTMLSelectElement).value as ProviderId);
+function getOptionProviderId(option: { value: string | number }) {
+  return option.value as ProviderId;
 }
 
 watch(
@@ -340,19 +348,33 @@ void onRemove;
       <template v-if="isCreateMode">
         <div class="provider-select-wrap">
           <label class="field-label">选择供应商</label>
-          <select
+          <AppSelect
             class="provider-select"
-            :value="config.providerId"
-            @change="onProviderSelect"
+            :model-value="config.providerId"
+            :options="selectableProviderOptions"
+            aria-label="选择供应商"
+            placeholder="选择供应商"
+            @update:model-value="updateProvider($event as ProviderId)"
           >
-            <option
-              v-for="provider in selectableProviders"
-              :key="provider.providerId"
-              :value="provider.providerId"
-            >
-              {{ provider.displayName }}
-            </option>
-          </select>
+            <template #selected="{ option }">
+              <span class="provider-select-value" :class="{ 'is-placeholder': !option }">
+                <template v-if="option">
+                  <ProviderIcon :provider-id="getOptionProviderId(option)" :size="18" />
+                  <span class="provider-select-text">{{ option.label }}</span>
+                </template>
+                <template v-else>
+                  <span class="provider-select-text">选择供应商</span>
+                </template>
+              </span>
+            </template>
+
+            <template #option="{ option }">
+              <span class="provider-select-value">
+                <ProviderIcon :provider-id="getOptionProviderId(option)" :size="18" />
+                <span class="provider-select-text">{{ option.label }}</span>
+              </span>
+            </template>
+          </AppSelect>
         </div>
       </template>
 
@@ -550,11 +572,24 @@ void onRemove;
 
 .provider-select {
   width: 100%;
-  background: var(--color-input-bg);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  border-radius: var(--radius-sm);
-  padding: 6px 8px;
+}
+
+.provider-select-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.provider-select-value.is-placeholder {
+  color: var(--color-text-muted);
+}
+
+.provider-select-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
 }
 

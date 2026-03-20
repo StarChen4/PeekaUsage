@@ -5,6 +5,7 @@ import type { PollingInterval } from "../../types/settings";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
+import AppSelect from "../common/AppSelect.vue";
 import ProviderConfig from "./ProviderConfig.vue";
 
 defineEmits<{
@@ -18,6 +19,12 @@ const supportedProviders = ref<ProviderConfigItem[]>([]);
 const creatingProviderId = ref<ProviderId | null>(null);
 
 const pollingOptions: PollingInterval[] = [1, 2, 5, 10, 30];
+const pollingSelectOptions = computed(() => {
+  return pollingOptions.map((option) => ({
+    value: option,
+    label: `${option} 分钟`,
+  }));
+});
 
 const configuredProviderIds = computed(() => new Set(providerConfigs.value.map((item) => item.providerId)));
 const availableProviders = computed(() => {
@@ -69,8 +76,7 @@ async function loadProviderData() {
 
 onMounted(loadProviderData);
 
-async function onPollingChange(event: Event) {
-  const value = parseInt((event.target as HTMLSelectElement).value, 10) as PollingInterval;
+async function onPollingChange(value: PollingInterval) {
   await settingsStore.saveSettings({ pollingInterval: value });
 }
 
@@ -122,11 +128,13 @@ async function onProviderRemoved() {
         <h3 class="section-title">通用</h3>
         <div class="setting-row">
           <label>轮询间隔</label>
-          <select :value="settingsStore.settings.pollingInterval" @change="onPollingChange">
-            <option v-for="option in pollingOptions" :key="option" :value="option">
-              {{ option }} 分钟
-            </option>
-          </select>
+          <AppSelect
+            class="polling-select"
+            :model-value="settingsStore.settings.pollingInterval"
+            :options="pollingSelectOptions"
+            aria-label="轮询间隔"
+            @update:model-value="onPollingChange($event as PollingInterval)"
+          />
         </div>
       </section>
 
@@ -241,14 +249,9 @@ async function onProviderRemoved() {
   font-size: 12px;
 }
 
-.setting-row select {
-  min-width: 108px;
-  background: var(--color-input-bg);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  border-radius: var(--radius-sm);
-  padding: 3px 6px;
-  font-size: 11px;
+.polling-select {
+  width: 112px;
+  flex-shrink: 0;
 }
 
 .add-provider-btn {
