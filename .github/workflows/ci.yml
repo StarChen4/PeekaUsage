@@ -15,6 +15,7 @@ jobs:
         platform:
           - windows-latest
           - ubuntu-22.04
+          - macos-latest
 
     runs-on: ${{ matrix.platform }}
 
@@ -30,6 +31,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: 安装 Linux 构建依赖
         if: matrix.platform == 'ubuntu-22.04'

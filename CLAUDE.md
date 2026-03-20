@@ -4,7 +4,7 @@
 
 - `src/components/settings/SettingsPanel.vue` 的设置页返回入口已改为左向箭头图标按钮，不再显示紫色文字按钮
 - 返回按钮的 `hover` 和 `focus` 交互态要继续跟随应用主题风格
-- GitHub Actions 已接入 Windows + Linux Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS 以及 Linux `x86_64` / `arm64` 的 `deb`、`AppImage`
+- GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` / `arm64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
 - 发版前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 三处版本号一致
 
 ## 项目概览
@@ -160,6 +160,23 @@
 - 本地 Linux 打包使用 `npm run tauri:build:linux`
 - Linux `arm64` 发布当前依赖 GitHub Actions 的 ARM Linux runner
 
+### 11. macOS Release 已接入 `x86_64` / `arm64`
+
+文件：
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/release.yml`
+- `src-tauri/tauri.macos.conf.json`
+- `package.json`
+
+当前行为：
+
+- CI 会在 macOS runner 上执行 `npm ci`、`vue-tsc`、`cargo check`
+- 推送 `v*` 标签后会发布 macOS `x86_64` / `arm64` 的 `app` 和 `dmg`
+- macOS 打包目标单独放在 `src-tauri/tauri.macos.conf.json`
+- 本地 macOS 打包使用 `npm run tauri:build:macos`
+- 当前 macOS 产物未签名、未 notarize
+
 ## 开发命令
 
 ```bash
@@ -170,6 +187,7 @@ npx vue-tsc --noEmit
 cargo check
 npm run tauri build
 npm run tauri:build:linux
+npm run tauri:build:macos
 ```
 
 Windows 环境如果 `cargo` 不在 PATH 中，先执行：
@@ -369,6 +387,7 @@ WidgetContainer 拖拽结束
 - 不要只改一个版本号文件就直接发版，`package.json`、`tauri.conf.json`、`Cargo.toml` 必须同步
 - 不要推送和版本号不一致的标签，Release 流水线会直接失败
 - 不要把 Linux 的 `deb` / `appimage` 目标直接塞回主 `tauri.conf.json`，统一放在 `src-tauri/tauri.linux.conf.json`
+- 不要把 macOS 的 `app` / `dmg` 目标直接塞回主 `tauri.conf.json`，统一放在 `src-tauri/tauri.macos.conf.json`
 
 ## 常用排查入口
 
@@ -446,6 +465,7 @@ cargo check
 - Windows runner 能成功构建 `nsis`
 - Linux `x86_64` runner 能成功构建 `deb` 和 `AppImage`
 - Linux `arm64` runner 能成功构建 `deb` 和 `AppImage`
+- macOS runner 能成功构建 `x86_64` / `arm64` 的 `app` 和 `dmg`
 
 涉及交互改动时建议再手动验证：
 

@@ -184,6 +184,23 @@
 - Linux `arm64` 发布当前依赖 GitHub Actions ARM Linux runner
 - 不要把 Linux 的 `deb` / `appimage` 目标混回主 `tauri.conf.json`
 
+### 12. macOS 已接入 x86_64 / arm64 构建与发布
+
+文件：
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/release.yml`
+- `src-tauri/tauri.macos.conf.json`
+- `package.json`
+
+当前要求：
+
+- macOS 打包目标统一放在 `src-tauri/tauri.macos.conf.json`
+- 本地 macOS 打包使用 `npm run tauri:build:macos`
+- GitHub Release 会同时上传 macOS `x86_64` / `arm64` 的 `app` 和 `dmg`
+- 当前 macOS 产物未签名、未 notarize
+- 不要把 macOS 的 `app` / `dmg` 目标混回主 `tauri.conf.json`
+
 ## 先读哪些文件
 
 如果你是新的 coding agent，按这个顺序进入代码：
@@ -205,6 +222,7 @@
 15. `src-tauri/tauri.linux.conf.json`
 16. `.github/workflows/ci.yml`
 17. `.github/workflows/release.yml`
+18. `src-tauri/tauri.macos.conf.json`
 
 ## 快速开发命令
 
@@ -215,6 +233,7 @@ npm run tauri dev
 npx vue-tsc --noEmit
 cargo check
 npm run tauri:build:linux
+npm run tauri:build:macos
 ```
 
 发 Release 时使用：
@@ -319,8 +338,11 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - GitHub Release 的标签名必须使用 `v` 前缀并与应用版本完全一致
 - Windows 产物是 `nsis`
 - Linux 产物是 `x86_64` / `arm64` 的 `deb` 和 `appimage`
+- macOS 产物是 `x86_64` / `arm64` 的 `app` 和 `dmg`
 - Linux 打包目标统一维护在 `src-tauri/tauri.linux.conf.json`
-- 如果后续要补 macOS 或自动更新，先更新文档再改流水线
+- macOS 打包目标统一维护在 `src-tauri/tauri.macos.conf.json`
+- 当前 macOS 产物未签名、未 notarize
+- 如果后续要补自动更新或 Apple Developer 签名，先更新文档再改流水线
 
 ## 常见排查点
 
@@ -385,6 +407,9 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - `src-tauri/tauri.linux.conf.json` 是否仍然只负责 Linux `deb` / `appimage`
 - Linux runner 是否安装了 `libwebkit2gtk-4.1-dev`、`libappindicator3-dev`、`librsvg2-dev`、`patchelf`
 - Linux `arm64` job 是否仍然使用 ARM Linux runner
+- `src-tauri/tauri.macos.conf.json` 是否仍然只负责 macOS `app` / `dmg`
+- macOS job 是否仍然分别产出 `x86_64` / `arm64` 包
+- 如果启用了签名或 notarization，相关密钥和证书配置是否完整
 
 ## 修改流程
 
@@ -425,6 +450,11 @@ cargo check
 
 - `.github/workflows/ci.yml` 的 Linux `x86_64` 检查仍然可跑
 - `.github/workflows/release.yml` 的 Linux `x86_64` / `arm64` 产物仍然是 `deb` 和 `appimage`
+
+如果改了 macOS 构建或发布链路，再额外确认：
+
+- `.github/workflows/ci.yml` 的 macOS 检查仍然可跑
+- `.github/workflows/release.yml` 的 macOS `x86_64` / `arm64` 产物仍然是 `app` 和 `dmg`
 
 ## 补充约束
 

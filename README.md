@@ -22,8 +22,9 @@
 
 - Windows 仍然是当前主要的手工验证平台
 - Linux 已接入构建与发布配置，目标覆盖 `x86_64` 和 `arm64`
-- 当前 GitHub Actions 会检查 Windows 与 Linux `x86_64` 的基础编译链路
-- macOS 仍处于后续兼容目标，当前未接入发布流程
+- macOS 已接入构建与发布配置，目标覆盖 `x86_64` 和 `arm64`
+- 当前 GitHub Actions 会检查 Windows、Linux `x86_64`、macOS 的基础编译链路
+- 当前 macOS 产物仍是未签名、未 notarize 的构建包
 
 ## 快速开始
 
@@ -42,19 +43,25 @@ sudo apt-get update
 sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 ```
 
-### 3. 启动前端
+### 3. macOS 构建说明
+
+- macOS `app` / `dmg` 需要在 Mac 主机上构建
+- 当前仓库已接入 GitHub Actions 的 macOS runner 来产出 `x86_64` 和 `arm64`
+- 当前未接入 Apple Developer 签名与 notarization，所以下载后的首次打开可能需要手动放行
+
+### 4. 启动前端
 
 ```bash
 npm run dev
 ```
 
-### 4. 启动桌面应用
+### 5. 启动桌面应用
 
 ```bash
 npm run tauri dev
 ```
 
-### 5. 基本检查
+### 6. 基本检查
 
 ```bash
 npx vue-tsc --noEmit
@@ -119,6 +126,7 @@ src-tauri/src/
 - `cargo check`
 - Windows runner
 - Linux `x86_64` runner
+- macOS runner
 
 ## Linux 打包
 
@@ -136,16 +144,35 @@ npm run tauri:build:linux
 - 在 `arm64` Linux 主机上执行会产出 `arm64` 包
 - 当前没有在 `x86_64` 主机上直接交叉打出 Linux `arm64` 包的本地脚本，`arm64` 发布由 GitHub Actions 的 ARM runner 负责
 
-## 发布 Windows / Linux Release
+## macOS 打包
 
-仓库现在已经接入 GitHub Actions 自动发布 Windows 与 Linux 安装包。
+如果你在 Mac 主机上本地打包，请使用：
+
+```bash
+npm run tauri:build:macos
+```
+
+说明：
+
+- 这个命令会额外加载 `src-tauri/tauri.macos.conf.json`
+- 当前 macOS 产物是 `app` 和 `dmg`
+- 在 Apple Silicon Mac 上执行会默认产出 `arm64` 包
+- 在 Intel Mac 上执行会默认产出 `x86_64` 包
+- 仓库的 GitHub Actions 会额外产出 `arm64` 和 `x86_64` 两套 macOS 包
+- 当前未接入签名与 notarization，首次打开可能需要右键“打开”或移除 quarantine
+## 发布 Windows / Linux / macOS Release
+
+仓库现在已经接入 GitHub Actions 自动发布 Windows、Linux、macOS 安装包。
 
 当前规则：
 
 - 触发方式是推送 `v*` 标签，例如 `v0.1.0`
 - Windows 发布产物是 Tauri `nsis` 安装包
 - Linux 发布产物是 `x86_64` / `arm64` 两个架构的 `deb` 和 `AppImage`
+- macOS 发布产物是 `x86_64` / `arm64` 两个架构的 `app` 和 `dmg`
 - Linux 打包额外配置放在 `src-tauri/tauri.linux.conf.json`
+- macOS 打包额外配置放在 `src-tauri/tauri.macos.conf.json`
+- 当前 macOS 产物未签名、未 notarize
 - 发布前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 的版本号必须一致
 - 标签名必须和应用版本一致，例如版本是 `0.1.0` 时，标签必须是 `v0.1.0`
 
@@ -156,7 +183,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-如果你先改了版本号，再推标签，GitHub Actions 会自动构建并发布 Windows 与 Linux 安装包。
+如果你先改了版本号，再推标签，GitHub Actions 会自动构建并发布 Windows、Linux、macOS 安装包。
 
 ## License
 
