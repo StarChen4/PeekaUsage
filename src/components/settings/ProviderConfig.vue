@@ -8,6 +8,7 @@ import {
   saveProviderConfig,
   validateApiKey,
 } from "../../utils/ipc";
+import ConfirmDialog from "../common/ConfirmDialog.vue";
 import ProviderIcon from "../common/ProviderIcon.vue";
 
 const props = withDefaults(defineProps<{
@@ -36,6 +37,7 @@ const detecting = ref(false);
 const detectResult = ref<string | null>(null);
 const saving = ref(false);
 const removing = ref(false);
+const showRemoveDialog = ref(false);
 const saveResult = ref<{ type: "success" | "error"; message: string } | null>(null);
 
 let syncingFromProps = false;
@@ -121,6 +123,7 @@ function clearTransientState() {
   validationResults.value = {};
   detecting.value = false;
   detectResult.value = null;
+  showRemoveDialog.value = false;
 }
 
 function clearSaveResult() {
@@ -268,6 +271,42 @@ async function onSave() {
   }
 }
 
+function openRemoveDialog() {
+  if (removing.value) {
+    return;
+  }
+
+  showRemoveDialog.value = true;
+}
+
+function cancelRemove() {
+  if (removing.value) {
+    return;
+  }
+
+  showRemoveDialog.value = false;
+}
+
+async function confirmRemove() {
+  if (removing.value) {
+    return;
+  }
+
+  removing.value = true;
+  showRemoveDialog.value = false;
+  clearSaveResult();
+
+  try {
+    await removeProviderConfig(props.config.providerId);
+    emit("removed");
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    setSaveResult("error", `移除失败：${message}`);
+  } finally {
+    removing.value = false;
+  }
+}
+
 async function onRemove() {
   if (removing.value) {
     return;
@@ -291,6 +330,8 @@ async function onRemove() {
     removing.value = false;
   }
 }
+
+void onRemove;
 </script>
 
 <template>
@@ -436,7 +477,7 @@ async function onRemove() {
             class="btn btn-sm btn-danger"
             :disabled="saving || removing"
             type="button"
-            @click="onRemove"
+            @click="openRemoveDialog"
           >
             {{ removing ? "移除中..." : "移除" }}
           </button>
@@ -452,6 +493,17 @@ async function onRemove() {
         </template>
       </div>
     </div>
+    <ConfirmDialog
+      :open="showRemoveDialog"
+      :busy="removing"
+      :message="`确认移除 ${props.config.displayName} 吗？\n已保存的 Key 和 OAuth Token 会一并清除。`"
+      aria-label="确认移除供应商"
+      confirm-label="移除"
+      cancel-label="取消"
+      variant="danger"
+      @cancel="cancelRemove"
+      @confirm="confirmRemove"
+    />
   </div>
 </template>
 
