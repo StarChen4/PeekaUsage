@@ -6,7 +6,7 @@
 
 它基于 Tauri v2，前端是 Vue 3 + TypeScript，后端是 Rust。打开后会常驻桌面角落，适合顺手看看 OpenAI、Anthropic、OpenRouter 这几个服务现在用了多少、还剩多少。
 
-![应用概览](./src/assets/Overview.png)
+<img src="./src/assets/Overview.png" alt="应用概览" width="720" />
 
 ## 它能做什么
 

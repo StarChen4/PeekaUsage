@@ -6,7 +6,7 @@ A small desktop widget for keeping an eye on API costs and subscription usage.
 
 This project is built with Tauri v2, Vue 3 + TypeScript on the frontend, and Rust on the backend. It sits quietly in the corner of your desktop and helps you check how much OpenAI, Anthropic, and OpenRouter are costing you.
 
-![App overview](./src/assets/Overview.png)
+<img src="./src/assets/Overview.png" alt="App overview" width="720" />
 
 ## What It Does
 
