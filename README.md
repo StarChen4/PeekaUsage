@@ -1,4 +1,4 @@
-# How Much Have I Cost
+# AI-Usage-Peek
 
 [English README](./README.en.md)
 

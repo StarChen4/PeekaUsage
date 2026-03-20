@@ -1,15 +1,15 @@
 [package]
-name = "ai-usage-monitor"
+name = "ai-usage-peek"
 version = "0.1.0"
 description = "Desktop widget for tracking OpenAI, Anthropic, and OpenRouter usage."
 authors = ["Star Chen <cxsgdsg1@gmail.com>"]
 edition = "2021"
 license = "MIT"
-homepage = "https://github.com/StarChen4/how-much-have-i-cost"
-repository = "https://github.com/StarChen4/how-much-have-i-cost"
+homepage = "https://github.com/StarChen4/AI-Usage-Peek"
+repository = "https://github.com/StarChen4/AI-Usage-Peek"
 
 [lib]
-name = "ai_usage_monitor_lib"
+name = "ai_usage_peek_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    ai_usage_monitor_lib::run()
+    ai_usage_peek_lib::run()
 }
