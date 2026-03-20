@@ -53,9 +53,6 @@ let saveFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
 
 const enabledProviders = computed(() => providerStore.enabledProviders());
 const isDragging = computed(() => !!dragState.value && !dragState.value.releasing);
-const currentTheme = computed(() => {
-  return themeOptions.find((option) => option.value === settingsStore.settings.theme) ?? themeOptions[2];
-});
 const layoutStatusText = computed(() => {
   switch (layoutSaveState.value) {
     case "saving":
@@ -433,42 +430,28 @@ function getCardClass(providerId: ProviderId) {
             title="主题切换"
             @click="toggleThemeMenu"
           >
-            <svg v-if="currentTheme.value === 'light'" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="4.25" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
-                d="M12 2.5V5.1M12 18.9v2.6M21.5 12h-2.6M5.1 12H2.5M18.72 5.28l-1.84 1.84M7.12 16.88l-1.84 1.84M18.72 18.72l-1.84-1.84M7.12 7.12L5.28 5.28"
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-width="1.8"
-              />
-            </svg>
-            <svg v-else-if="currentTheme.value === 'dark'" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M19 14.5A7.5 7.5 0 0 1 9.5 5a8.5 8.5 0 1 0 9.5 9.5Z"
+                d="M8.2 5.2 10.1 7h3.8l1.9-1.8 3.6 2.1-1.7 3-1.8-1V19H8.1V9.3l-1.8 1-1.7-3 3.6-2.1Z"
                 fill="none"
                 stroke="currentColor"
                 stroke-linejoin="round"
-                stroke-width="1.8"
-              />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-              <rect
-                x="4"
-                y="5"
-                width="16"
-                height="11"
-                rx="2"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
+                stroke-width="1.7"
               />
               <path
-                d="M9 19h6M12 16v3"
+                d="M10.2 7.1 12 9l1.8-1.9"
                 fill="none"
                 stroke="currentColor"
                 stroke-linecap="round"
-                stroke-width="1.8"
+                stroke-linejoin="round"
+                stroke-width="1.7"
+              />
+              <path
+                d="M10 12h4"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="1.7"
               />
             </svg>
           </button>
@@ -522,6 +505,18 @@ function getCardClass(providerId: ProviderId) {
                 </svg>
               </span>
               <span class="theme-option-label">{{ option.label }}</span>
+              <span class="theme-option-check" aria-hidden="true">
+                <svg viewBox="0 0 16 16">
+                  <path
+                    d="M3.5 8.2 6.5 11 12.5 5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.7"
+                  />
+                </svg>
+              </span>
             </button>
           </div>
         </div>
@@ -709,29 +704,28 @@ function getCardClass(providerId: ProviderId) {
 
 .theme-menu {
   position: absolute;
-  right: 50%;
-  bottom: calc(100% + 8px);
-  transform: translateX(50%);
+  right: 0;
+  bottom: calc(100% + 6px);
   display: flex;
-  gap: 6px;
-  padding: 8px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 108px;
+  padding: 6px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
-  backdrop-filter: blur(18px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(14px);
   z-index: 8;
 }
 
 .theme-option {
-  width: 68px;
-  min-height: 74px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 6px;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -759,14 +753,36 @@ function getCardClass(providerId: ProviderId) {
 }
 
 .theme-option-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
 }
 
 .theme-option-label {
-  font-size: 10px;
-  line-height: 1.2;
-  text-align: center;
+  flex: 1;
+  font-size: 11px;
+  line-height: 1;
+  text-align: left;
+}
+
+.theme-option-check {
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: all 0.15s ease;
+}
+
+.theme-option-check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.theme-option.is-selected .theme-option-check {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .icon-btn {
