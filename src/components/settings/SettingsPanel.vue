@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import type { ProviderConfigItem } from "../../types/provider";
 import type { PollingInterval } from "../../types/settings";
+import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { getProviderConfigs } from "../../utils/ipc";
 import ProviderConfig from "./ProviderConfig.vue";
@@ -11,17 +12,21 @@ defineEmits<{
 }>();
 
 const settingsStore = useSettingsStore();
+const providerStore = useProviderStore();
 const providerConfigs = ref<ProviderConfigItem[]>([]);
 
 const pollingOptions: PollingInterval[] = [1, 2, 5, 10, 30];
 
-onMounted(async () => {
+async function loadProviderConfigs() {
   try {
     providerConfigs.value = await getProviderConfigs();
   } catch {
+    providerConfigs.value = [];
     // 加载失败时使用空列表
   }
-});
+}
+
+onMounted(loadProviderConfigs);
 
 async function onPollingChange(e: Event) {
   const val = parseInt((e.target as HTMLSelectElement).value) as PollingInterval;
@@ -33,8 +38,13 @@ async function onAlwaysOnTopChange(e: Event) {
   await settingsStore.saveSettings({ alwaysOnTop: checked });
 }
 
-function onProviderSaved() {
+/* function onProviderSavedLegacy() {
   // 可以在此触发刷新
+} */
+
+async function onProviderSaved() {
+  await loadProviderConfigs();
+  await providerStore.refreshAll();
 }
 </script>
 
@@ -47,6 +57,7 @@ function onProviderSaved() {
 
     <div class="settings-body">
       <section class="settings-section">
+        <h3 class="section-title provider-section-title">供应商</h3>
         <h3 class="section-title">通用</h3>
         <div class="setting-row">
           <label>轮询间隔</label>
@@ -68,6 +79,7 @@ function onProviderSaved() {
 
       <section class="settings-section">
         <h3 class="section-title">供应商</h3>
+        <h3 class="section-title">{{ '\u4f9b\u5e94\u5546' }}</h3>
         <ProviderConfig
           v-for="config in providerConfigs"
           :key="config.providerId"
@@ -131,6 +143,11 @@ function onProviderSaved() {
   letter-spacing: 0.5px;
   color: var(--color-text-muted);
   font-weight: 600;
+}
+
+.provider-section-title,
+.settings-section:nth-of-type(2) > .section-title:first-child {
+  display: none;
 }
 
 .setting-row {

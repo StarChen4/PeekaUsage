@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
 /// 设置窗口透明度
@@ -49,15 +50,16 @@ pub async fn detect_oauth_tokens() -> Result<DetectedTokens, String> {
             if let Ok(auth) = serde_json::from_str::<CodexAuth>(&content) {
                 if let Some(tokens) = auth.tokens {
                     // access_token 是 { "0": "e", "1": "y", ... } 格式
-                    if let Some(at) = tokens.access_token {
-                        let token = indexed_object_to_string(&at);
-                        if !token.is_empty() {
-                            result.openai = Some(DetectedToken {
-                                token,
-                                source: "Codex CLI (~/.codex/auth.json)".into(),
-                                subscription_type: None,
-                            });
-                        }
+                    if let Some(token) = tokens
+                        .access_token
+                        .as_ref()
+                        .and_then(parse_codex_access_token)
+                    {
+                        result.openai = Some(DetectedToken {
+                            token,
+                            source: "Codex CLI (~/.codex/auth.json)".into(),
+                            subscription_type: None,
+                        });
                     }
                 }
             }
@@ -79,6 +81,23 @@ fn indexed_object_to_string(map: &BTreeMap<String, serde_json::Value>) -> String
         .collect();
     entries.sort_by_key(|(idx, _)| *idx);
     entries.iter().map(|(_, ch)| *ch).collect()
+}
+
+fn parse_codex_access_token(value: &Value) -> Option<String> {
+    match value {
+        Value::String(token) if !token.is_empty() => Some(token.clone()),
+        Value::Object(map) => {
+            let ordered: BTreeMap<String, Value> =
+                map.iter().map(|(key, value)| (key.clone(), value.clone())).collect();
+            let token = indexed_object_to_string(&ordered);
+            if token.is_empty() {
+                None
+            } else {
+                Some(token)
+            }
+        }
+        _ => None,
+    }
 }
 
 fn dirs_next() -> Option<std::path::PathBuf> {
@@ -129,5 +148,5 @@ struct CodexAuth {
 
 #[derive(Debug, serde::Deserialize)]
 struct CodexTokens {
-    access_token: Option<BTreeMap<String, serde_json::Value>>,
+    access_token: Option<Value>,
 }

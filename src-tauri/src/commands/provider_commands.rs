@@ -145,12 +145,12 @@ pub async fn save_provider_config(
         .await?;
 
     // 保存 API Key
-    if !config.api_key.is_empty() && !config.api_key.contains("...") {
+    if !config.api_key.contains("...") {
         key_store.set_key(&pid_str, &config.api_key).await?;
     }
 
     // 保存 OAuth Token
-    if !config.oauth_token.is_empty() && !config.oauth_token.contains("...") {
+    if !config.oauth_token.contains("...") {
         key_store
             .set_key(&format!("{}_oauth", pid_str), &config.oauth_token)
             .await?;
