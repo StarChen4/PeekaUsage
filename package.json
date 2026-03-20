@@ -18,7 +18,8 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:build:linux": "tauri build --config src-tauri/tauri.linux.conf.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

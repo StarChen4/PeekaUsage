@@ -166,7 +166,23 @@
 - 推送 `v*` 标签后自动构建并发布 Windows NSIS 安装包到 GitHub Release
 - 发布前必须校验 `package.json`、`tauri.conf.json`、`Cargo.toml` 三处版本号一致
 - 标签名必须与应用版本匹配，例如 `v0.1.0`
-- 当前发布链路只覆盖 Windows 安装包，不要误写成多平台都已发布
+
+### 11. Linux 已接入 x86_64 / arm64 构建与发布
+
+文件：
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/release.yml`
+- `src-tauri/tauri.linux.conf.json`
+- `package.json`
+
+当前要求：
+
+- Linux 打包目标统一放在 `src-tauri/tauri.linux.conf.json`
+- 本地 Linux 打包使用 `npm run tauri:build:linux`
+- GitHub Release 会同时上传 Linux `x86_64` / `arm64` 的 `deb` 和 `AppImage`
+- Linux `arm64` 发布当前依赖 GitHub Actions ARM Linux runner
+- 不要把 Linux 的 `deb` / `appimage` 目标混回主 `tauri.conf.json`
 
 ## 先读哪些文件
 
@@ -186,6 +202,9 @@
 12. `src/components/widget/WidgetContainer.vue`
 13. `src/components/settings/ProviderConfig.vue`
 14. `src/components/settings/SettingsPanel.vue`
+15. `src-tauri/tauri.linux.conf.json`
+16. `.github/workflows/ci.yml`
+17. `.github/workflows/release.yml`
 
 ## 快速开发命令
 
@@ -195,9 +214,10 @@ npm run dev
 npm run tauri dev
 npx vue-tsc --noEmit
 cargo check
+npm run tauri:build:linux
 ```
 
-发 Windows Release 时使用：
+发 Release 时使用：
 
 ```bash
 git tag v0.1.0
@@ -297,8 +317,10 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 
 - 改版本号时，必须同步修改 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`
 - GitHub Release 的标签名必须使用 `v` 前缀并与应用版本完全一致
-- 当前自动发布只产出 Windows `nsis` 安装包
-- 如果后续要补 macOS、Linux 或自动更新，先更新文档再改流水线
+- Windows 产物是 `nsis`
+- Linux 产物是 `x86_64` / `arm64` 的 `deb` 和 `appimage`
+- Linux 打包目标统一维护在 `src-tauri/tauri.linux.conf.json`
+- 如果后续要补 macOS 或自动更新，先更新文档再改流水线
 
 ## 常见排查点
 
@@ -360,6 +382,9 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 版本号是否一致
 - 推送的标签是否与版本完全匹配，例如 `v0.1.0`
 - GitHub Actions 是否具有 `contents: write` 权限
+- `src-tauri/tauri.linux.conf.json` 是否仍然只负责 Linux `deb` / `appimage`
+- Linux runner 是否安装了 `libwebkit2gtk-4.1-dev`、`libappindicator3-dev`、`librsvg2-dev`、`patchelf`
+- Linux `arm64` job 是否仍然使用 ARM Linux runner
 
 ## 修改流程
 
@@ -395,6 +420,11 @@ cargo check
 - 主界面拖拽推挤和顺序持久化
 - 设置页自定义下拉在浅色/暗黑模式下的展开和关闭
 - 设置页透明度滑杆和主界面透明度把手是否同步
+
+如果改了 Linux 构建或发布链路，再额外确认：
+
+- `.github/workflows/ci.yml` 的 Linux `x86_64` 检查仍然可跑
+- `.github/workflows/release.yml` 的 Linux `x86_64` / `arm64` 产物仍然是 `deb` 和 `appimage`
 
 ## 补充约束
 

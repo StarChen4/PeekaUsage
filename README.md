@@ -20,8 +20,10 @@
 
 ## 支持情况
 
-- 当前主要在 Windows 上开发和验证
-- 交互实现尽量保持跨平台一致，目标兼容 Windows、macOS、Linux
+- Windows 仍然是当前主要的手工验证平台
+- Linux 已接入构建与发布配置，目标覆盖 `x86_64` 和 `arm64`
+- 当前 GitHub Actions 会检查 Windows 与 Linux `x86_64` 的基础编译链路
+- macOS 仍处于后续兼容目标，当前未接入发布流程
 
 ## 快速开始
 
@@ -31,19 +33,28 @@
 npm install
 ```
 
-### 2. 启动前端
+### 2. Linux 额外依赖
+
+如果你在 Ubuntu / Debian 上开发或打包，还需要先安装：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+```
+
+### 3. 启动前端
 
 ```bash
 npm run dev
 ```
 
-### 3. 启动桌面应用
+### 4. 启动桌面应用
 
 ```bash
 npm run tauri dev
 ```
 
-### 4. 基本检查
+### 5. 基本检查
 
 ```bash
 npx vue-tsc --noEmit
@@ -106,15 +117,35 @@ src-tauri/src/
 - `npm ci`
 - `npx vue-tsc --noEmit`
 - `cargo check`
+- Windows runner
+- Linux `x86_64` runner
 
-## 发布 Windows Release
+## Linux 打包
 
-仓库现在已经接入 GitHub Actions 自动发布 Windows 安装包。
+如果你在 Linux 主机上本地打包，请使用：
+
+```bash
+npm run tauri:build:linux
+```
+
+说明：
+
+- 这个命令会额外加载 `src-tauri/tauri.linux.conf.json`
+- 当前 Linux 产物是 `deb` 和 `AppImage`
+- 在 `x86_64` Linux 主机上执行会产出 `x86_64` 包
+- 在 `arm64` Linux 主机上执行会产出 `arm64` 包
+- 当前没有在 `x86_64` 主机上直接交叉打出 Linux `arm64` 包的本地脚本，`arm64` 发布由 GitHub Actions 的 ARM runner 负责
+
+## 发布 Windows / Linux Release
+
+仓库现在已经接入 GitHub Actions 自动发布 Windows 与 Linux 安装包。
 
 当前规则：
 
 - 触发方式是推送 `v*` 标签，例如 `v0.1.0`
-- 发布产物是 Tauri `nsis` 安装包，会自动上传到 GitHub Release
+- Windows 发布产物是 Tauri `nsis` 安装包
+- Linux 发布产物是 `x86_64` / `arm64` 两个架构的 `deb` 和 `AppImage`
+- Linux 打包额外配置放在 `src-tauri/tauri.linux.conf.json`
 - 发布前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 的版本号必须一致
 - 标签名必须和应用版本一致，例如版本是 `0.1.0` 时，标签必须是 `v0.1.0`
 
@@ -125,7 +156,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-如果你先改了版本号，再推标签，GitHub Actions 会自动构建并发布 Windows 安装包。
+如果你先改了版本号，再推标签，GitHub Actions 会自动构建并发布 Windows 与 Linux 安装包。
 
 ## License
 

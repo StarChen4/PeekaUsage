@@ -6,9 +6,122 @@ on:
       - "v*"
 
 jobs:
-  release-windows:
-    name: 发布 Windows 安装包
-    runs-on: windows-latest
+  validate-version:
+    name: 校验标签与版本号
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag_name: ${{ steps.validate.outputs.tag_name }}
+      release_name: ${{ steps.validate.outputs.release_name }}
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 校验标签与版本号
+        id: validate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import tomllib
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          with open("package.json", "r", encoding="utf-8") as fh:
+              package_version = json.load(fh)["version"]
+          with open("src-tauri/tauri.conf.json", "r", encoding="utf-8") as fh:
+              tauri_version = json.load(fh)["version"]
+          with open("src-tauri/Cargo.toml", "rb") as fh:
+              cargo_version = tomllib.load(fh)["package"]["version"]
+
+          expected_tag = f"v{tauri_version}"
+          if package_version != tauri_version or cargo_version != tauri_version:
+              raise SystemExit(
+                  f"版本号不同步。package.json={package_version}, "
+                  f"tauri.conf.json={tauri_version}, Cargo.toml={cargo_version}"
+              )
+
+          if tag != expected_tag:
+              raise SystemExit(
+                  f"标签与应用版本号不匹配。当前标签={tag}，期望标签={expected_tag}"
+              )
+
+          output_path = os.environ["GITHUB_OUTPUT"]
+          with open(output_path, "a", encoding="utf-8") as output:
+              output.write(f"tag_name={tag}\n")
+              output.write(f"release_name=AI-Usage-Peek {tag}\n")
+          PY
+
+  prepare-release:
+    name: 准备 GitHub Release
+    runs-on: ubuntu-latest
+    needs: validate-version
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.release.outputs.release_id }}
+
+    steps:
+      - name: 创建或复用 GitHub Release
+        id: release
+        uses: actions/github-script@v7
+        env:
+          TAG_NAME: ${{ needs.validate-version.outputs.tag_name }}
+          RELEASE_NAME: ${{ needs.validate-version.outputs.release_name }}
+        with:
+          script: |
+            const tag = process.env.TAG_NAME;
+            const releaseName = process.env.RELEASE_NAME;
+            const releaseBody = "Windows NSIS 安装包，以及 Linux x86_64 / arm64 的 DEB 与 AppImage 包。";
+
+            try {
+              const existing = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag,
+              });
+              core.setOutput("release_id", String(existing.data.id));
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+
+              const created = await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: tag,
+                name: releaseName,
+                body: releaseBody,
+                draft: false,
+                prerelease: false,
+              });
+              core.setOutput("release_id", String(created.data.id));
+            }
+
+  publish-bundles:
+    name: ${{ matrix.name }}
+    needs:
+      - validate-version
+      - prepare-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: 发布 Windows 安装包
+            platform: windows-latest
+            tauri_args: --bundles nsis
+            install_linux_deps: false
+          - name: 发布 Linux x86_64 安装包
+            platform: ubuntu-22.04
+            tauri_args: --config src-tauri/tauri.linux.conf.json
+            install_linux_deps: true
+          - name: 发布 Linux arm64 安装包
+            platform: ubuntu-22.04-arm
+            tauri_args: --config src-tauri/tauri.linux.conf.json
+            install_linux_deps: true
+    runs-on: ${{ matrix.platform }}
     permissions:
       contents: write
 
@@ -25,41 +138,20 @@ jobs:
       - name: 安装 Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: 安装 Linux 构建依赖
+        if: matrix.install_linux_deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
       - name: 安装前端依赖
         run: npm ci
 
-      - name: 校验标签与版本号
-        shell: pwsh
-        run: |
-          $tag = "${{ github.ref_name }}"
-          $packageJson = Get-Content -Path "package.json" -Encoding utf8 | ConvertFrom-Json
-          $tauriConfig = Get-Content -Path "src-tauri/tauri.conf.json" -Encoding utf8 | ConvertFrom-Json
-          $cargoToml = Get-Content -Path "src-tauri/Cargo.toml" -Encoding utf8 -Raw
-
-          if ($cargoToml -notmatch '(?m)^version\s*=\s*"([^"]+)"') {
-            throw "无法从 src-tauri/Cargo.toml 解析版本号。"
-          }
-
-          $cargoVersion = $Matches[1]
-          $packageVersion = $packageJson.version
-          $tauriVersion = $tauriConfig.version
-          $expectedTag = "v$tauriVersion"
-
-          if ($packageVersion -ne $tauriVersion -or $cargoVersion -ne $tauriVersion) {
-            throw "版本号不同步。package.json=$packageVersion, tauri.conf.json=$tauriVersion, Cargo.toml=$cargoVersion"
-          }
-
-          if ($tag -ne $expectedTag) {
-            throw "标签与应用版本号不匹配。当前标签=$tag，期望标签=$expectedTag"
-          }
-
-      - name: 构建并发布 Windows 安装包
+      - name: 构建并上传安装包
         uses: tauri-apps/tauri-action@v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: AI-Usage-Peek ${{ github.ref_name }}
-          releaseBody: Windows NSIS 安装包。
-          releaseDraft: false
-          prerelease: false
+          releaseId: ${{ needs.prepare-release.outputs.release_id }}
+          tagName: ${{ needs.validate-version.outputs.tag_name }}
+          args: ${{ matrix.tauri_args }}
