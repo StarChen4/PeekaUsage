@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import type { ProviderConfigItem, ProviderId } from "../../types/provider";
-import type { PollingInterval, ThemeMode } from "../../types/settings";
+import type { PollingInterval } from "../../types/settings";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
@@ -18,11 +18,6 @@ const supportedProviders = ref<ProviderConfigItem[]>([]);
 const creatingProviderId = ref<ProviderId | null>(null);
 
 const pollingOptions: PollingInterval[] = [1, 2, 5, 10, 30];
-const themeOptions: Array<{ value: ThemeMode; label: string }> = [
-  { value: "system", label: "跟随系统" },
-  { value: "light", label: "明亮主题" },
-  { value: "dark", label: "暗黑主题" },
-];
 
 const configuredProviderIds = computed(() => new Set(providerConfigs.value.map((item) => item.providerId)));
 const availableProviders = computed(() => {
@@ -79,16 +74,6 @@ async function onPollingChange(event: Event) {
   await settingsStore.saveSettings({ pollingInterval: value });
 }
 
-async function onThemeChange(event: Event) {
-  const value = (event.target as HTMLSelectElement).value as ThemeMode;
-  await settingsStore.saveSettings({ theme: value });
-}
-
-async function onAlwaysOnTopChange(event: Event) {
-  const checked = (event.target as HTMLInputElement).checked;
-  await settingsStore.saveSettings({ alwaysOnTop: checked });
-}
-
 async function reloadProviders() {
   await loadProviderData();
   await providerStore.refreshAll();
@@ -142,22 +127,6 @@ async function onProviderRemoved() {
               {{ option }} 分钟
             </option>
           </select>
-        </div>
-        <div class="setting-row">
-          <label>主题</label>
-          <select :value="settingsStore.settings.theme" @change="onThemeChange">
-            <option v-for="option in themeOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
-        </div>
-        <div class="setting-row">
-          <label>始终置顶</label>
-          <input
-            type="checkbox"
-            :checked="settingsStore.settings.alwaysOnTop"
-            @change="onAlwaysOnTopChange"
-          />
         </div>
       </section>
 
@@ -280,10 +249,6 @@ async function onProviderRemoved() {
   border-radius: var(--radius-sm);
   padding: 3px 6px;
   font-size: 11px;
-}
-
-.setting-row input[type="checkbox"] {
-  accent-color: var(--color-primary);
 }
 
 .add-provider-btn {

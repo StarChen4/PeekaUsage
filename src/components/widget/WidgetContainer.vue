@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { ComponentPublicInstance } from "vue";
 import { useProviders } from "../../composables/useProviders";
+import { useSettingsStore } from "../../stores/settingsStore";
 import type { ProviderId, UsageSummary } from "../../types/provider";
+import type { ThemeMode } from "../../types/settings";
 import { saveProviderOrder } from "../../utils/ipc";
 import ProviderCard from "./ProviderCard.vue";
 import OpacityHandle from "./OpacityHandle.vue";
@@ -30,17 +32,30 @@ interface DragState {
 }
 
 const { providerStore, manualRefresh } = useProviders();
+const settingsStore = useSettingsStore();
+
+const themeOptions: Array<{ value: ThemeMode; label: string }> = [
+  { value: "light", label: "明亮" },
+  { value: "dark", label: "暗黑" },
+  { value: "system", label: "跟随系统" },
+];
 
 const cardListRef = ref<HTMLElement | null>(null);
+const themeMenuRef = ref<HTMLElement | null>(null);
+const themeTriggerRef = ref<HTMLElement | null>(null);
 const orderedProviders = ref<UsageSummary[]>([]);
 const dragState = ref<DragState | null>(null);
 const layoutSaveState = ref<"idle" | "saving" | "saved" | "error">("idle");
+const isThemeMenuOpen = ref(false);
 const cardRefs = new Map<ProviderId, HTMLElement>();
 
 let saveFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
 
 const enabledProviders = computed(() => providerStore.enabledProviders());
 const isDragging = computed(() => !!dragState.value && !dragState.value.releasing);
+const currentTheme = computed(() => {
+  return themeOptions.find((option) => option.value === settingsStore.settings.theme) ?? themeOptions[2];
+});
 const layoutStatusText = computed(() => {
   switch (layoutSaveState.value) {
     case "saving":
@@ -63,10 +78,17 @@ watch(
   { immediate: true }
 );
 
+onMounted(() => {
+  document.addEventListener("pointerdown", onDocumentPointerDown);
+  document.addEventListener("keydown", onDocumentKeyDown);
+});
+
 onBeforeUnmount(() => {
   window.removeEventListener("pointermove", onPointerMove);
   window.removeEventListener("pointerup", onPointerUp);
   window.removeEventListener("pointercancel", onPointerCancel);
+  document.removeEventListener("pointerdown", onDocumentPointerDown);
+  document.removeEventListener("keydown", onDocumentKeyDown);
   clearSaveFeedbackTimer();
 });
 
@@ -75,6 +97,53 @@ function clearSaveFeedbackTimer() {
     clearTimeout(saveFeedbackTimer);
     saveFeedbackTimer = null;
   }
+}
+
+function closeThemeMenu() {
+  isThemeMenuOpen.value = false;
+}
+
+function onDocumentPointerDown(event: PointerEvent) {
+  if (!isThemeMenuOpen.value) {
+    return;
+  }
+
+  const target = event.target as Node | null;
+  if (!target) {
+    closeThemeMenu();
+    return;
+  }
+
+  const clickedMenu = themeMenuRef.value?.contains(target) ?? false;
+  const clickedTrigger = themeTriggerRef.value?.contains(target) ?? false;
+
+  if (!clickedMenu && !clickedTrigger) {
+    closeThemeMenu();
+  }
+}
+
+function onDocumentKeyDown(event: KeyboardEvent) {
+  if (event.key === "Escape") {
+    closeThemeMenu();
+  }
+}
+
+function toggleThemeMenu() {
+  isThemeMenuOpen.value = !isThemeMenuOpen.value;
+}
+
+async function selectTheme(theme: ThemeMode) {
+  closeThemeMenu();
+  if (settingsStore.settings.theme === theme) {
+    return;
+  }
+  await settingsStore.saveSettings({ theme });
+}
+
+async function toggleAlwaysOnTop() {
+  await settingsStore.saveSettings({
+    alwaysOnTop: !settingsStore.settings.alwaysOnTop,
+  });
 }
 
 function syncOrderedProviders(providers: UsageSummary[]) {
@@ -167,6 +236,8 @@ function autoScrollList(clientY: number) {
 function startDrag(providerId: ProviderId, event: PointerEvent) {
   if (event.button !== 0) return;
   if (orderedProviders.value.length < 2) return;
+
+  closeThemeMenu();
 
   const slots = getDragSlots();
   const originIndex = orderedProviders.value.findIndex((provider) => provider.providerId === providerId);
@@ -352,18 +423,178 @@ function getCardClass(providerId: ProviderId) {
       <span v-if="layoutStatusText" class="layout-status" :class="`is-${layoutSaveState}`">
         {{ layoutStatusText }}
       </span>
-      <button
-        class="icon-btn"
-        :class="{ spinning: providerStore.isRefreshing }"
-        @click="manualRefresh"
-        :disabled="providerStore.isRefreshing || isDragging"
-        title="刷新数据"
-      >
-        🔄
-      </button>
-      <button class="icon-btn" @click="$emit('openSettings')" title="设置">
-        ⚙
-      </button>
+
+      <div class="footer-actions">
+        <div class="theme-picker">
+          <button
+            ref="themeTriggerRef"
+            class="icon-btn"
+            :class="{ 'is-active': isThemeMenuOpen }"
+            title="主题切换"
+            @click="toggleThemeMenu"
+          >
+            <svg v-if="currentTheme.value === 'light'" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4.25" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <path
+                d="M12 2.5V5.1M12 18.9v2.6M21.5 12h-2.6M5.1 12H2.5M18.72 5.28l-1.84 1.84M7.12 16.88l-1.84 1.84M18.72 18.72l-1.84-1.84M7.12 7.12L5.28 5.28"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="1.8"
+              />
+            </svg>
+            <svg v-else-if="currentTheme.value === 'dark'" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M19 14.5A7.5 7.5 0 0 1 9.5 5a8.5 8.5 0 1 0 9.5 9.5Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-linejoin="round"
+                stroke-width="1.8"
+              />
+            </svg>
+            <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+              <rect
+                x="4"
+                y="5"
+                width="16"
+                height="11"
+                rx="2"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              />
+              <path
+                d="M9 19h6M12 16v3"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="1.8"
+              />
+            </svg>
+          </button>
+
+          <div v-if="isThemeMenuOpen" ref="themeMenuRef" class="theme-menu">
+            <button
+              v-for="option in themeOptions"
+              :key="option.value"
+              class="theme-option"
+              :class="{ 'is-selected': settingsStore.settings.theme === option.value }"
+              @click="selectTheme(option.value)"
+            >
+              <span class="theme-option-icon">
+                <svg v-if="option.value === 'light'" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4.25" fill="none" stroke="currentColor" stroke-width="1.8" />
+                  <path
+                    d="M12 2.5V5.1M12 18.9v2.6M21.5 12h-2.6M5.1 12H2.5M18.72 5.28l-1.84 1.84M7.12 16.88l-1.84 1.84M18.72 18.72l-1.84-1.84M7.12 7.12L5.28 5.28"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-width="1.8"
+                  />
+                </svg>
+                <svg v-else-if="option.value === 'dark'" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M19 14.5A7.5 7.5 0 0 1 9.5 5a8.5 8.5 0 1 0 9.5 9.5Z"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                  />
+                </svg>
+                <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+                  <rect
+                    x="4"
+                    y="5"
+                    width="16"
+                    height="11"
+                    rx="2"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
+                  <path
+                    d="M9 19h6M12 16v3"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-width="1.8"
+                  />
+                </svg>
+              </span>
+              <span class="theme-option-label">{{ option.label }}</span>
+            </button>
+          </div>
+        </div>
+
+        <button
+          class="icon-btn pin-icon-btn"
+          :class="{ 'is-active': settingsStore.settings.alwaysOnTop }"
+          :title="settingsStore.settings.alwaysOnTop ? '取消始终置顶' : '始终置顶'"
+          @click="toggleAlwaysOnTop"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M6 6.25h12"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.8"
+            />
+            <path
+              d="M12 18V8.75M8.75 12l3.25-3.25L15.25 12"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+          </svg>
+        </button>
+
+        <button
+          class="icon-btn"
+          :class="{ spinning: providerStore.isRefreshing }"
+          :disabled="providerStore.isRefreshing || isDragging"
+          title="手动刷新"
+          @click="manualRefresh"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M20 12a8 8 0 1 1-2.34-5.66"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.8"
+            />
+            <path
+              d="M20 5.5v5h-5"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+          </svg>
+        </button>
+
+        <button class="icon-btn" title="设置" @click="$emit('openSettings')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 8.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 0 1 0-7Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+            <path
+              d="M19.4 15a1 1 0 0 0 .2 1.1l.05.06a2 2 0 1 1-2.83 2.83l-.06-.05a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.92V20a2 2 0 1 1-4 0v-.08a1 1 0 0 0-.66-.94 1 1 0 0 0-1.1.2l-.06.05a2 2 0 1 1-2.83-2.83l.05-.06a1 1 0 0 0 .2-1.1 1 1 0 0 0-.92-.6H4a2 2 0 1 1 0-4h.08a1 1 0 0 0 .94-.66 1 1 0 0 0-.2-1.1l-.05-.06a2 2 0 1 1 2.83-2.83l.06.05a1 1 0 0 0 1.1.2h.02A1 1 0 0 0 9.7 4.1V4a2 2 0 1 1 4 0v.08a1 1 0 0 0 .66.94h.02a1 1 0 0 0 1.1-.2l.06-.05a2 2 0 1 1 2.83 2.83l-.05.06a1 1 0 0 0-.2 1.1v.02a1 1 0 0 0 .92.6H20a2 2 0 1 1 0 4h-.08a1 1 0 0 0-.94.66V15Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-linejoin="round"
+              stroke-width="1.6"
+            />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <OpacityHandle />
@@ -466,6 +697,78 @@ function getCardClass(providerId: ProviderId) {
   color: var(--color-danger);
 }
 
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.theme-picker {
+  position: relative;
+}
+
+.theme-menu {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(50%);
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(18px);
+  z-index: 8;
+}
+
+.theme-option {
+  width: 68px;
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-option:hover {
+  background: var(--color-ghost-bg-hover);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.theme-option.is-selected {
+  background: var(--color-primary-soft-bg);
+  border-color: var(--color-primary-soft-border);
+  color: var(--color-primary-soft-text);
+}
+
+.theme-option-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-option-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.theme-option-label {
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+}
+
 .icon-btn {
   width: 28px;
   height: 28px;
@@ -475,14 +778,31 @@ function getCardClass(providerId: ProviderId) {
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 14px;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+}
+
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pin-icon-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .icon-btn:hover {
   background: var(--color-ghost-bg-hover);
   border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.icon-btn.is-active {
+  background: var(--color-primary-soft-bg);
+  border-color: var(--color-primary-soft-border);
+  color: var(--color-primary-soft-text);
 }
 
 .icon-btn:disabled {
@@ -490,12 +810,17 @@ function getCardClass(providerId: ProviderId) {
   cursor: not-allowed;
 }
 
-.icon-btn.spinning {
+.icon-btn.spinning svg {
   animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
