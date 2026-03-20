@@ -46,6 +46,19 @@ async function onProviderSaved() {
   await loadProviderConfigs();
   await providerStore.refreshAll();
 }
+
+function isProviderExpanded(providerId: ProviderConfigItem["providerId"]) {
+  return settingsStore.settings.providerCardExpanded[providerId] ?? true;
+}
+
+async function onProviderExpandedChange(providerId: ProviderConfigItem["providerId"], expanded: boolean) {
+  await settingsStore.saveSettings({
+    providerCardExpanded: {
+      ...settingsStore.settings.providerCardExpanded,
+      [providerId]: expanded,
+    },
+  });
+}
 </script>
 
 <template>
@@ -84,6 +97,8 @@ async function onProviderSaved() {
           v-for="config in providerConfigs"
           :key="config.providerId"
           :config="config"
+          :expanded="isProviderExpanded(config.providerId)"
+          @expanded-change="onProviderExpandedChange(config.providerId, $event)"
           @saved="onProviderSaved"
         />
       </section>

@@ -7,10 +7,12 @@ import ProviderIcon from "../common/ProviderIcon.vue";
 
 const props = defineProps<{
   config: ProviderConfigItem;
+  expanded: boolean;
 }>();
 
 const emit = defineEmits<{
   saved: [];
+  "expanded-change": [expanded: boolean];
 }>();
 
 const apiKey = ref(props.config.apiKey);
@@ -21,7 +23,6 @@ const validationResult = ref<boolean | null>(null);
 const detecting = ref(false);
 const detectResult = ref<string | null>(null);
 const saving = ref(false);
-const expanded = ref(true);
 const saveResult = ref<{ type: "success" | "error"; message: string } | null>(null);
 const pendingSavedConfig = ref<{
   apiKey: string;
@@ -93,7 +94,7 @@ function setSaveResult(type: "success" | "error", message: string) {
 }
 
 function toggleExpanded() {
-  expanded.value = !expanded.value;
+  emit("expanded-change", !props.expanded);
 }
 
 watch(
@@ -226,13 +227,13 @@ async function onSave() {
       <button
         class="collapse-toggle"
         type="button"
-        :aria-label="expanded ? collapseLabel : expandLabel"
-        :aria-expanded="expanded"
+        :aria-label="props.expanded ? collapseLabel : expandLabel"
+        :aria-expanded="props.expanded"
         @click="toggleExpanded"
       >
         <svg
           class="collapse-icon"
-          :class="{ 'is-expanded': expanded }"
+          :class="{ 'is-expanded': props.expanded }"
           viewBox="0 0 12 12"
           fill="none"
           aria-hidden="true"
@@ -242,7 +243,7 @@ async function onSave() {
       </button>
     </div>
 
-    <div v-show="expanded" class="config-body">
+    <div v-show="props.expanded" class="config-body">
       <template v-if="enabled">
         <div class="field-group">
           <label class="field-label">{{ apiKeyLabel }}</label>

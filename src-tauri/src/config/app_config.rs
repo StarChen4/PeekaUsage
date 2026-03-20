@@ -14,6 +14,8 @@ pub struct AppSettings {
     pub window_opacity: f64,
     pub window_position: Option<WindowPosition>,
     pub window_size: Option<WindowSize>,
+    #[serde(default = "default_provider_card_expanded")]
+    pub provider_card_expanded: HashMap<String, bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,8 +39,17 @@ impl Default for AppSettings {
             window_opacity: 100.0,
             window_position: None,
             window_size: None,
+            provider_card_expanded: default_provider_card_expanded(),
         }
     }
+}
+
+fn default_provider_card_expanded() -> HashMap<String, bool> {
+    HashMap::from([
+        ("openai".to_string(), true),
+        ("anthropic".to_string(), true),
+        ("openrouter".to_string(), true),
+    ])
 }
 
 /// 供应商持久化配置
