@@ -21,6 +21,7 @@ const validationResult = ref<boolean | null>(null);
 const detecting = ref(false);
 const detectResult = ref<string | null>(null);
 const saving = ref(false);
+const expanded = ref(true);
 const saveResult = ref<{ type: "success" | "error"; message: string } | null>(null);
 const pendingSavedConfig = ref<{
   apiKey: string;
@@ -36,6 +37,8 @@ const validLabel = "\u6709\u6548";
 const invalidLabel = "\u65e0\u6548";
 const detectingLabel = "\u68c0\u6d4b\u4e2d...";
 const detectLabel = "\u81ea\u52a8\u68c0\u6d4b";
+const expandLabel = "\u5c55\u5f00";
+const collapseLabel = "\u6536\u8d77";
 const noChangesHint = "\u5f53\u524d\u4f9b\u5e94\u5546\u5df2\u53d6\u6d88\u52fe\u9009\u3002\u70b9\u51fb\u4fdd\u5b58\u540e\uff0c\u4e3b\u754c\u9762\u4f1a\u9690\u85cf\u8be5\u4f9b\u5e94\u5546\u5361\u7247\u3002";
 const anthropicHintPrefix = "\u81ea\u52a8\u68c0\u6d4b\u8bfb\u53d6 ";
 const anthropicHintSuffix = "\u6216\u624b\u52a8\uff1a\u8fd0\u884c Claude Code \u767b\u5f55\u540e\u4ece\u8be5\u6587\u4ef6\u63d0\u53d6 ";
@@ -87,6 +90,10 @@ function clearSaveResult() {
 
 function setSaveResult(type: "success" | "error", message: string) {
   saveResult.value = { type, message };
+}
+
+function toggleExpanded() {
+  expanded.value = !expanded.value;
 }
 
 watch(
@@ -215,9 +222,27 @@ async function onSave() {
           <span class="provider-name">{{ config.displayName }}</span>
         </span>
       </label>
+
+      <button
+        class="collapse-toggle"
+        type="button"
+        :aria-label="expanded ? collapseLabel : expandLabel"
+        :aria-expanded="expanded"
+        @click="toggleExpanded"
+      >
+        <svg
+          class="collapse-icon"
+          :class="{ 'is-expanded': expanded }"
+          viewBox="0 0 12 12"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path d="M2.5 4.5L6 8L9.5 4.5" />
+        </svg>
+      </button>
     </div>
 
-    <div class="config-body">
+    <div v-show="expanded" class="config-body">
       <template v-if="enabled">
         <div class="field-group">
           <label class="field-label">{{ apiKeyLabel }}</label>
@@ -295,6 +320,8 @@ async function onSave() {
 .config-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
 }
 
 .switch-label {
@@ -303,6 +330,7 @@ async function onSave() {
   gap: var(--spacing-sm);
   cursor: pointer;
   font-size: 13px;
+  min-width: 0;
 }
 
 .switch-label input[type="checkbox"] {
@@ -325,6 +353,44 @@ async function onSave() {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+}
+
+.collapse-toggle {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.collapse-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text);
+}
+
+.collapse-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.collapse-icon path {
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.collapse-icon.is-expanded {
+  transform: rotate(180deg);
+  transform-origin: center;
 }
 
 .field-group {
