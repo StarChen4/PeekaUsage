@@ -45,7 +45,6 @@ struct KeyInfoData {
 #[derive(Debug, Deserialize)]
 struct KeyRateLimit {
     requests: Option<u64>,
-    interval: Option<String>,
 }
 
 #[async_trait]

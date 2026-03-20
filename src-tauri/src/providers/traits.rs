@@ -39,9 +39,6 @@ pub enum ProviderError {
 
     #[error("速率限制: {0}")]
     RateLimited(String),
-
-    #[error("不支持的操作: {0}")]
-    Unsupported(String),
 }
 
 impl From<reqwest::Error> for ProviderError {

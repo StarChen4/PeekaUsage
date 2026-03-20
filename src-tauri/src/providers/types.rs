@@ -38,11 +38,6 @@ impl ProviderId {
             ProviderId::OpenRouter => None,
         }
     }
-
-    /// 是否支持订阅用量查询
-    pub fn supports_subscription(&self) -> bool {
-        matches!(self, ProviderId::OpenAI | ProviderId::Anthropic)
-    }
 }
 
 /// 供应商能力

@@ -2,6 +2,17 @@
   "name": "how-much-have-i-cost",
   "private": true,
   "version": "0.1.0",
+  "description": "A Tauri desktop widget for tracking OpenAI, Anthropic, and OpenRouter usage.",
+  "author": "Star Chen",
+  "license": "MIT",
+  "homepage": "https://github.com/StarChen4/how-much-have-i-cost",
+  "bugs": {
+    "url": "https://github.com/StarChen4/how-much-have-i-cost/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StarChen4/how-much-have-i-cost.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
