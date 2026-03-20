@@ -693,8 +693,9 @@ function getCardClass(providerId: ProviderId) {
 
 .theme-menu {
   position: absolute;
-  right: 0;
+  left: 50%;
   bottom: calc(100% + 6px);
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 4px;
