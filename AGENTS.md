@@ -182,6 +182,7 @@
 - 本地 Linux 打包使用 `npm run tauri:build:linux`
 - GitHub Release 会同时上传 Linux `x86_64` / `arm64` 的 `deb` 和 `AppImage`
 - Linux `arm64` 发布当前依赖 GitHub Actions ARM Linux runner
+- Linux CI / Release 的依赖安装要按 Tauri 官方 ARM 打包要求补齐，至少包含 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
 - 不要把 Linux 的 `deb` / `appimage` 目标混回主 `tauri.conf.json`
 
 ### 12. macOS 已接入 x86_64 / arm64 构建与发布
@@ -405,7 +406,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 推送的标签是否与版本完全匹配，例如 `v0.1.0`
 - GitHub Actions 是否具有 `contents: write` 权限
 - `src-tauri/tauri.linux.conf.json` 是否仍然只负责 Linux `deb` / `appimage`
-- Linux runner 是否安装了 `libwebkit2gtk-4.1-dev`、`libappindicator3-dev`、`librsvg2-dev`、`patchelf`
+- Linux runner 是否安装了 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
 - Linux `arm64` job 是否仍然使用 ARM Linux runner
 - `src-tauri/tauri.macos.conf.json` 是否仍然只负责 macOS `app` / `dmg`
 - macOS job 是否仍然分别产出 `x86_64` / `arm64` 包

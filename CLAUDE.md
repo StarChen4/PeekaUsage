@@ -159,6 +159,7 @@
 - Linux 打包目标单独放在 `src-tauri/tauri.linux.conf.json`
 - 本地 Linux 打包使用 `npm run tauri:build:linux`
 - Linux `arm64` 发布当前依赖 GitHub Actions 的 ARM Linux runner
+- Linux CI / Release 的依赖安装要与 Tauri 官方 ARM 打包示例保持一致，至少包含 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
 
 ### 11. macOS Release 已接入 `x86_64` / `arm64`
 

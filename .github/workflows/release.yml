@@ -116,12 +116,12 @@ jobs:
             rust_targets: ""
           - name: 发布 Linux x86_64 安装包
             platform: ubuntu-22.04
-            tauri_args: --config src-tauri/tauri.linux.conf.json
+            tauri_args: --config src-tauri/tauri.linux.conf.json --verbose
             install_linux_deps: true
             rust_targets: ""
           - name: 发布 Linux arm64 安装包
             platform: ubuntu-22.04-arm
-            tauri_args: --config src-tauri/tauri.linux.conf.json
+            tauri_args: --config src-tauri/tauri.linux.conf.json --verbose
             install_linux_deps: true
             rust_targets: ""
           - name: 发布 macOS Apple Silicon 安装包
@@ -157,7 +157,17 @@ jobs:
         if: matrix.install_linux_deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libfuse2 \
+            libgtk-3-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
 
       - name: 安装前端依赖
         run: npm ci
@@ -170,4 +180,4 @@ jobs:
           releaseId: ${{ needs.prepare-release.outputs.release_id }}
           tagName: ${{ needs.validate-version.outputs.tag_name }}
           args: ${{ matrix.tauri_args }}
-          releaseAssetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
+          assetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"

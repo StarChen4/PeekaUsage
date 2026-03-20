@@ -59,7 +59,7 @@ npm install
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+sudo apt-get install -y build-essential curl file libfuse2 libgtk-3-dev libssl-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 ```
 
 ### 3. macOS 构建说明
@@ -162,6 +162,7 @@ npm run tauri:build:linux
 - 在 `x86_64` Linux 主机上执行会产出 `x86_64` 包
 - 在 `arm64` Linux 主机上执行会产出 `arm64` 包
 - 当前没有在 `x86_64` 主机上直接交叉打出 Linux `arm64` 包的本地脚本，`arm64` 发布由 GitHub Actions 的 ARM runner 负责
+- Linux CI / Release 依赖按 Tauri 官方 ARM 打包要求补齐了 `build-essential`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libayatana-appindicator3-dev` 等必要包
 
 ## macOS 打包
 
