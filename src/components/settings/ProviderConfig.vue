@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import type { ProviderConfigItem } from "../../types/provider";
 import ApiKeyInput from "./ApiKeyInput.vue";
 import { detectOAuthTokens, saveProviderConfig, validateApiKey } from "../../utils/ipc";
@@ -22,45 +22,118 @@ const detecting = ref(false);
 const detectResult = ref<string | null>(null);
 const saving = ref(false);
 const saveResult = ref<{ type: "success" | "error"; message: string } | null>(null);
+const pendingSavedConfig = ref<{
+  apiKey: string;
+  oauthToken: string;
+  enabled: boolean;
+} | null>(null);
 
-let saveResultTimer: ReturnType<typeof setTimeout> | null = null;
+const apiKeyLabel = "API Key\uff08\u6309\u91cf\u8ba1\u8d39\uff09";
+const oauthTokenLabel = "OAuth Token\uff08\u8ba2\u9605\u8ba1\u5212\uff09";
+const validatingLabel = "\u9a8c\u8bc1\u4e2d...";
+const validateLabel = "\u9a8c\u8bc1";
+const validLabel = "\u6709\u6548";
+const invalidLabel = "\u65e0\u6548";
+const detectingLabel = "\u68c0\u6d4b\u4e2d...";
+const detectLabel = "\u81ea\u52a8\u68c0\u6d4b";
+const noChangesHint = "\u5f53\u524d\u4f9b\u5e94\u5546\u5df2\u53d6\u6d88\u52fe\u9009\u3002\u70b9\u51fb\u4fdd\u5b58\u540e\uff0c\u4e3b\u754c\u9762\u4f1a\u9690\u85cf\u8be5\u4f9b\u5e94\u5546\u5361\u7247\u3002";
+const anthropicHintPrefix = "\u81ea\u52a8\u68c0\u6d4b\u8bfb\u53d6 ";
+const anthropicHintSuffix = "\u6216\u624b\u52a8\uff1a\u8fd0\u884c Claude Code \u767b\u5f55\u540e\u4ece\u8be5\u6587\u4ef6\u63d0\u53d6 ";
+const openaiHintPrefix = "\u81ea\u52a8\u68c0\u6d4b\u8bfb\u53d6 ";
+const openaiHintSuffix = "\u6216\u624b\u52a8\uff1a\u8fd0\u884c ";
+const openaiHintSuffixTail = " \u767b\u5f55\u540e\u4ece\u8be5\u6587\u4ef6\u63d0\u53d6 ";
+
+let syncingFromProps = false;
+
+const hasChanges = computed(() => {
+  return (
+    apiKey.value !== props.config.apiKey ||
+    oauthToken.value !== props.config.oauthToken ||
+    enabled.value !== props.config.enabled
+  );
+});
+
+const saveButtonLabel = computed(() => {
+  if (saving.value) {
+    return "\u4fdd\u5b58\u4e2d...";
+  }
+
+  if (saveResult.value?.type === "success" && !hasChanges.value) {
+    return "\u5df2\u4fdd\u5b58";
+  }
+
+  return "\u4fdd\u5b58";
+});
+
+function maskCredential(value: string) {
+  if (!value) {
+    return "";
+  }
+
+  if (value.includes("...")) {
+    return value;
+  }
+
+  if (value.length > 8) {
+    return `${value.slice(0, 4)}...${value.slice(-4)}`;
+  }
+
+  return "****";
+}
+
+function clearSaveResult() {
+  saveResult.value = null;
+}
+
+function setSaveResult(type: "success" | "error", message: string) {
+  saveResult.value = { type, message };
+}
 
 watch(
   () => props.config,
   (config) => {
+    const matchesPendingSavedConfig =
+      pendingSavedConfig.value?.apiKey === config.apiKey &&
+      pendingSavedConfig.value?.oauthToken === config.oauthToken &&
+      pendingSavedConfig.value?.enabled === config.enabled;
+
+    syncingFromProps = true;
     apiKey.value = config.apiKey;
     oauthToken.value = config.oauthToken;
     enabled.value = config.enabled;
+    syncingFromProps = false;
+
     validationResult.value = null;
     detectResult.value = null;
-    saveResult.value = null;
+
+    if (matchesPendingSavedConfig) {
+      pendingSavedConfig.value = null;
+      return;
+    }
+
+    pendingSavedConfig.value = null;
+    clearSaveResult();
   },
   { deep: true }
 );
 
-onBeforeUnmount(() => {
-  if (saveResultTimer) {
-    clearTimeout(saveResultTimer);
+watch([apiKey, oauthToken, enabled], () => {
+  if (syncingFromProps) {
+    return;
   }
+
+  pendingSavedConfig.value = null;
+  clearSaveResult();
 });
 
-function setSaveResult(type: "success" | "error", message: string) {
-  saveResult.value = { type, message };
-  if (saveResultTimer) {
-    clearTimeout(saveResultTimer);
-  }
-  if (type === "success") {
-    saveResultTimer = setTimeout(() => {
-      saveResult.value = null;
-      saveResultTimer = null;
-    }, 2500);
-  }
-}
-
 async function onValidate() {
-  if (!apiKey.value) return;
+  if (!apiKey.value) {
+    return;
+  }
+
   validating.value = true;
   validationResult.value = null;
+
   try {
     validationResult.value = await validateApiKey(props.config.providerId, apiKey.value);
   } catch {
@@ -70,149 +143,37 @@ async function onValidate() {
   }
 }
 
-/* async function onDetectTokenLegacy() {
-  detecting.value = true;
-  detectResult.value = null;
-  try {
-    const tokens = await detectOAuthTokens();
-    const found = props.config.providerId === "anthropic" ? tokens.anthropic : tokens.openai;
-    if (found) {
-      oauthToken.value = found.token;
-      const subscriptionType = found.subscriptionType ? `（${found.subscriptionType}）` : "";
-      detectResult.value = `已从 ${found.source} 检测到${sub}`;
-    } else {
-      detectResult.value = "未找到本地凭据";
-    }
-  } catch (e: any) {
-    detectResult.value = `检测失败: ${e}`;
-  } finally {
-    detecting.value = false;
-  }
-}
-
-async function onSaveLegacy() {
-  await saveProviderConfig({
-    providerId: props.config.providerId,
-    apiKey: apiKey.value,
-    oauthToken: oauthToken.value,
-    enabled: enabled.value,
-  });
-  emit("saved");
-} */
-
-/* async function onDetectTokenBroken() {
-  detecting.value = true;
-  detectResult.value = null;
-  try {
-    const tokens = await detectOAuthTokens();
-    const found = props.config.providerId === "anthropic" ? tokens.anthropic : tokens.openai;
-    if (found) {
-      oauthToken.value = found.token;
-      const subscriptionType = found.subscriptionType ? `（${found.subscriptionType}）` : "";
-      detectResult.value = `已从 ${found.source} 检测到 Token${subscriptionType}`;
-    } else {
-      detectResult.value = "未找到本地 OAuth Token。";
-    }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    detectResult.value = `检测失败：${message}`;
-  } finally {
-    detecting.value = false;
-  }
-} */
-
-/* async function onSaveBroken() {
-  saving.value = true;
-  saveResult.value = null;
-  try {
-    await saveProviderConfig({
-      providerId: props.config.providerId,
-      apiKey: apiKey.value,
-      oauthToken: oauthToken.value,
-      enabled: enabled.value,
-    });
-    setSaveResult(
-      "success",
-      enabled.value ? "保存成功，主界面已同步刷新。" : "已禁用并保存，主界面将移除该供应商。"
-    );
-    emit("saved");
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    setSaveResult("error", `保存失败：${message}`);
-  } finally {
-    saving.value = false;
-  }
-} */
-
-/* async function onDetectToken() {
-  detecting.value = true;
-  detectResult.value = null;
-  try {
-    const tokens = await detectOAuthTokens();
-    const found = props.config.providerId === "anthropic" ? tokens.anthropic : tokens.openai;
-    if (found) {
-      oauthToken.value = found.token;
-      const subscriptionType = found.subscriptionType ? " (" + found.subscriptionType + ")" : "";
-      detectResult.value = "已从 " + found.source + " 检测到 Token" + subscriptionType;
-    } else {
-      detectResult.value = "未找到本地 OAuth Token。";
-    }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    detectResult.value = "检测失败：" + message;
-  } finally {
-    detecting.value = false;
-  }
-} */
-
-/* async function onSave() {
-  saving.value = true;
-  saveResult.value = null;
-  try {
-    await saveProviderConfig({
-      providerId: props.config.providerId,
-      apiKey: apiKey.value,
-      oauthToken: oauthToken.value,
-      enabled: enabled.value,
-    });
-    const successMessage = enabled.value
-      ? "保存成功，主界面已同步刷新。"
-      : "已禁用并保存，主界面将移除该供应商。";
-    setSaveResult("success", successMessage);
-    emit("saved");
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    setSaveResult("error", "保存失败：" + message);
-  } finally {
-    saving.value = false;
-  }
-} */
-
 async function onDetectToken() {
   detecting.value = true;
   detectResult.value = null;
+
   try {
     const tokens = await detectOAuthTokens();
     const found = props.config.providerId === "anthropic" ? tokens.anthropic : tokens.openai;
+
     if (found) {
       oauthToken.value = found.token;
-      const subscriptionType = found.subscriptionType ? " (" + found.subscriptionType + ")" : "";
-      detectResult.value =
-        "\u5df2\u4ece " + found.source + " \u68c0\u6d4b\u5230 Token" + subscriptionType;
+      const subscriptionType = found.subscriptionType ? ` (${found.subscriptionType})` : "";
+      detectResult.value = `\u5df2\u4ece ${found.source} \u68c0\u6d4b\u5230 Token${subscriptionType}`;
     } else {
       detectResult.value = "\u672a\u627e\u5230\u672c\u5730 OAuth Token\u3002";
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    detectResult.value = "\u68c0\u6d4b\u5931\u8d25\uff1a" + message;
+    detectResult.value = `\u68c0\u6d4b\u5931\u8d25\uff1a${message}`;
   } finally {
     detecting.value = false;
   }
 }
 
 async function onSave() {
+  if (saving.value || !hasChanges.value) {
+    return;
+  }
+
   saving.value = true;
-  saveResult.value = null;
+  clearSaveResult();
+
   try {
     await saveProviderConfig({
       providerId: props.config.providerId,
@@ -220,14 +181,24 @@ async function onSave() {
       oauthToken: oauthToken.value,
       enabled: enabled.value,
     });
-    const successMessage = enabled.value
-      ? "\u4fdd\u5b58\u6210\u529f\uff0c\u4e3b\u754c\u9762\u5df2\u540c\u6b65\u5237\u65b0\u3002"
-      : "\u5df2\u7981\u7528\u5e76\u4fdd\u5b58\uff0c\u4e3b\u754c\u9762\u5c06\u79fb\u9664\u8be5\u4f9b\u5e94\u5546\u3002";
-    setSaveResult("success", successMessage);
+
+    pendingSavedConfig.value = {
+      apiKey: maskCredential(apiKey.value),
+      oauthToken: maskCredential(oauthToken.value),
+      enabled: enabled.value,
+    };
+
+    setSaveResult(
+      "success",
+      enabled.value
+        ? "\u4fdd\u5b58\u6210\u529f\uff0c\u4e3b\u754c\u9762\u5df2\u540c\u6b65\u5237\u65b0\u3002"
+        : "\u5df2\u7981\u7528\u5e76\u4fdd\u5b58\uff0c\u4e3b\u754c\u9762\u5c06\u79fb\u9664\u8be5\u4f9b\u5e94\u5546\u3002"
+    );
+
     emit("saved");
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    setSaveResult("error", "\u4fdd\u5b58\u5931\u8d25\uff1a" + message);
+    setSaveResult("error", `\u4fdd\u5b58\u5931\u8d25\uff1a${message}`);
   } finally {
     saving.value = false;
   }
@@ -238,7 +209,7 @@ async function onSave() {
   <div class="provider-config">
     <div class="config-header">
       <label class="switch-label">
-        <input type="checkbox" v-model="enabled" />
+        <input v-model="enabled" type="checkbox" />
         <span class="provider-title">
           <ProviderIcon :provider-id="config.providerId" :size="20" />
           <span class="provider-name">{{ config.displayName }}</span>
@@ -246,91 +217,47 @@ async function onSave() {
       </label>
     </div>
 
-    <div v-if="false" class="config-body legacy-config-body">
-      <!-- 按量 API Key -->
-      <div class="field-group">
-        <label class="field-label">API Key（按量计费）</label>
-        <ApiKeyInput v-model="apiKey" placeholder="sk-..." />
-        <div class="config-actions">
-          <button class="btn btn-sm" @click="onValidate" :disabled="validating || !apiKey">
-            {{ validating ? "验证中..." : "验证" }}
-          </button>
-          <span v-if="validationResult === true" class="valid-mark">✓ 有效</span>
-          <span v-if="validationResult === false" class="invalid-mark">✗ 无效</span>
-        </div>
-      </div>
-
-      <!-- 订阅 OAuth Token -->
-      <div v-if="config.capabilities.hasSubscription" class="field-group">
-        <label class="field-label">OAuth Token（订阅计划）</label>
-        <ApiKeyInput
-          v-model="oauthToken"
-          :placeholder="config.providerId === 'anthropic' ? 'sk-ant-oat01-...' : 'eyJ...'"
-        />
-        <div class="config-actions">
-          <button class="btn btn-sm btn-detect" @click="onDetectToken" :disabled="detecting">
-            {{ detecting ? "检测中..." : "自动检测" }}
-          </button>
-        </div>
-        <div v-if="detectResult" class="detect-result">{{ detectResult }}</div>
-        <div class="field-hint">
-          <template v-if="config.providerId === 'anthropic'">
-            自动检测读取 <code>~/.claude/.credentials.json</code><br>
-            或手动：运行 Claude Code 登录后从该文件提取 accessToken
-          </template>
-          <template v-else>
-            自动检测读取 <code>~/.codex/auth.json</code><br>
-            或手动：运行 <code>codex --login</code> 登录后从该文件提取 access_token
-          </template>
-        </div>
-      </div>
-
-      <button class="btn btn-sm btn-primary save-btn" @click="onSave">
-        保存
-      </button>
-    </div>
-
     <div class="config-body">
       <template v-if="enabled">
         <div class="field-group">
-          <label class="field-label">API Key（按量计费）</label>
+          <label class="field-label">{{ apiKeyLabel }}</label>
           <ApiKeyInput v-model="apiKey" placeholder="sk-..." />
           <div class="config-actions">
             <button class="btn btn-sm" :disabled="validating || !apiKey" type="button" @click="onValidate">
-              {{ validating ? "验证中..." : "验证" }}
+              {{ validating ? validatingLabel : validateLabel }}
             </button>
-            <span v-if="validationResult === true" class="valid-mark">有效</span>
-            <span v-if="validationResult === false" class="invalid-mark">无效</span>
+            <span v-if="validationResult === true" class="valid-mark">{{ validLabel }}</span>
+            <span v-if="validationResult === false" class="invalid-mark">{{ invalidLabel }}</span>
           </div>
         </div>
 
         <div v-if="config.capabilities.hasSubscription" class="field-group">
-          <label class="field-label">OAuth Token（订阅计划）</label>
+          <label class="field-label">{{ oauthTokenLabel }}</label>
           <ApiKeyInput
             v-model="oauthToken"
             :placeholder="config.providerId === 'anthropic' ? 'sk-ant-oat01-...' : 'eyJ...'"
           />
           <div class="config-actions">
             <button class="btn btn-sm btn-detect" :disabled="detecting" type="button" @click="onDetectToken">
-              {{ detecting ? "检测中..." : "自动检测" }}
+              {{ detecting ? detectingLabel : detectLabel }}
             </button>
           </div>
           <div v-if="detectResult" class="detect-result">{{ detectResult }}</div>
           <div class="field-hint">
             <template v-if="config.providerId === 'anthropic'">
-              自动检测读取 <code>~/.claude/.credentials.json</code><br>
-              或手动：运行 Claude Code 登录后从该文件提取 <code>accessToken</code>
+              {{ anthropicHintPrefix }}<code>~/.claude/.credentials.json</code><br />
+              {{ anthropicHintSuffix }}<code>accessToken</code>
             </template>
             <template v-else>
-              自动检测读取 <code>~/.codex/auth.json</code><br>
-              或手动：运行 <code>codex --login</code> 登录后从该文件提取 <code>access_token</code>
+              {{ openaiHintPrefix }}<code>~/.codex/auth.json</code><br />
+              {{ openaiHintSuffix }}<code>codex --login</code>{{ openaiHintSuffixTail }}<code>access_token</code>
             </template>
           </div>
         </div>
       </template>
 
       <div v-else class="disabled-hint">
-        当前供应商已取消勾选。点击保存后，主界面会隐藏该供应商卡片。
+        {{ noChangesHint }}
       </div>
 
       <div
@@ -341,8 +268,14 @@ async function onSave() {
         {{ saveResult.message }}
       </div>
 
-      <button class="btn btn-sm btn-primary save-btn" :disabled="saving" type="button" @click="onSave">
-        {{ saving ? "保存中..." : "保存" }}
+      <button
+        class="btn btn-sm btn-primary save-btn"
+        :class="{ 'is-saved': saveResult?.type === 'success' && !hasChanges }"
+        :disabled="saving || !hasChanges"
+        type="button"
+        @click="onSave"
+      >
+        {{ saveButtonLabel }}
       </button>
     </div>
   </div>
@@ -450,6 +383,7 @@ async function onSave() {
 
 .save-btn {
   align-self: flex-end;
+  min-width: 72px;
 }
 
 .btn {
@@ -479,6 +413,13 @@ async function onSave() {
 
 .btn-primary:hover {
   background: var(--color-primary-hover);
+}
+
+.save-btn.is-saved,
+.save-btn.is-saved:hover {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: var(--color-success);
 }
 
 .btn-detect {
