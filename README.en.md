@@ -25,6 +25,23 @@ This project is built with Tauri v2, Vue 3 + TypeScript on the frontend, and Rus
 - The app is mainly developed and verified on Windows for now
 - Interactions are designed to stay consistent across Windows, macOS, and Linux
 
+## Why Not Every Provider Is Supported Yet
+
+This is not a matter of ignoring them. Provider integrations are much less uniform than they look.
+
+- Every provider has its own auth flow, usage endpoints, subscription windows, response shapes, and rate-limit behavior
+- Some providers simply do not expose a stable public API for usage or subscription tracking
+- The app also has to stay maintainable and consistent across Windows, Linux, and macOS
+- For now, the priority is providers I actively use and can verify with reliable local or official data sources
+
+If you use a provider that is still missing, PRs are welcome. The most helpful contributions usually include:
+
+- Rust-side provider implementation and type updates
+- Frontend settings and card display support
+- Matching docs, environment variables, icons, and verification notes
+
+If the data source is trustworthy, the behavior is clear, and the change does not break the existing UX, I am very happy to merge it.
+
 ## Quick Start
 
 ### 1. Install dependencies
