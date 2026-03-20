@@ -1,10 +1,30 @@
 import { ref } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { setWindowOpacity } from "../utils/ipc";
+import { useSettingsStore } from "../stores/settingsStore";
+
+const opacity = ref(100);
+const isDraggingOpacity = ref(false);
+
+function clampOpacity(value: number) {
+  return Math.max(10, Math.min(100, Math.round(value)));
+}
+
+async function applyOpacity(value: number) {
+  const clamped = clampOpacity(value);
+  opacity.value = clamped;
+
+  const appEl = document.getElementById("app");
+  if (appEl) {
+    appEl.style.opacity = `${clamped / 100}`;
+  }
+
+  await setWindowOpacity(clamped / 100);
+  return clamped;
+}
 
 export function useWindowControls() {
-  const opacity = ref(100);
-  const isDraggingOpacity = ref(false);
+  const settingsStore = useSettingsStore();
 
   async function hideWindow() {
     await getCurrentWindow().hide();
@@ -18,35 +38,33 @@ export function useWindowControls() {
     await getCurrentWindow().hide();
   }
 
-  /** 更新窗口透明度（10-100） */
-  async function updateOpacity(value: number) {
-    const clamped = Math.max(10, Math.min(100, Math.round(value)));
-    opacity.value = clamped;
-    // 通过 CSS 控制视觉透明度
-    const appEl = document.getElementById("app");
-    if (appEl) {
-      appEl.style.opacity = `${clamped / 100}`;
+  async function updateOpacity(value: number, persist = false) {
+    const clamped = await applyOpacity(value);
+
+    if (persist && settingsStore.settings.windowOpacity !== clamped) {
+      await settingsStore.saveSettings({ windowOpacity: clamped });
     }
-    // 同时通知后端（预留给 Win32 API 实现）
-    await setWindowOpacity(clamped / 100);
+
+    return clamped;
   }
 
-  /** 处理透明度拖拽 */
   function startOpacityDrag(startY: number) {
     isDraggingOpacity.value = true;
     const startOpacity = opacity.value;
+    let lastOpacity = startOpacity;
 
-    function onMouseMove(e: MouseEvent) {
-      // 向上拖 = 更透明，向下拖 = 更不透明
-      const deltaY = startY - e.clientY;
+    function onMouseMove(event: MouseEvent) {
+      const deltaY = startY - event.clientY;
       const deltaOpacity = deltaY * 0.5;
-      updateOpacity(startOpacity - deltaOpacity);
+      lastOpacity = clampOpacity(startOpacity - deltaOpacity);
+      void updateOpacity(lastOpacity, false);
     }
 
     function onMouseUp() {
       isDraggingOpacity.value = false;
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
+      void updateOpacity(lastOpacity, true);
     }
 
     document.addEventListener("mousemove", onMouseMove);
@@ -61,5 +79,6 @@ export function useWindowControls() {
     closeToTray,
     updateOpacity,
     startOpacityDrag,
+    applyOpacity,
   };
 }

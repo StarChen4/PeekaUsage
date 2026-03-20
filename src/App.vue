@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import TitleBar from "./components/common/TitleBar.vue";
 import WidgetContainer from "./components/widget/WidgetContainer.vue";
 import SettingsPanel from "./components/settings/SettingsPanel.vue";
+import { useWindowControls } from "./composables/useWindowControls";
 import { useProviderStore } from "./stores/providerStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import { applyTheme, observeSystemTheme } from "./utils/theme";
@@ -12,6 +13,7 @@ import { applyTheme, observeSystemTheme } from "./utils/theme";
 const currentView = ref<"widget" | "settings">("widget");
 const providerStore = useProviderStore();
 const settingsStore = useSettingsStore();
+const { applyOpacity } = useWindowControls();
 
 let unlistenRefresh: UnlistenFn | null = null;
 let unlistenSettings: UnlistenFn | null = null;
@@ -33,10 +35,14 @@ watch(() => settingsStore.settings.theme, syncTheme, { immediate: true });
 watch(() => settingsStore.settings.alwaysOnTop, () => {
   void syncAlwaysOnTop();
 });
+watch(() => settingsStore.settings.windowOpacity, (value) => {
+  void applyOpacity(value);
+});
 
 onMounted(async () => {
   await settingsStore.loadSettings();
   syncTheme();
+  await applyOpacity(settingsStore.settings.windowOpacity);
   await syncAlwaysOnTop();
 
   unlistenRefresh = await listen("tray-refresh", () => {

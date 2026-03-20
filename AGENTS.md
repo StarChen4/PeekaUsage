@@ -92,6 +92,54 @@
 - 图标文件命名统一为 `openai.*`、`anthropic.*`、`openrouter.*`
 - 后续替换图标优先只替换 `src/assets/provider-icons/` 中的资源文件
 
+### 6. 设置页移除供应商已改为应用内确认弹层
+
+文件：
+
+- `src/components/common/ConfirmDialog.vue`
+- `src/components/settings/ProviderConfig.vue`
+
+当前要求：
+
+- 不再使用 `window.confirm()` 原生确认框
+- 弹层必须走应用内样式
+- 弹层不显示标题，只显示说明和操作按钮
+- 弹层要能在小窗口中自适应，不能被设置卡片裁切
+- 弹层通过 `Teleport` 挂到 `body`
+
+### 7. 设置页下拉框已改为跨平台自定义组件
+
+文件：
+
+- `src/components/common/AppSelect.vue`
+- `src/components/settings/ProviderConfig.vue`
+- `src/components/settings/SettingsPanel.vue`
+
+当前要求：
+
+- 不要继续依赖原生 `<select>` 做核心设置交互
+- 暗黑模式下背景、边框、浮层风格必须与应用统一
+- “新增供应商”下拉项前必须显示供应商图标
+- 图标仍然统一通过 `ProviderIcon.vue` 渲染
+- 下拉浮层通过 `Teleport` 挂到 `body`
+- 要考虑 Windows、Linux、macOS 的一致性
+
+### 8. 设置页已支持透明度调节条
+
+文件：
+
+- `src/components/settings/SettingsPanel.vue`
+- `src/composables/useWindowControls.ts`
+- `src/App.vue`
+
+当前要求：
+
+- 设置页提供透明度滑杆
+- 拖动时即时预览，松手后持久化到 `windowOpacity`
+- 主界面右侧透明度拖拽把手与设置页滑杆共用同一套状态
+- 应用启动后要按保存的透明度恢复
+- 当前数值语义是“不透明度/可见度”：`100%` 表示完全不透明
+
 ## 先读哪些文件
 
 如果你是新的 coding agent，按这个顺序进入代码：
@@ -103,9 +151,13 @@
 5. `src-tauri/src/commands/provider_commands.rs`
 6. `src-tauri/src/commands/window_commands.rs`
 7. `src-tauri/src/tray/mod.rs`
-8. `src/components/widget/WidgetContainer.vue`
-9. `src/components/settings/ProviderConfig.vue`
-10. `src/components/settings/SettingsPanel.vue`
+8. `src/App.vue`
+9. `src/composables/useWindowControls.ts`
+10. `src/components/common/AppSelect.vue`
+11. `src/components/common/ConfirmDialog.vue`
+12. `src/components/widget/WidgetContainer.vue`
+13. `src/components/settings/ProviderConfig.vue`
+14. `src/components/settings/SettingsPanel.vue`
 
 ## 快速开发命令
 
@@ -131,19 +183,23 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `providers/mod.rs`：`ProviderManager`
 - `providers/subscription.rs`：OAuth 订阅查询
 - `commands/provider_commands.rs`：配置、用量、顺序保存
-- `commands/window_commands.rs`：OAuth 自动检测
+- `commands/window_commands.rs`：OAuth 自动检测、窗口透明度命令
 - `config/app_config.rs`：设置、供应商启停、`provider_order`
 - `tray/mod.rs`：托盘
 
 ### Vue
 
-- `App.vue`：widget/settings 视图切换
+- `App.vue`：widget/settings 视图切换、启动时同步主题与透明度
 - `useProviders.ts`：拉取和刷新编排
+- `useWindowControls.ts`：窗口隐藏、最小化、透明度同步
 - `providerStore`：主数据
 - `settingsStore`：设置数据
 - `ProviderIcon.vue`：供应商图标共享组件
+- `AppSelect.vue`：跨平台自定义下拉组件
+- `ConfirmDialog.vue`：应用内确认弹层
 - `WidgetContainer.vue`：主界面卡片和拖拽排序
 - `ProviderConfig.vue`：供应商设置卡片
+- `SettingsPanel.vue`：设置页容器、轮询间隔和透明度控件
 
 ## 核心约束
 
@@ -180,6 +236,20 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 空字符串保存要真正清掉凭据
 - 启用状态变化不能只停留在设置页
 
+### 下拉组件约束
+
+- 涉及核心交互的设置下拉，优先复用 `AppSelect.vue`
+- 不要为供应商选择继续写原生 `<select>`
+- 供应商选项中的图标必须继续走 `ProviderIcon.vue`
+- 小窗口下浮层不能被父容器裁切
+
+### 透明度约束
+
+- 透明度值持久化字段是 `windowOpacity`
+- 设置页滑杆和主界面拖拽把手必须保持同步
+- 拖动预览和最终保存要区分，避免每一帧都写配置
+- 文案如果使用“透明度”，要注意当前实际语义更接近“不透明度”
+
 ## 常见排查点
 
 ### 托盘异常
@@ -214,6 +284,42 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - disabled provider 是否还被主界面保留
 - 被清空的 token/key 是否仍在 keystore 中残留
 
+### 下拉框表现异常
+
+检查：
+
+- 是否误用了原生 `<select>`
+- `AppSelect.vue` 的浮层是否通过 `Teleport` 挂到 `body`
+- 暗黑模式样式是否仍在走应用 CSS 变量
+- 供应商选项是否通过 `ProviderIcon.vue` 显示图标
+
+### 透明度异常
+
+检查：
+
+- `windowOpacity` 是否成功保存到设置
+- `App.vue` 启动时是否调用了透明度同步
+- 设置页滑杆和 `useWindowControls.ts` 是否使用同一套状态
+- 主界面透明度把手调整后是否同步写回设置
+
+## 修改流程
+
+涉及功能改动时，默认按下面流程执行：
+
+1. 先改代码，不要只停留在分析。
+2. 如果改动影响已落地行为、交互、约束、组件入口或排查方式，必须同步更新 `AGENTS.md` 和 `CLAUDE.md`。
+3. 至少执行：
+   - `npx vue-tsc --noEmit`
+   - `cargo check`
+4. 如果改了交互，再补手动验证关键路径。
+5. 确认无误后再提交。
+
+额外要求：
+
+- 不要把“代码改了但文档没更新”的状态提交出去。
+- 不要把与本次任务无关的脏改动一并提交。
+- 提交信息要能准确描述这次改动是修复、优化还是重构。
+
 ## 每次提交前至少做的验证
 
 ```bash
@@ -227,3 +333,5 @@ cargo check
 - 设置保存反馈
 - 自动检测 OAuth
 - 主界面拖拽推挤和顺序持久化
+- 设置页自定义下拉在浅色/暗黑模式下的展开和关闭
+- 设置页透明度滑杆和主界面透明度把手是否同步

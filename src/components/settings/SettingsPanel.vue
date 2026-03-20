@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import type { ProviderConfigItem, ProviderId } from "../../types/provider";
 import type { PollingInterval } from "../../types/settings";
+import { useWindowControls } from "../../composables/useWindowControls";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
@@ -14,9 +15,11 @@ defineEmits<{
 
 const settingsStore = useSettingsStore();
 const providerStore = useProviderStore();
+const { updateOpacity } = useWindowControls();
 const providerConfigs = ref<ProviderConfigItem[]>([]);
 const supportedProviders = ref<ProviderConfigItem[]>([]);
 const creatingProviderId = ref<ProviderId | null>(null);
+const opacityDraft = ref(settingsStore.settings.windowOpacity);
 
 const pollingOptions: PollingInterval[] = [1, 2, 5, 10, 30];
 const pollingSelectOptions = computed(() => {
@@ -76,8 +79,24 @@ async function loadProviderData() {
 
 onMounted(loadProviderData);
 
+watch(() => settingsStore.settings.windowOpacity, (value) => {
+  opacityDraft.value = value;
+}, { immediate: true });
+
 async function onPollingChange(value: PollingInterval) {
   await settingsStore.saveSettings({ pollingInterval: value });
+}
+
+function onOpacityInput(event: Event) {
+  const value = parseInt((event.target as HTMLInputElement).value, 10);
+  opacityDraft.value = value;
+  void updateOpacity(value, false);
+}
+
+async function onOpacityChange(event: Event) {
+  const value = parseInt((event.target as HTMLInputElement).value, 10);
+  opacityDraft.value = value;
+  await updateOpacity(value, true);
 }
 
 async function reloadProviders() {
@@ -135,6 +154,23 @@ async function onProviderRemoved() {
             aria-label="轮询间隔"
             @update:model-value="onPollingChange($event as PollingInterval)"
           />
+        </div>
+        <div class="setting-row setting-row-slider">
+          <label for="window-opacity-range">透明度</label>
+          <div class="opacity-control">
+            <input
+              id="window-opacity-range"
+              class="opacity-range"
+              type="range"
+              min="10"
+              max="100"
+              step="1"
+              :value="opacityDraft"
+              @input="onOpacityInput"
+              @change="onOpacityChange"
+            />
+            <span class="opacity-value">{{ opacityDraft }}%</span>
+          </div>
         </div>
       </section>
 
@@ -249,9 +285,74 @@ async function onProviderRemoved() {
   font-size: 12px;
 }
 
+.setting-row-slider {
+  align-items: flex-start;
+}
+
 .polling-select {
   width: 112px;
   flex-shrink: 0;
+}
+
+.opacity-control {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.opacity-range {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  appearance: none;
+  border-radius: 999px;
+  background: var(--color-progress-track);
+  outline: none;
+}
+
+.opacity-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-primary-soft-bg), var(--color-primary));
+}
+
+.opacity-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -4px;
+  border-radius: 999px;
+  border: 1px solid var(--color-primary-soft-border);
+  background: var(--color-surface-hover);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+}
+
+.opacity-range::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  border: 0;
+  background: linear-gradient(90deg, var(--color-primary-soft-bg), var(--color-primary));
+}
+
+.opacity-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-primary-soft-border);
+  background: var(--color-surface-hover);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+}
+
+.opacity-value {
+  width: 42px;
+  flex-shrink: 0;
+  text-align: right;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .add-provider-btn {
