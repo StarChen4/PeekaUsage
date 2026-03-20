@@ -5,6 +5,7 @@ import { formatCurrency, calcUsagePercent } from "../../utils/formatters";
 import UsageProgressBar from "./UsageProgressBar.vue";
 import RateLimitBadge from "./RateLimitBadge.vue";
 import SubscriptionBadge from "./SubscriptionBadge.vue";
+import ProviderIcon from "../common/ProviderIcon.vue";
 
 const props = defineProps<{
   provider: UsageSummary;
@@ -25,7 +26,10 @@ const hasApiUsage = computed(() => !!props.provider.usage);
 <template>
   <div class="provider-card" :class="{ 'is-error': provider.status === 'error' }">
     <div class="card-header">
-      <span class="provider-name">{{ provider.displayName }}</span>
+      <div class="provider-title">
+        <ProviderIcon :provider-id="provider.providerId" :size="20" />
+        <span class="provider-name">{{ provider.displayName }}</span>
+      </div>
       <span v-if="provider.status === 'loading'" class="status-loading">⟳</span>
     </div>
 
@@ -92,12 +96,21 @@ const hasApiUsage = computed(() => !!props.provider.usage);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.provider-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .provider-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
+  line-height: 1.1;
 }
 
 .status-loading {

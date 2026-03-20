@@ -66,6 +66,22 @@
 - 排序持久化到 `provider_order`
 - 刷新和重启后维持顺序
 
+### 5. 供应商官方图标接入
+
+文件：
+
+- `src/components/common/ProviderIcon.vue`
+- `src/components/widget/ProviderCard.vue`
+- `src/components/settings/ProviderConfig.vue`
+- `src/assets/provider-icons/`
+
+当前行为：
+
+- 主界面和设置界面的供应商名称前都显示对应图标
+- 图标资源统一由本地静态文件提供
+- 图标文件命名约定为 `openai.*`、`anthropic.*`、`openrouter.*`
+- 后续替换图标时优先只改 `src/assets/provider-icons/` 下的资源
+
 ## 开发命令
 
 ```bash
@@ -137,6 +153,8 @@ export PATH="$PATH:$HOME/.cargo/bin"
 
 #### 主要组件
 
+- `src/components/common/ProviderIcon.vue`
+  - 统一渲染供应商图标
 - `src/components/widget/WidgetContainer.vue`
   - 渲染主界面卡片列表
   - 拖拽排序
@@ -146,6 +164,12 @@ export PATH="$PATH:$HOME/.cargo/bin"
   - 保存状态反馈
 - `src/components/settings/SettingsPanel.vue`
   - 设置页容器与保存编排
+
+#### 静态资源
+
+- `src/assets/provider-icons/`
+  - 供应商官方图标资源
+  - 当前已标准化命名，便于后续直接替换
 
 ## 当前数据流
 
@@ -241,6 +265,7 @@ WidgetContainer 拖拽结束
 - 不要假设 OpenAI OAuth token 一定是对象格式
 - 不要忘记设置页保存后要刷新前端 provider 数据
 - 不要只改前端排序，不改后端 `provider_order` 持久化
+- 不要在多个组件里各自硬编码图标路径，统一走 `ProviderIcon.vue`
 - 关闭窗口默认应隐藏到托盘，而不是退出
 - Tauri v2 的 `WebviewWindow` 没有 `set_opacity()`，透明度由前端控制
 

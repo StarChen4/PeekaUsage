@@ -3,6 +3,7 @@ import { onBeforeUnmount, ref, watch } from "vue";
 import type { ProviderConfigItem } from "../../types/provider";
 import ApiKeyInput from "./ApiKeyInput.vue";
 import { detectOAuthTokens, saveProviderConfig, validateApiKey } from "../../utils/ipc";
+import ProviderIcon from "../common/ProviderIcon.vue";
 
 const props = defineProps<{
   config: ProviderConfigItem;
@@ -238,7 +239,10 @@ async function onSave() {
     <div class="config-header">
       <label class="switch-label">
         <input type="checkbox" v-model="enabled" />
-        <span class="provider-name">{{ config.displayName }}</span>
+        <span class="provider-title">
+          <ProviderIcon :provider-id="config.providerId" :size="20" />
+          <span class="provider-name">{{ config.displayName }}</span>
+        </span>
       </label>
     </div>
 
@@ -372,8 +376,16 @@ async function onSave() {
   accent-color: var(--color-primary);
 }
 
+.provider-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .provider-name {
   font-weight: 600;
+  line-height: 1.1;
 }
 
 .config-body {

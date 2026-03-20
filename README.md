@@ -14,6 +14,7 @@
 - 支持在主界面拖动供应商卡片调整顺序，并在松手后持久化布局
 - 支持设置页启用/停用供应商后立即同步到主界面
 - 支持保存供应商配置时显示“保存中 / 成功 / 失败”反馈
+- 支持在主界面和设置界面显示供应商官方图标
 
 ## 最近更新
 
@@ -44,6 +45,13 @@
 - 拖动过程中其余卡片会实时推挤避让
 - 松手后会保存当前顺序
 - 刷新数据、切换设置、重启应用后仍保持同一顺序
+
+### 供应商图标
+
+- 主界面卡片和设置页卡片都已接入供应商官方图标
+- 图标资源统一放在 `src/assets/provider-icons`
+- 当前命名约定是 `openai.svg`、`anthropic.png`、`openrouter.jpeg`
+- 页面通过共享组件 `src/components/common/ProviderIcon.vue` 渲染
 
 ## 环境要求
 
@@ -134,12 +142,16 @@ cargo check
 src/
   App.vue                         根组件，处理 widget/settings 视图切换
   components/
+    common/
+      ProviderIcon.vue           供应商图标共享组件
     widget/
       WidgetContainer.vue         主界面卡片列表、拖拽排序、底部状态
       ProviderCard.vue            单个供应商卡片
     settings/
       SettingsPanel.vue           设置页容器
       ProviderConfig.vue          单个供应商设置卡片
+  assets/
+    provider-icons/              供应商官方图标资源
   composables/
     useProviders.ts               主数据初始化与刷新编排
     usePolling.ts                 自动轮询

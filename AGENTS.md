@@ -76,6 +76,22 @@
 - 排序写入 `provider_order`
 - 刷新和重启后顺序保持一致
 
+### 5. 供应商官方图标已接入
+
+文件：
+
+- `src/components/common/ProviderIcon.vue`
+- `src/components/widget/ProviderCard.vue`
+- `src/components/settings/ProviderConfig.vue`
+- `src/assets/provider-icons/`
+
+当前要求：
+
+- 主界面和设置界面的供应商名字前都显示图标
+- 图标路径统一走 `ProviderIcon.vue`
+- 图标文件命名统一为 `openai.*`、`anthropic.*`、`openrouter.*`
+- 后续替换图标优先只替换 `src/assets/provider-icons/` 中的资源文件
+
 ## 先读哪些文件
 
 如果你是新的 coding agent，按这个顺序进入代码：
@@ -125,6 +141,7 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `useProviders.ts`：拉取和刷新编排
 - `providerStore`：主数据
 - `settingsStore`：设置数据
+- `ProviderIcon.vue`：供应商图标共享组件
 - `WidgetContainer.vue`：主界面卡片和拖拽排序
 - `ProviderConfig.vue`：供应商设置卡片
 
@@ -144,6 +161,12 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 不要创建第二个托盘
 - 不要依赖 `tauri.conf.json` 自动托盘
 - 处理左键点击时要注意 `MouseButtonState::Up`
+
+### 图标约束
+
+- 不要在多个页面分别写图标逻辑
+- 统一通过 `ProviderIcon.vue` 渲染
+- 图标资源统一放在 `src/assets/provider-icons/`
 
 ### 排序约束
 
