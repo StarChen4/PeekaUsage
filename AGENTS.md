@@ -152,6 +152,22 @@
 - 返回入口使用左箭头图标按钮
 - 按钮尺寸、hover 和 focus 态要与应用整体风格一致
 
+### 10. GitHub 已接入 Windows Release 自动发布
+
+文件：
+
+- `.github/workflows/release.yml`
+- `package.json`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/Cargo.toml`
+
+当前要求：
+
+- 推送 `v*` 标签后自动构建并发布 Windows NSIS 安装包到 GitHub Release
+- 发布前必须校验 `package.json`、`tauri.conf.json`、`Cargo.toml` 三处版本号一致
+- 标签名必须与应用版本匹配，例如 `v0.1.0`
+- 当前发布链路只覆盖 Windows 安装包，不要误写成多平台都已发布
+
 ## 先读哪些文件
 
 如果你是新的 coding agent，按这个顺序进入代码：
@@ -179,6 +195,13 @@ npm run dev
 npm run tauri dev
 npx vue-tsc --noEmit
 cargo check
+```
+
+发 Windows Release 时使用：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
 如果 `cargo` 不在 PATH 中：
@@ -270,6 +293,13 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 能复用现有共享组件时，优先复用 `AppSelect.vue`、`ConfirmDialog.vue`、`ProviderIcon.vue`
 - 如果必须做平台差异处理，要先确认是否真的不可避免，并在文档中补充说明
 
+### 发版约束
+
+- 改版本号时，必须同步修改 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`
+- GitHub Release 的标签名必须使用 `v` 前缀并与应用版本完全一致
+- 当前自动发布只产出 Windows `nsis` 安装包
+- 如果后续要补 macOS、Linux 或自动更新，先更新文档再改流水线
+
 ## 常见排查点
 
 ### 托盘异常
@@ -321,6 +351,15 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - `App.vue` 启动时是否调用了透明度同步
 - 设置页滑杆和 `useWindowControls.ts` 是否使用同一套状态
 - 主界面透明度把手调整后是否同步写回设置
+
+### Release 发布异常
+
+检查：
+
+- `.github/workflows/release.yml` 是否仍然只在 `v*` 标签下触发
+- `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 版本号是否一致
+- 推送的标签是否与版本完全匹配，例如 `v0.1.0`
+- GitHub Actions 是否具有 `contents: write` 权限
 
 ## 修改流程
 

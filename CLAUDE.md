@@ -4,6 +4,8 @@
 
 - `src/components/settings/SettingsPanel.vue` 的设置页返回入口已改为左向箭头图标按钮，不再显示紫色文字按钮
 - 返回按钮的 `hover` 和 `focus` 交互态要继续跟随应用主题风格
+- GitHub Actions 已接入 Windows Release 自动发布，推送 `v*` 标签会构建并发布 NSIS 安装包
+- 发版前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 三处版本号一致
 
 ## 项目概览
 
@@ -346,6 +348,8 @@ WidgetContainer 拖拽结束
 - 不要让应用内弹层和浮层被父容器裁切，优先用 `Teleport`
 - 透明度现在由前端视觉层控制并通过 IPC 同步，Tauri v2 本身没有直接可用的 `WebviewWindow.set_opacity()`
 - 后续交互实现优先保证 Windows、Linux、macOS 的一致性，其次再考虑单平台捷径
+- 不要只改一个版本号文件就直接发版，`package.json`、`tauri.conf.json`、`Cargo.toml` 必须同步
+- 不要推送和版本号不一致的标签，Release 流水线会直接失败
 
 ## 常用排查入口
 
@@ -416,6 +420,12 @@ WidgetContainer 拖拽结束
 npx vue-tsc --noEmit
 cargo check
 ```
+
+涉及发版链路改动时，额外确认：
+
+- `.github/workflows/release.yml` 仍然只在 `v*` 标签触发
+- Windows runner 能成功执行 `npm ci` 和 Tauri 构建
+- Release 产物仍然是 `nsis` 安装包
 
 涉及交互改动时建议再手动验证：
 

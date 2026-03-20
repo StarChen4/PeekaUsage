@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-windows:
+    name: 发布 Windows 安装包
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装 Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 安装前端依赖
+        run: npm ci
+
+      - name: 校验标签与版本号
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $packageJson = Get-Content -Path "package.json" -Encoding utf8 | ConvertFrom-Json
+          $tauriConfig = Get-Content -Path "src-tauri/tauri.conf.json" -Encoding utf8 | ConvertFrom-Json
+          $cargoToml = Get-Content -Path "src-tauri/Cargo.toml" -Encoding utf8 -Raw
+
+          if ($cargoToml -notmatch '(?m)^version\s*=\s*"([^"]+)"') {
+            throw "无法从 src-tauri/Cargo.toml 解析版本号。"
+          }
+
+          $cargoVersion = $Matches[1]
+          $packageVersion = $packageJson.version
+          $tauriVersion = $tauriConfig.version
+          $expectedTag = "v$tauriVersion"
+
+          if ($packageVersion -ne $tauriVersion -or $cargoVersion -ne $tauriVersion) {
+            throw "版本号不同步。package.json=$packageVersion, tauri.conf.json=$tauriVersion, Cargo.toml=$cargoVersion"
+          }
+
+          if ($tag -ne $expectedTag) {
+            throw "标签与应用版本号不匹配。当前标签=$tag，期望标签=$expectedTag"
+          }
+
+      - name: 构建并发布 Windows 安装包
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: AI-Usage-Peek ${{ github.ref_name }}
+          releaseBody: Windows NSIS 安装包。
+          releaseDraft: false
+          prerelease: false

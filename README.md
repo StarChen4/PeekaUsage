@@ -107,6 +107,26 @@ src-tauri/src/
 - `npx vue-tsc --noEmit`
 - `cargo check`
 
+## 发布 Windows Release
+
+仓库现在已经接入 GitHub Actions 自动发布 Windows 安装包。
+
+当前规则：
+
+- 触发方式是推送 `v*` 标签，例如 `v0.1.0`
+- 发布产物是 Tauri `nsis` 安装包，会自动上传到 GitHub Release
+- 发布前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 的版本号必须一致
+- 标签名必须和应用版本一致，例如版本是 `0.1.0` 时，标签必须是 `v0.1.0`
+
+一个最小发版流程：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+如果你先改了版本号，再推标签，GitHub Actions 会自动构建并发布 Windows 安装包。
+
 ## License
 
 [MIT](./LICENSE)
