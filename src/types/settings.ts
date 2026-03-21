@@ -18,6 +18,7 @@ export interface PollingSettings {
 export interface AppSettings extends PollingSettings {
   providerPollingOverridesEnabled: boolean;
   providerPollingOverrides: Partial<Record<ProviderId, PollingSettings>>;
+  refreshOnSettingsClose: boolean;
   alwaysOnTop: boolean;
   launchAtStartup: boolean;
   windowOpacity: number;
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pollingUnit: "minutes",
   providerPollingOverridesEnabled: false,
   providerPollingOverrides: {},
+  refreshOnSettingsClose: false,
   alwaysOnTop: true,
   launchAtStartup: false,
   windowOpacity: 100,
@@ -92,6 +94,7 @@ export function normalizeAppSettings(settings: AppSettings): AppSettings {
     ...normalizePollingSettings(settings),
     providerPollingOverridesEnabled: !!settings.providerPollingOverridesEnabled,
     providerPollingOverrides: normalizeProviderPollingOverrides(settings.providerPollingOverrides),
+    refreshOnSettingsClose: !!settings.refreshOnSettingsClose,
   };
 }
 

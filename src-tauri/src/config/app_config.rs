@@ -17,6 +17,8 @@ pub struct AppSettings {
     pub provider_polling_overrides_enabled: bool,
     #[serde(default)]
     pub provider_polling_overrides: HashMap<String, PollingSettings>,
+    #[serde(default)]
+    pub refresh_on_settings_close: bool,
     pub always_on_top: bool,
     pub launch_at_startup: bool,
     pub window_opacity: f64,
@@ -83,6 +85,7 @@ impl Default for AppSettings {
             polling_unit: PollingUnit::default(),
             provider_polling_overrides_enabled: false,
             provider_polling_overrides: HashMap::new(),
+            refresh_on_settings_close: false,
             always_on_top: true,
             launch_at_startup: false,
             window_opacity: 100.0,

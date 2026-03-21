@@ -3,11 +3,12 @@
 ## 补充更新
 
 - `src/components/settings/SettingsPanel.vue` 的刷新设置已支持“自动刷新 / 仅手动”切换，自动模式下可自定义数值并选择按秒或按分钟
-- 刷新相关持久化字段现在是 `pollingMode`、`pollingInterval`、`pollingUnit`、`providerPollingOverridesEnabled`、`providerPollingOverrides`
+- 刷新相关持久化字段现在是 `pollingMode`、`pollingInterval`、`pollingUnit`、`providerPollingOverridesEnabled`、`providerPollingOverrides`、`refreshOnSettingsClose`
 - 设置页高级区域可开启按供应商独立刷新；开启后会按已配置供应商显示单独策略，且主界面每张供应商卡片右上角都有单独刷新按钮
 - 旧配置缺少新字段时继续按“5 分钟自动刷新”兼容
 - `src/components/settings/SettingsPanel.vue` 的设置页返回入口已改为左向箭头图标按钮，不再显示紫色文字按钮
 - 返回按钮的 `hover` 和 `focus` 交互态要继续跟随应用主题风格
+- 设置页“通用”里新增了“返回时刷新主界面”开关，默认关闭；只有勾选后，从设置返回主界面才会触发一次全部供应商刷新
 - GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` / `arm64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
 - 发版前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 三处版本号一致
 
@@ -139,6 +140,7 @@
 - 自动刷新支持自定义数值，并可选择按秒或按分钟
 - 选择“仅手动”后不会继续启动定时轮询
 - 设置页里的刷新配置使用紧凑分段按钮和窄输入框，减少小浮窗中的占位
+- 设置页“通用”里额外提供“返回时刷新主界面”开关，默认关闭
 - 设置页高级区域可开启“按供应商独立刷新”，开启后按已配置供应商展示单独策略
 - 分供应商策略支持自动 / 手动、秒 / 分和自定义数值；未单独修改时沿用全局策略
 - 主界面每张供应商卡片右上角都有单独刷新按钮，只刷新当前供应商
@@ -322,6 +324,7 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `src/components/settings/SettingsPanel.vue`
   - 设置页容器
   - 全局刷新设置
+  - 返回时刷新主界面开关
   - 高级分供应商刷新设置
   - 透明度调节条
 
@@ -407,6 +410,7 @@ WidgetContainer 拖拽结束
 - `pollingUnit`
 - `providerPollingOverridesEnabled`
 - `providerPollingOverrides`
+- `refreshOnSettingsClose`
 
 ### OAuth 凭据位置
 
@@ -443,6 +447,7 @@ WidgetContainer 拖拽结束
 - 不要让应用内弹层和浮层被父容器裁切，优先用 `Teleport`
 - 不要再把 `pollingInterval` 固定理解成“分钟”，现在必须结合 `pollingMode` / `pollingUnit`
 - 不要再假设轮询只有一个全局定时器；分供应商策略开启后必须按供应商独立调度
+- 不要假设从设置返回一定刷新；是否刷新取决于 `refreshOnSettingsClose`
 - 透明度现在由前端视觉层控制并通过 IPC 同步，Tauri v2 本身没有直接可用的 `WebviewWindow.set_opacity()`
 - 后续交互实现优先保证 Windows、Linux、macOS 的一致性，其次再考虑单平台捷径
 - `identifier` 会影响应用数据目录，品牌改名时不能只改显示名，必须处理旧数据迁移
@@ -525,6 +530,7 @@ WidgetContainer 拖拽结束
 - 当前是否误处于 `pollingMode = manual`
 - `pollingUnit` 是否按 `seconds` / `minutes` 正确换算
 - `providerPollingOverridesEnabled` 是否开启且覆盖项是否写到了对应供应商
+- `refreshOnSettingsClose` 是否正确保存，且返回设置时是否只在勾选后触发 `refreshAll()`
 - 设置切换后 `usePolling.ts` 是否按供应商重建或停止了定时器
 - 单卡片刷新按钮是否只调用了当前供应商的 `refreshProvider`
 - 旧配置缺少新字段时是否仍按“5 分钟自动刷新”兼容
@@ -569,6 +575,7 @@ cargo check
 - OAuth 自动检测
 - 主界面拖拽推挤、松手保存、重启后顺序保持
 - 设置页全局刷新、分供应商刷新、秒/分钟切换和“仅手动”是否按预期生效
+- 设置页“返回时刷新主界面”开关在默认关闭和开启后两种情况下是否都符合预期
 - 主界面卡片右上角单独刷新按钮是否只刷新当前供应商
 - 自定义下拉在浅色/暗黑模式下的打开、关闭、键盘导航
 - 设置页透明度滑杆与主界面透明度把手的同步

@@ -168,12 +168,17 @@
 文件：
 
 - `src/components/settings/SettingsPanel.vue`
+- `src/App.vue`
+- `src/types/settings.ts`
 
 当前要求：
 
 - 不再显示紫色“返回”文字按钮
 - 返回入口使用左箭头图标按钮
 - 按钮尺寸、hover 和 focus 态要与应用整体风格一致
+- “从设置返回时刷新主界面” 现在是设置页“通用”里的可勾选项
+- 持久化字段是 `refreshOnSettingsClose`
+- 默认不勾选；只有勾选后，从设置返回主界面才会触发一次全部供应商刷新
 
 ### 11. GitHub 已接入 Windows Release 自动发布
 
@@ -360,7 +365,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 
 ### 轮询约束
 
-- 刷新相关持久化字段是 `pollingMode`、`pollingInterval`、`pollingUnit`、`providerPollingOverridesEnabled`、`providerPollingOverrides`
+- 刷新相关持久化字段是 `pollingMode`、`pollingInterval`、`pollingUnit`、`providerPollingOverridesEnabled`、`providerPollingOverrides`、`refreshOnSettingsClose`
 - `pollingMode = manual` 时不能继续启动自动轮询
 - 秒和分钟都属于自动刷新模式，不要再把 `pollingInterval` 固定解释成“分钟”
 - 分供应商定时器要按每个供应商的生效策略独立调度，不能继续假设全局只有一个定时器
@@ -444,6 +449,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - `pollingMode` 当前是不是 `manual`
 - `pollingUnit` 是否被正确解释为 `seconds` 或 `minutes`
 - `providerPollingOverridesEnabled` 是否已开启且 `providerPollingOverrides` 是否写入了预期供应商
+- `refreshOnSettingsClose` 是否按预期保存；未勾选时，从设置返回不应额外触发刷新
 - `usePolling.ts` 是否按供应商重建、停止了对应定时器
 - 卡片右上角单独刷新按钮是否调用了 `refreshProvider`
 - 应用启动时旧配置是否被兼容成“5 分钟自动刷新”
@@ -506,6 +512,7 @@ cargo check
 - 自动检测 OAuth
 - 主界面拖拽推挤和顺序持久化
 - 设置页全局刷新、分供应商刷新、秒/分钟切换和“仅手动”是否按预期生效
+- 设置页“返回时刷新主界面”开关在勾选和未勾选两种情况下是否都符合预期
 - 主界面卡片右上角单独刷新按钮是否只刷新当前供应商
 - 设置页自定义下拉在浅色/暗黑模式下的展开和关闭
 - 设置页透明度滑杆和主界面透明度把手是否同步

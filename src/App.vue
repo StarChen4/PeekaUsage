@@ -19,6 +19,14 @@ let unlistenRefresh: UnlistenFn | null = null;
 let unlistenSettings: UnlistenFn | null = null;
 let stopObservingSystemTheme: (() => void) | null = null;
 
+function handleBackFromSettings() {
+  currentView.value = "widget";
+
+  if (settingsStore.settings.refreshOnSettingsClose) {
+    void providerStore.refreshAll();
+  }
+}
+
 function syncTheme() {
   applyTheme(settingsStore.settings.theme);
 }
@@ -74,6 +82,6 @@ onUnmounted(() => {
   />
   <SettingsPanel
     v-else
-    @back="currentView = 'widget'"
+    @back="handleBackFromSettings"
   />
 </template>

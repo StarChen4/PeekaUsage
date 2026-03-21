@@ -3,6 +3,8 @@ import { useProviderStore } from "../stores/providerStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { usePolling } from "./usePolling";
 
+let hasInitializedProviders = false;
+
 export function useProviders() {
   const providerStore = useProviderStore();
   const settingsStore = useSettingsStore();
@@ -10,7 +12,12 @@ export function useProviders() {
 
   onMounted(async () => {
     await settingsStore.loadSettings();
-    await providerStore.refreshAll();
+
+    if (!hasInitializedProviders) {
+      await providerStore.refreshAll();
+      hasInitializedProviders = true;
+    }
+
     polling.start();
   });
 

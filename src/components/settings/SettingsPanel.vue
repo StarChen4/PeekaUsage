@@ -131,6 +131,11 @@ async function onProviderPollingOverridesEnabledChange(event: Event) {
   await settingsStore.saveSettings({ providerPollingOverridesEnabled: checked });
 }
 
+async function onRefreshOnSettingsCloseChange(event: Event) {
+  const checked = (event.target as HTMLInputElement).checked;
+  await settingsStore.saveSettings({ refreshOnSettingsClose: checked });
+}
+
 function onPollingIntervalInput(event: Event) {
   pollingIntervalDraft.value = (event.target as HTMLInputElement).value;
 }
@@ -368,6 +373,21 @@ async function onProviderRemoved() {
             <span class="opacity-value">{{ opacityDraft }}%</span>
           </div>
         </div>
+        <label class="setting-row setting-row-toggle">
+          <span class="setting-copy">
+            <span class="setting-label">返回时刷新主界面</span>
+            <span class="setting-hint">从设置页返回主界面后，立即刷新所有供应商数据。</span>
+          </span>
+          <span class="switch">
+            <input
+              class="switch-input"
+              type="checkbox"
+              :checked="settingsStore.settings.refreshOnSettingsClose"
+              @change="onRefreshOnSettingsCloseChange"
+            >
+            <span class="switch-track" />
+          </span>
+        </label>
       </section>
 
       <section class="settings-section">
@@ -609,6 +629,27 @@ async function onProviderRemoved() {
 
 .setting-row-slider {
   align-items: flex-start;
+}
+
+.setting-row-toggle {
+  align-items: flex-start;
+}
+
+.setting-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.setting-label {
+  color: var(--color-text);
+}
+
+.setting-hint {
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--color-text-secondary);
 }
 
 .advanced-toggle {
