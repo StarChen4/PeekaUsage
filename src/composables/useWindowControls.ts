@@ -1,10 +1,21 @@
-import { ref } from "vue";
+import { create } from "zustand";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { setWindowOpacity } from "../utils/ipc";
 import { useSettingsStore } from "../stores/settingsStore";
 
-const opacity = ref(100);
-const isDraggingOpacity = ref(false);
+type WindowControlsState = {
+  opacity: number;
+  isDraggingOpacity: boolean;
+  setOpacityState: (value: number) => void;
+  setDraggingOpacity: (value: boolean) => void;
+};
+
+const useWindowControlsStore = create<WindowControlsState>((set) => ({
+  opacity: 100,
+  isDraggingOpacity: false,
+  setOpacityState: (value) => set({ opacity: value }),
+  setDraggingOpacity: (value) => set({ isDraggingOpacity: value }),
+}));
 
 function clampOpacity(value: number) {
   return Math.max(10, Math.min(100, Math.round(value)));
@@ -12,7 +23,7 @@ function clampOpacity(value: number) {
 
 async function applyOpacity(value: number) {
   const clamped = clampOpacity(value);
-  opacity.value = clamped;
+  useWindowControlsStore.getState().setOpacityState(clamped);
 
   const appEl = document.getElementById("app");
   if (appEl) {
@@ -24,7 +35,8 @@ async function applyOpacity(value: number) {
 }
 
 export function useWindowControls() {
-  const settingsStore = useSettingsStore();
+  const opacity = useWindowControlsStore((state) => state.opacity);
+  const isDraggingOpacity = useWindowControlsStore((state) => state.isDraggingOpacity);
 
   async function hideWindow() {
     await getCurrentWindow().hide();
@@ -41,16 +53,16 @@ export function useWindowControls() {
   async function updateOpacity(value: number, persist = false) {
     const clamped = await applyOpacity(value);
 
-    if (persist && settingsStore.settings.windowOpacity !== clamped) {
-      await settingsStore.saveSettings({ windowOpacity: clamped });
+    if (persist && useSettingsStore.getState().settings.windowOpacity !== clamped) {
+      await useSettingsStore.getState().saveSettings({ windowOpacity: clamped });
     }
 
     return clamped;
   }
 
   function startOpacityDrag(startY: number) {
-    isDraggingOpacity.value = true;
-    const startOpacity = opacity.value;
+    useWindowControlsStore.getState().setDraggingOpacity(true);
+    const startOpacity = useWindowControlsStore.getState().opacity;
     let lastOpacity = startOpacity;
 
     function onMouseMove(event: MouseEvent) {
@@ -61,7 +73,7 @@ export function useWindowControls() {
     }
 
     function onMouseUp() {
-      isDraggingOpacity.value = false;
+      useWindowControlsStore.getState().setDraggingOpacity(false);
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
       void updateOpacity(lastOpacity, true);

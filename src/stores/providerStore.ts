@@ -1,74 +1,90 @@
-import { defineStore } from "pinia";
-import { ref } from "vue";
-import type { UsageSummary, ProviderId } from "../types/provider";
+import { create } from "zustand";
+import type { ProviderId, UsageSummary } from "../types/provider";
 import { fetchAllUsage, fetchProviderUsage } from "../utils/ipc";
 
-export const useProviderStore = defineStore("provider", () => {
-  const providers = ref<UsageSummary[]>([]);
-  const isRefreshing = ref(false);
-  const refreshingProviders = ref<Partial<Record<ProviderId, boolean>>>({});
-  const lastError = ref<string | null>(null);
+type ProviderStoreState = {
+  providers: UsageSummary[];
+  isRefreshing: boolean;
+  refreshingProviders: Partial<Record<ProviderId, boolean>>;
+  lastError: string | null;
+  refreshAll: () => Promise<void>;
+  refreshProvider: (providerId: ProviderId) => Promise<void>;
+  isProviderRefreshing: (providerId: ProviderId) => boolean;
+};
 
-  /** 刷新所有供应商数据 */
-  async function refreshAll() {
-    if (isRefreshing.value) return;
-    isRefreshing.value = true;
-    lastError.value = null;
-    try {
-      providers.value = await fetchAllUsage();
-    } catch (e: any) {
-      lastError.value = e?.toString() ?? "未知错误";
-    } finally {
-      isRefreshing.value = false;
-    }
-  }
+export const useProviderStore = create<ProviderStoreState>((set, get) => ({
+  providers: [],
+  isRefreshing: false,
+  refreshingProviders: {},
+  lastError: null,
 
-  /** 刷新单个供应商 */
-  async function refreshProvider(providerId: ProviderId) {
-    if (isRefreshing.value || refreshingProviders.value[providerId]) {
+  async refreshAll() {
+    if (get().isRefreshing) {
       return;
     }
 
-    refreshingProviders.value = {
-      ...refreshingProviders.value,
-      [providerId]: true,
-    };
+    set({
+      isRefreshing: true,
+      lastError: null,
+    });
+
+    try {
+      const providers = await fetchAllUsage();
+      set({
+        providers,
+        isRefreshing: false,
+      });
+    } catch (error: unknown) {
+      set({
+        isRefreshing: false,
+        lastError: error instanceof Error ? error.toString() : "未知错误",
+      });
+    }
+  },
+
+  async refreshProvider(providerId: ProviderId) {
+    const state = get();
+    if (state.isRefreshing || state.refreshingProviders[providerId]) {
+      return;
+    }
+
+    set({
+      refreshingProviders: {
+        ...state.refreshingProviders,
+        [providerId]: true,
+      },
+    });
 
     try {
       const updated = await fetchProviderUsage(providerId);
-      const idx = providers.value.findIndex((p) => p.providerId === providerId);
-      if (idx >= 0) {
-        providers.value[idx] = updated;
+      const nextProviders = [...get().providers];
+      const index = nextProviders.findIndex((provider) => provider.providerId === providerId);
+
+      if (index >= 0) {
+        nextProviders[index] = updated;
       } else {
-        providers.value.push(updated);
+        nextProviders.push(updated);
       }
-    } catch (e: any) {
-      lastError.value = e?.toString() ?? "未知错误";
+
+      set({
+        providers: nextProviders,
+      });
+    } catch (error: unknown) {
+      set({
+        lastError: error instanceof Error ? error.toString() : "未知错误",
+      });
     } finally {
-      refreshingProviders.value = {
-        ...refreshingProviders.value,
-        [providerId]: false,
-      };
+      set((current) => ({
+        refreshingProviders: {
+          ...current.refreshingProviders,
+          [providerId]: false,
+        },
+      }));
     }
-  }
+  },
 
-  /** 获取已启用的供应商 */
-  function enabledProviders() {
-    return providers.value.filter((p) => p.enabled);
-  }
-
-  function isProviderRefreshing(providerId: ProviderId) {
-    return isRefreshing.value || !!refreshingProviders.value[providerId];
-  }
-
-  return {
-    providers,
-    isRefreshing,
-    refreshingProviders,
-    lastError,
-    refreshAll,
-    refreshProvider,
-    enabledProviders,
-    isProviderRefreshing,
-  };
-});
+  isProviderRefreshing(providerId: ProviderId) {
+    const state = get();
+    return state.isRefreshing || !!state.refreshingProviders[providerId];
+  },
+}));

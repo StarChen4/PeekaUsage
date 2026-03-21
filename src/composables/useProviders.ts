@@ -1,37 +1,51 @@
-import { onMounted } from "vue";
+import { useEffect } from "react";
+import type { ProviderId } from "../types/provider";
+import { usePolling } from "./usePolling";
 import { useProviderStore } from "../stores/providerStore";
 import { useSettingsStore } from "../stores/settingsStore";
-import { usePolling } from "./usePolling";
 
 let hasInitializedProviders = false;
 
 export function useProviders() {
-  const providerStore = useProviderStore();
-  const settingsStore = useSettingsStore();
+  const providers = useProviderStore((state) => state.providers);
+  const isRefreshing = useProviderStore((state) => state.isRefreshing);
+  const refreshingProviders = useProviderStore((state) => state.refreshingProviders);
   const polling = usePolling();
 
-  onMounted(async () => {
-    await settingsStore.loadSettings();
+  useEffect(() => {
+    let active = true;
 
-    if (!hasInitializedProviders) {
-      await providerStore.refreshAll();
-      hasInitializedProviders = true;
-    }
+    void (async () => {
+      await useSettingsStore.getState().loadSettings();
 
-    polling.start();
-  });
+      if (!hasInitializedProviders) {
+        await useProviderStore.getState().refreshAll();
+        hasInitializedProviders = true;
+      }
+
+      if (active) {
+        polling.start();
+      }
+    })();
+
+    return () => {
+      active = false;
+      polling.stop();
+    };
+  }, []);
 
   async function manualRefresh() {
-    await providerStore.refreshAll();
+    await useProviderStore.getState().refreshAll();
   }
 
-  async function manualRefreshProvider(providerId: Parameters<typeof providerStore.refreshProvider>[0]) {
-    await providerStore.refreshProvider(providerId);
+  async function manualRefreshProvider(providerId: ProviderId) {
+    await useProviderStore.getState().refreshProvider(providerId);
   }
 
   return {
-    providerStore,
-    settingsStore,
+    providers,
+    isRefreshing,
+    refreshingProviders,
     polling,
     manualRefresh,
     manualRefreshProvider,

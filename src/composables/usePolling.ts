@@ -1,29 +1,29 @@
-import { ref, watch, onUnmounted } from "vue";
-import { useSettingsStore } from "../stores/settingsStore";
-import { useProviderStore } from "../stores/providerStore";
+import { useEffect, useRef, useState } from "react";
 import type { ProviderId } from "../types/provider";
 import {
   getEffectivePollingSettings,
   getPollingIntervalMs,
 } from "../types/settings";
+import { useProviderStore } from "../stores/providerStore";
+import { useSettingsStore } from "../stores/settingsStore";
 
 export function usePolling() {
-  const settingsStore = useSettingsStore();
-  const providerStore = useProviderStore();
-  const isActive = ref(false);
-  const shouldRun = ref(false);
-  const timers = new Map<ProviderId, ReturnType<typeof setInterval>>();
+  const [isActive, setIsActive] = useState(false);
+  const shouldRunRef = useRef(false);
+  const timersRef = useRef(new Map<ProviderId, ReturnType<typeof setInterval>>());
+  const providers = useProviderStore((state) => state.providers);
+  const settings = useSettingsStore((state) => state.settings);
 
   function clearTimer(providerId: ProviderId) {
-    const timer = timers.get(providerId);
+    const timer = timersRef.current.get(providerId);
     if (timer) {
       clearInterval(timer);
-      timers.delete(providerId);
+      timersRef.current.delete(providerId);
     }
   }
 
   function clearAllTimers() {
-    for (const providerId of timers.keys()) {
+    for (const providerId of timersRef.current.keys()) {
       clearTimer(providerId);
     }
   }
@@ -31,70 +31,62 @@ export function usePolling() {
   function syncTimers() {
     clearAllTimers();
 
-    if (!shouldRun.value) {
-      isActive.value = false;
+    if (!shouldRunRef.current) {
+      setIsActive(false);
       return;
     }
 
-    const enabledProviders = providerStore.enabledProviders();
+    const enabledProviders = useProviderStore.getState().providers.filter((provider) => provider.enabled);
+    const currentSettings = useSettingsStore.getState().settings;
 
     for (const provider of enabledProviders) {
       const pollingSettings = getEffectivePollingSettings(
-        settingsStore.settings,
+        currentSettings,
         provider.providerId,
       );
       const intervalMs = getPollingIntervalMs(pollingSettings);
+
       if (intervalMs === null) {
         continue;
       }
 
       const providerId = provider.providerId;
-      timers.set(providerId, setInterval(() => {
-        void providerStore.refreshProvider(providerId);
-      }, intervalMs));
+      timersRef.current.set(
+        providerId,
+        setInterval(() => {
+          void useProviderStore.getState().refreshProvider(providerId);
+        }, intervalMs),
+      );
     }
 
-    isActive.value = timers.size > 0;
+    setIsActive(timersRef.current.size > 0);
   }
 
   function start() {
-    shouldRun.value = true;
+    shouldRunRef.current = true;
     syncTimers();
   }
 
   function stop() {
-    shouldRun.value = false;
+    shouldRunRef.current = false;
     clearAllTimers();
-    isActive.value = false;
+    setIsActive(false);
   }
 
-  watch(
-    () => JSON.stringify({
-      pollingInterval: settingsStore.settings.pollingInterval,
-      pollingMode: settingsStore.settings.pollingMode,
-      pollingUnit: settingsStore.settings.pollingUnit,
-      providerPollingOverridesEnabled: settingsStore.settings.providerPollingOverridesEnabled,
-      providerPollingOverrides: settingsStore.settings.providerPollingOverrides,
-    }),
-    () => {
-      if (shouldRun.value) {
-        syncTimers();
-      }
-    },
-  );
+  useEffect(() => {
+    if (shouldRunRef.current) {
+      syncTimers();
+    }
+  }, [
+    providers,
+    settings.pollingInterval,
+    settings.pollingMode,
+    settings.pollingUnit,
+    settings.providerPollingOverridesEnabled,
+    settings.providerPollingOverrides,
+  ]);
 
-  watch(
-    () => providerStore.providers
-      .map((provider) => `${provider.providerId}:${provider.enabled}`)
-      .join("|"),
-    () => {
-      if (shouldRun.value) {
-        syncTimers();
-      }
-    },
-  );
-
-  onUnmounted(stop);
+  useEffect(() => stop, []);
 
   return { isActive, start, stop };
 }

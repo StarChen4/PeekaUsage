@@ -1,5 +1,4 @@
-import { defineStore } from "pinia";
-import { ref } from "vue";
+import { create } from "zustand";
 import type { AppSettings } from "../types/settings";
 import {
   DEFAULT_SETTINGS,
@@ -7,14 +6,21 @@ import {
 } from "../types/settings";
 import { getSettings, saveSettings as ipcSaveSettings } from "../utils/ipc";
 
-export const useSettingsStore = defineStore("settings", () => {
-  const settings = ref<AppSettings>({ ...DEFAULT_SETTINGS });
-  const loaded = ref(false);
-  let loadingPromise: Promise<void> | null = null;
+type SettingsStoreState = {
+  settings: AppSettings;
+  loaded: boolean;
+  loadSettings: (force?: boolean) => Promise<void>;
+  saveSettings: (newSettings: Partial<AppSettings>) => Promise<void>;
+};
 
-  /** 从后端加载设置 */
-  async function loadSettings(force = false) {
-    if (loaded.value && !force) {
+let loadingPromise: Promise<void> | null = null;
+
+export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
+  settings: { ...DEFAULT_SETTINGS },
+  loaded: false,
+
+  async loadSettings(force = false) {
+    if (get().loaded && !force) {
       return;
     }
 
@@ -25,7 +31,7 @@ export const useSettingsStore = defineStore("settings", () => {
     loadingPromise = (async () => {
       try {
         const remoteSettings = await getSettings();
-        settings.value = normalizeAppSettings({
+        const normalized = normalizeAppSettings({
           ...DEFAULT_SETTINGS,
           ...remoteSettings,
           providerCardExpanded: {
@@ -37,10 +43,17 @@ export const useSettingsStore = defineStore("settings", () => {
             ...remoteSettings.providerPollingOverrides,
           },
         });
+
+        set({
+          settings: normalized,
+          loaded: true,
+        });
       } catch {
-        settings.value = { ...DEFAULT_SETTINGS };
+        set({
+          settings: { ...DEFAULT_SETTINGS },
+          loaded: true,
+        });
       }
-      loaded.value = true;
     })();
 
     try {
@@ -48,25 +61,23 @@ export const useSettingsStore = defineStore("settings", () => {
     } finally {
       loadingPromise = null;
     }
-  }
+  },
 
-  /** 保存设置到后端 */
-  async function saveSettings(newSettings: Partial<AppSettings>) {
-    settings.value = normalizeAppSettings({
-      ...settings.value,
+  async saveSettings(newSettings: Partial<AppSettings>) {
+    const currentSettings = get().settings;
+    const nextSettings = normalizeAppSettings({
+      ...currentSettings,
       ...newSettings,
       providerPollingOverrides: {
-        ...settings.value.providerPollingOverrides,
+        ...currentSettings.providerPollingOverrides,
         ...newSettings.providerPollingOverrides,
       },
     });
-    await ipcSaveSettings(settings.value);
-  }
 
-  return {
-    settings,
-    loaded,
-    loadSettings,
-    saveSettings,
-  };
-});
+    set({
+      settings: nextSettings,
+    });
+
+    await ipcSaveSettings(nextSettings);
+  },
+}));

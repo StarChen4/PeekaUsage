@@ -1,12 +1,12 @@
-# CLAUDE.md - AI 用量监控桌面浮窗
+﻿# CLAUDE.md - AI 用量监控桌面浮窗
 
 ## 补充更新
 
-- `src/components/settings/SettingsPanel.vue` 的刷新设置已支持“自动刷新 / 仅手动”切换，自动模式下可自定义数值并选择按秒或按分钟
+- `src/components/settings/SettingsPanel.tsx` 的刷新设置已支持“自动刷新 / 仅手动”切换，自动模式下可自定义数值并选择按秒或按分钟
 - 刷新相关持久化字段现在是 `pollingMode`、`pollingInterval`、`pollingUnit`、`providerPollingOverridesEnabled`、`providerPollingOverrides`、`refreshOnSettingsClose`
 - 设置页高级区域可开启按供应商独立刷新；开启后会按已配置供应商显示单独策略，且主界面每张供应商卡片右上角都有单独刷新按钮
 - 旧配置缺少新字段时继续按“5 分钟自动刷新”兼容
-- `src/components/settings/SettingsPanel.vue` 的设置页返回入口已改为左向箭头图标按钮，不再显示紫色文字按钮
+- `src/components/settings/SettingsPanel.tsx` 的设置页返回入口已改为左向箭头图标按钮，不再显示紫色文字按钮
 - 返回按钮的 `hover` 和 `focus` 交互态要继续跟随应用主题风格
 - 设置页“通用”里新增了“返回时刷新主界面”开关，默认关闭；只有勾选后，从设置返回主界面才会触发一次全部供应商刷新
 - 设置页“通用”里已新增语言选择，顺序固定为“简体中文”“繁體中文”“English”，持久化字段是 `language`
@@ -19,8 +19,8 @@
 这是一个 Tauri v2 桌面应用，用于监控 OpenAI、Anthropic、OpenRouter 的 API 用量与订阅计划消耗。
 
 - Rust 后端负责 provider 请求、配置持久化、密钥存储、托盘和窗口命令
-- Vue 3 前端负责主界面、设置页、轮询和交互动画
-- 当前 UI 是单窗口浮窗形态，在 `App.vue` 内部切换 `widget / settings`
+- React 前端负责主界面、设置页、轮询和交互动画
+- 当前 UI 是单窗口浮窗形态，在 `App.tsx` 内部切换 `widget / settings`
 
 ## 最近已落地的更新
 
@@ -39,8 +39,8 @@
 
 文件：
 
-- `src/components/settings/ProviderConfig.vue`
-- `src/components/settings/SettingsPanel.vue`
+- `src/components/settings/ProviderConfig.tsx`
+- `src/components/settings/SettingsPanel.tsx`
 - `src-tauri/src/commands/provider_commands.rs`
 
 当前行为：
@@ -67,7 +67,7 @@
 
 文件：
 
-- `src/components/widget/WidgetContainer.vue`
+- `src/components/widget/WidgetContainer.tsx`
 - `src-tauri/src/config/app_config.rs`
 - `src-tauri/src/commands/provider_commands.rs`
 - `src/utils/ipc.ts`
@@ -83,9 +83,9 @@
 
 文件：
 
-- `src/components/common/ProviderIcon.vue`
-- `src/components/widget/ProviderCard.vue`
-- `src/components/settings/ProviderConfig.vue`
+- `src/components/common/ProviderIcon.tsx`
+- `src/components/widget/ProviderCard.tsx`
+- `src/components/settings/ProviderConfig.tsx`
 - `src/assets/provider-icons/`
 
 当前行为：
@@ -99,38 +99,38 @@
 
 文件：
 
-- `src/components/common/ConfirmDialog.vue`
-- `src/components/settings/ProviderConfig.vue`
+- `src/components/common/ConfirmDialog.tsx`
+- `src/components/settings/ProviderConfig.tsx`
 
 当前行为：
 
 - 不再使用 `window.confirm()`
 - 弹层风格与应用主题一致
-- 弹层通过 `Teleport` 挂到 `body`
+- 弹层通过 `React portal` 挂到 `body`
 - 小窗口下不会再被设置卡片裁切
 
 ### 7. 设置页下拉已改为跨平台自定义组件
 
 文件：
 
-- `src/components/common/AppSelect.vue`
-- `src/components/settings/ProviderConfig.vue`
-- `src/components/settings/SettingsPanel.vue`
+- `src/components/common/AppSelect.tsx`
+- `src/components/settings/ProviderConfig.tsx`
+- `src/components/settings/SettingsPanel.tsx`
 
 当前行为：
 
 - 设置页不再依赖原生 `<select>` 做核心交互
 - 暗黑模式下背景、边框、浮层风格统一走应用主题
 - “新增供应商”下拉的选项中显示供应商图标
-- 浮层支持 `Teleport`、键盘导航、点击外部关闭
+- 浮层支持 `React portal`、键盘导航、点击外部关闭
 - 这套实现优先面向 Windows、Linux、macOS 的一致性
 
 ### 8. 刷新设置已支持秒 / 分钟 / 仅手动
 
 文件：
 
-- `src/components/settings/SettingsPanel.vue`
-- `src/components/widget/ProviderCard.vue`
+- `src/components/settings/SettingsPanel.tsx`
+- `src/components/widget/ProviderCard.tsx`
 - `src/composables/usePolling.ts`
 - `src/composables/useProviders.ts`
 - `src/types/settings.ts`
@@ -153,9 +153,9 @@
 
 文件：
 
-- `src/components/settings/SettingsPanel.vue`
+- `src/components/settings/SettingsPanel.tsx`
 - `src/composables/useWindowControls.ts`
-- `src/App.vue`
+- `src/App.tsx`
 
 当前行为：
 
@@ -185,7 +185,7 @@
 
 当前行为：
 
-- CI 会在 Windows 和 Linux `x86_64` 上执行 `npm ci`、`vue-tsc`、`cargo check`
+- CI 会在 Windows 和 Linux `x86_64` 上执行 `npm ci`、`tsc --noEmit`、`cargo check`
 - 推送 `v*` 标签后会发布 Windows NSIS、Linux `x86_64` / `arm64` 的 `deb` 和 `AppImage`
 - Linux 打包目标单独放在 `src-tauri/tauri.linux.conf.json`
 - 本地 Linux 打包使用 `npm run tauri:build:linux`
@@ -203,7 +203,7 @@
 
 当前行为：
 
-- CI 会在 macOS runner 上执行 `npm ci`、`vue-tsc`、`cargo check`
+- CI 会在 macOS runner 上执行 `npm ci`、`tsc --noEmit`、`cargo check`
 - 推送 `v*` 标签后会发布 macOS `x86_64` / `arm64` 的 `app` 和 `dmg`
 - macOS 打包目标单独放在 `src-tauri/tauri.macos.conf.json`
 - 本地 macOS 打包使用 `npm run tauri:build:macos`
@@ -231,7 +231,7 @@
 npm install
 npm run dev
 npm run tauri dev
-npx vue-tsc --noEmit
+npx tsc --noEmit
 cargo check
 npm run tauri build
 npm run tauri:build:linux
@@ -306,25 +306,25 @@ export PATH="$PATH:$HOME/.cargo/bin"
 
 #### 主要组件
 
-- `src/components/common/ProviderIcon.vue`
+- `src/components/common/ProviderIcon.tsx`
   - 统一渲染供应商图标
-- `src/components/common/AppSelect.vue`
+- `src/components/common/AppSelect.tsx`
   - 跨平台自定义下拉
-- `src/components/common/ConfirmDialog.vue`
+- `src/components/common/ConfirmDialog.tsx`
   - 应用内确认弹层
-- `src/components/widget/WidgetContainer.vue`
+- `src/components/widget/WidgetContainer.tsx`
   - 渲染主界面卡片列表
   - 拖拽排序
   - 底部状态区
-- `src/components/widget/ProviderCard.vue`
+- `src/components/widget/ProviderCard.tsx`
   - 单个供应商卡片
   - 右上角单卡片刷新按钮
-- `src/components/widget/OpacityHandle.vue`
+- `src/components/widget/OpacityHandle.tsx`
   - 主界面侧边透明度拖拽把手
-- `src/components/settings/ProviderConfig.vue`
+- `src/components/settings/ProviderConfig.tsx`
   - 单个供应商配置卡片
   - 删除确认弹层入口
-- `src/components/settings/SettingsPanel.vue`
+- `src/components/settings/SettingsPanel.tsx`
   - 设置页容器
   - 全局刷新设置
   - 返回时刷新主界面开关
@@ -346,7 +346,7 @@ export PATH="$PATH:$HOME/.cargo/bin"
   -> AppConfig.get_enabled_providers()
   -> ProviderManager.fetch_usage()
   -> UsageSummary[]
-  -> Pinia providerStore
+  -> Zustand providerStore
   -> WidgetContainer / ProviderCard 渲染
 ```
 
@@ -369,7 +369,7 @@ WidgetContainer 拖拽结束
   -> 更新 #app CSS opacity
   -> IPC: set_window_opacity
   -> settingsStore.saveSettings({ windowOpacity })
-  -> App.vue 启动时恢复并监听变化
+  -> App.tsx 启动时恢复并监听变化
 ```
 
 ## 关键类型与同步约束
@@ -446,9 +446,9 @@ WidgetContainer 拖拽结束
 - 不要假设 OpenAI OAuth token 一定是对象格式
 - 不要忘记设置保存后要刷新前端 provider 数据
 - 不要只改前端排序，不改后端 `provider_order`
-- 不要在多个组件里各自写图标路径，统一使用 `ProviderIcon.vue`
+- 不要在多个组件里各自写图标路径，统一使用 `ProviderIcon.tsx`
 - 不要为设置页核心交互继续使用原生 `<select>`
-- 不要让应用内弹层和浮层被父容器裁切，优先用 `Teleport`
+- 不要让应用内弹层和浮层被父容器裁切，优先用 `React portal`
 - 不要再把 `pollingInterval` 固定理解成“分钟”，现在必须结合 `pollingMode` / `pollingUnit`
 - 不要再假设轮询只有一个全局定时器；分供应商策略开启后必须按供应商独立调度
 - 不要假设从设置返回一定刷新；是否刷新取决于 `refreshOnSettingsClose`
@@ -482,8 +482,8 @@ WidgetContainer 拖拽结束
 
 先看：
 
-- `src/components/settings/ProviderConfig.vue`
-- `src/components/settings/SettingsPanel.vue`
+- `src/components/settings/ProviderConfig.tsx`
+- `src/components/settings/SettingsPanel.tsx`
 - `src-tauri/src/commands/provider_commands.rs`
 
 重点查：
@@ -510,23 +510,23 @@ WidgetContainer 拖拽结束
 
 先看：
 
-- `src/components/common/AppSelect.vue`
-- `src/components/settings/ProviderConfig.vue`
-- `src/components/settings/SettingsPanel.vue`
+- `src/components/common/AppSelect.tsx`
+- `src/components/settings/ProviderConfig.tsx`
+- `src/components/settings/SettingsPanel.tsx`
 
 重点查：
 
-- 浮层是否通过 `Teleport` 挂到 `body`
+- 浮层是否通过 `React portal` 挂到 `body`
 - 小窗口下是否仍会被裁切
-- 供应商图标是否继续走 `ProviderIcon.vue`
+- 供应商图标是否继续走 `ProviderIcon.tsx`
 - 暗黑模式是否仍在用应用主题变量
 
 ### 刷新异常
 
 先看：
 
-- `src/components/settings/SettingsPanel.vue`
-- `src/components/widget/ProviderCard.vue`
+- `src/components/settings/SettingsPanel.tsx`
+- `src/components/widget/ProviderCard.tsx`
 - `src/composables/usePolling.ts`
 - `src/types/settings.ts`
 - `src-tauri/src/config/app_config.rs`
@@ -545,10 +545,10 @@ WidgetContainer 拖拽结束
 
 先看：
 
-- `src/components/settings/SettingsPanel.vue`
-- `src/components/widget/OpacityHandle.vue`
+- `src/components/settings/SettingsPanel.tsx`
+- `src/components/widget/OpacityHandle.tsx`
 - `src/composables/useWindowControls.ts`
-- `src/App.vue`
+- `src/App.tsx`
 
 重点查：
 
@@ -562,7 +562,7 @@ WidgetContainer 拖拽结束
 涉及逻辑改动时至少执行：
 
 ```bash
-npx vue-tsc --noEmit
+npx tsc --noEmit
 cargo check
 ```
 
@@ -591,7 +591,7 @@ cargo check
 ### 主界面主题入口
 
 文件：
-- `src/components/widget/WidgetContainer.vue`
+- `src/components/widget/WidgetContainer.tsx`
 
 当前行为：
 - 主界面底部主题按钮固定显示半袖上衣图标，不再根据当前主题切换按钮图标
@@ -599,3 +599,5 @@ cargo check
 - 三个主题图标横向排列，减少在小浮窗中的遮挡和空间占用
 - 主题菜单的水平位置以主题按钮图标为中心，垂直偏移保持不变
 - 菜单仍保留 `light`、`dark`、`system` 三个主题选项
+
+

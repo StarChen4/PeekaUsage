@@ -1,4 +1,4 @@
-# PeekaUsage
+﻿# PeekaUsage
 
 [English README](./README.en.md)
 
@@ -91,7 +91,7 @@ npm run tauri dev
 ### 6. 基本检查
 
 ```bash
-npx vue-tsc --noEmit
+npx tsc --noEmit
 cargo check
 ```
 
@@ -149,3 +149,4 @@ src-tauri/src/
 ## License
 
 [MIT](./LICENSE)
+

@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -54,8 +54,9 @@ jobs:
         run: npm ci
 
       - name: Type check frontend
-        run: npx vue-tsc --noEmit
+        run: npx tsc --noEmit
 
       - name: Check Rust
         run: cargo check
         working-directory: src-tauri
+

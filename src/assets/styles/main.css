@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "./variables.css";
+@import "./common.css";
+@import "./settings.css";
+@import "./widget.css";
 
 * {
   margin: 0;
@@ -19,6 +22,12 @@ body {
   color: var(--color-text);
   user-select: none;
   -webkit-user-select: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
 }
 
 #app {

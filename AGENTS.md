@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 ## 语言规范
 
@@ -14,7 +14,7 @@
 这是一个 Tauri v2 桌面浮窗，用来监控 OpenAI、Anthropic、OpenRouter 的 API 用量和订阅计划消耗。
 
 - Rust 后端负责 provider、配置、托盘、窗口命令、密钥存储
-- Vue 3 前端负责主界面、设置页、轮询、拖拽排序和交互反馈
+- React 前端负责主界面、设置页、轮询、拖拽排序和交互反馈
 
 ## 你接手前先知道的当前状态
 
@@ -35,8 +35,8 @@
 
 文件：
 
-- `src/components/settings/ProviderConfig.vue`
-- `src/components/settings/SettingsPanel.vue`
+- `src/components/settings/ProviderConfig.tsx`
+- `src/components/settings/SettingsPanel.tsx`
 - `src-tauri/src/commands/provider_commands.rs`
 
 当前要求：
@@ -64,7 +64,7 @@
 
 文件：
 
-- `src/components/widget/WidgetContainer.vue`
+- `src/components/widget/WidgetContainer.tsx`
 - `src-tauri/src/config/app_config.rs`
 - `src-tauri/src/commands/provider_commands.rs`
 - `src/utils/ipc.ts`
@@ -80,15 +80,15 @@
 
 文件：
 
-- `src/components/common/ProviderIcon.vue`
-- `src/components/widget/ProviderCard.vue`
-- `src/components/settings/ProviderConfig.vue`
+- `src/components/common/ProviderIcon.tsx`
+- `src/components/widget/ProviderCard.tsx`
+- `src/components/settings/ProviderConfig.tsx`
 - `src/assets/provider-icons/`
 
 当前要求：
 
 - 主界面和设置界面的供应商名字前都显示图标
-- 图标路径统一走 `ProviderIcon.vue`
+- 图标路径统一走 `ProviderIcon.tsx`
 - 图标文件命名统一为 `openai.*`、`anthropic.*`、`openrouter.*`
 - 后续替换图标优先只替换 `src/assets/provider-icons/` 中的资源文件
 
@@ -96,8 +96,8 @@
 
 文件：
 
-- `src/components/common/ConfirmDialog.vue`
-- `src/components/settings/ProviderConfig.vue`
+- `src/components/common/ConfirmDialog.tsx`
+- `src/components/settings/ProviderConfig.tsx`
 
 当前要求：
 
@@ -105,31 +105,31 @@
 - 弹层必须走应用内样式
 - 弹层不显示标题，只显示说明和操作按钮
 - 弹层要能在小窗口中自适应，不能被设置卡片裁切
-- 弹层通过 `Teleport` 挂到 `body`
+- 弹层通过 `React portal` 挂到 `body`
 
 ### 7. 设置页下拉框已改为跨平台自定义组件
 
 文件：
 
-- `src/components/common/AppSelect.vue`
-- `src/components/settings/ProviderConfig.vue`
-- `src/components/settings/SettingsPanel.vue`
+- `src/components/common/AppSelect.tsx`
+- `src/components/settings/ProviderConfig.tsx`
+- `src/components/settings/SettingsPanel.tsx`
 
 当前要求：
 
 - 不要继续依赖原生 `<select>` 做核心设置交互
 - 暗黑模式下背景、边框、浮层风格必须与应用统一
 - “新增供应商”下拉项前必须显示供应商图标
-- 图标仍然统一通过 `ProviderIcon.vue` 渲染
-- 下拉浮层通过 `Teleport` 挂到 `body`
+- 图标仍然统一通过 `ProviderIcon.tsx` 渲染
+- 下拉浮层通过 `React portal` 挂到 `body`
 - 要考虑 Windows、Linux、macOS 的一致性
 
 ### 8. 刷新间隔已支持秒 / 分钟 / 仅手动
 
 文件：
 
-- `src/components/settings/SettingsPanel.vue`
-- `src/components/widget/ProviderCard.vue`
+- `src/components/settings/SettingsPanel.tsx`
+- `src/components/widget/ProviderCard.tsx`
 - `src/composables/usePolling.ts`
 - `src/composables/useProviders.ts`
 - `src/types/settings.ts`
@@ -151,9 +151,9 @@
 
 文件：
 
-- `src/components/settings/SettingsPanel.vue`
+- `src/components/settings/SettingsPanel.tsx`
 - `src/composables/useWindowControls.ts`
-- `src/App.vue`
+- `src/App.tsx`
 
 当前要求：
 
@@ -167,8 +167,8 @@
 
 文件：
 
-- `src/components/settings/SettingsPanel.vue`
-- `src/App.vue`
+- `src/components/settings/SettingsPanel.tsx`
+- `src/App.tsx`
 - `src/types/settings.ts`
 
 当前要求：
@@ -252,7 +252,7 @@
 
 - `src/i18n/index.ts`
 - `src/i18n/messages.ts`
-- `src/components/settings/SettingsPanel.vue`
+- `src/components/settings/SettingsPanel.tsx`
 - `src-tauri/src/config/app_config.rs`
 - `src/types/settings.ts`
 
@@ -276,15 +276,15 @@
 5. `src-tauri/src/commands/provider_commands.rs`
 6. `src-tauri/src/commands/window_commands.rs`
 7. `src-tauri/src/tray/mod.rs`
-8. `src/App.vue`
+8. `src/App.tsx`
 9. `src/i18n/index.ts`
 10. `src/i18n/messages.ts`
 11. `src/composables/useWindowControls.ts`
-12. `src/components/common/AppSelect.vue`
-13. `src/components/common/ConfirmDialog.vue`
-14. `src/components/widget/WidgetContainer.vue`
-15. `src/components/settings/ProviderConfig.vue`
-16. `src/components/settings/SettingsPanel.vue`
+12. `src/components/common/AppSelect.tsx`
+13. `src/components/common/ConfirmDialog.tsx`
+14. `src/components/widget/WidgetContainer.tsx`
+15. `src/components/settings/ProviderConfig.tsx`
+16. `src/components/settings/SettingsPanel.tsx`
 17. `src-tauri/tauri.linux.conf.json`
 18. `.github/workflows/ci.yml`
 19. `.github/workflows/release.yml`
@@ -296,7 +296,7 @@
 npm install
 npm run dev
 npm run tauri dev
-npx vue-tsc --noEmit
+npx tsc --noEmit
 cargo check
 npm run tauri:build:linux
 npm run tauri:build:macos
@@ -329,19 +329,19 @@ export PATH="$PATH:$HOME/.cargo/bin"
 
 ### Vue
 
-- `App.vue`：widget/settings 视图切换、启动时同步主题与透明度
+- `App.tsx`：widget/settings 视图切换、启动时同步主题与透明度
 - `useProviders.ts`：拉取和刷新编排
 - `useWindowControls.ts`：窗口隐藏、最小化、透明度同步
 - `providerStore`：主数据
 - `settingsStore`：设置数据
 - `i18n`：语言包和运行时语言切换
-- `ProviderIcon.vue`：供应商图标共享组件
-- `AppSelect.vue`：跨平台自定义下拉组件
-- `ConfirmDialog.vue`：应用内确认弹层
-- `WidgetContainer.vue`：主界面卡片和拖拽排序
-- `ProviderCard.vue`：供应商卡片和单卡片刷新入口
-- `ProviderConfig.vue`：供应商设置卡片
-- `SettingsPanel.vue`：设置页容器、语言选择、全局刷新、高级分供应商刷新和透明度控件
+- `ProviderIcon.tsx`：供应商图标共享组件
+- `AppSelect.tsx`：跨平台自定义下拉组件
+- `ConfirmDialog.tsx`：应用内确认弹层
+- `WidgetContainer.tsx`：主界面卡片和拖拽排序
+- `ProviderCard.tsx`：供应商卡片和单卡片刷新入口
+- `ProviderConfig.tsx`：供应商设置卡片
+- `SettingsPanel.tsx`：设置页容器、语言选择、全局刷新、高级分供应商刷新和透明度控件
 
 ## 核心约束
 
@@ -363,7 +363,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 ### 图标约束
 
 - 不要在多个页面分别写图标逻辑
-- 统一通过 `ProviderIcon.vue` 渲染
+- 统一通过 `ProviderIcon.tsx` 渲染
 - 图标资源统一放在 `src/assets/provider-icons/`
 
 ### 排序约束
@@ -380,9 +380,9 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 
 ### 下拉组件约束
 
-- 涉及核心交互的设置下拉，优先复用 `AppSelect.vue`
+- 涉及核心交互的设置下拉，优先复用 `AppSelect.tsx`
 - 不要为供应商选择继续写原生 `<select>`
-- 供应商选项中的图标必须继续走 `ProviderIcon.vue`
+- 供应商选项中的图标必须继续走 `ProviderIcon.tsx`
 - 小窗口下浮层不能被父容器裁切
 
 ### 轮询约束
@@ -414,7 +414,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 这个项目后续不只支持 Windows，还要兼容 Linux 和 macOS
 - 新增交互组件时，优先选择前端可控、自绘、跨平台一致的实现
 - 不要优先依赖 Windows 特有 API、系统控件外观或只在单平台稳定的行为
-- 能复用现有共享组件时，优先复用 `AppSelect.vue`、`ConfirmDialog.vue`、`ProviderIcon.vue`
+- 能复用现有共享组件时，优先复用 `AppSelect.tsx`、`ConfirmDialog.tsx`、`ProviderIcon.tsx`
 - 如果必须做平台差异处理，要先确认是否真的不可避免，并在文档中补充说明
 - `identifier` 会影响应用数据目录，改名时必须考虑 Windows、Linux、macOS 的旧数据迁移
 
@@ -469,9 +469,9 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 检查：
 
 - 是否误用了原生 `<select>`
-- `AppSelect.vue` 的浮层是否通过 `Teleport` 挂到 `body`
+- `AppSelect.tsx` 的浮层是否通过 `React portal` 挂到 `body`
 - 暗黑模式样式是否仍在走应用 CSS 变量
-- 供应商选项是否通过 `ProviderIcon.vue` 显示图标
+- 供应商选项是否通过 `ProviderIcon.tsx` 显示图标
 
 ### 刷新异常
 
@@ -490,7 +490,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 检查：
 
 - `windowOpacity` 是否成功保存到设置
-- `App.vue` 启动时是否调用了透明度同步
+- `App.tsx` 启动时是否调用了透明度同步
 - 设置页滑杆和 `useWindowControls.ts` 是否使用同一套状态
 - 主界面透明度把手调整后是否同步写回设置
 
@@ -517,7 +517,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 1. 先改代码，不要只停留在分析。
 2. 如果改动影响已落地行为、交互、约束、组件入口或排查方式，必须同步更新 `AGENTS.md` 和 `CLAUDE.md`。
 3. 至少执行：
-   - `npx vue-tsc --noEmit`
+   - `npx tsc --noEmit`
    - `cargo check`
 4. 如果改了交互，再补手动验证关键路径。
 5. 确认无误后再提交。
@@ -532,7 +532,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 ## 每次提交前至少做的验证
 
 ```bash
-npx vue-tsc --noEmit
+npx tsc --noEmit
 cargo check
 ```
 
@@ -565,7 +565,7 @@ cargo check
 
 文件：
 
-- `src/components/widget/WidgetContainer.vue`
+- `src/components/widget/WidgetContainer.tsx`
 
 当前要求：
 
@@ -575,3 +575,4 @@ cargo check
 - 三个主题选项横向排列，保持小浮窗下的紧凑占用
 - 主题菜单的水平位置以主题按钮图标为中心，不再贴右对齐
 - 主题菜单仍然只负责切换 `light`、`dark`、`system` 三种模式
+
