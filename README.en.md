@@ -71,6 +71,20 @@ cargo check
 
 If `cargo` is not in your PATH, add your Rust toolchain first.
 
+## macOS Note
+
+Current macOS builds are not signed or notarized yet. If macOS says the app is damaged and cannot be opened after installation, run this in Terminal:
+
+```bash
+xattr -dr com.apple.quarantine <drag your app here>
+```
+
+The final command usually looks like this:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/AI-Usage-Peek.app
+```
+
 ## Credentials
 
 ### API Keys
