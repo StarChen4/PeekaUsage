@@ -2,37 +2,32 @@
 
 [中文 README](./README.md)
 
-A small desktop widget that tries to ease AI token anxiety.
+A small desktop widget that tries to ease AI token anxiety. Well, not really fix it.
 
-It does not actually fix the anxiety. When your API keys already feel scarce, repeatedly opening Claude Code or Codex in the CLI just to run `/usage` or `/status` gets old fast. This app pins the numbers to the corner of your desktop so checking usage hurts a little less.
+<img src="./src/assets/Overview.png" alt="App overview" width="300" />
 
-This project is built with Tauri v2, Vue 3 + TypeScript on the frontend, and Rust on the backend. It sits quietly in the corner of your desktop and helps you check how much OpenAI, Anthropic, and OpenRouter are costing you.
+If you are also juggling Anthropic and OpenAI subscriptions for tools like Claude Code, Codex, or Openclaw, you probably know the feeling: after running for a while, you want to see how much quota is gone, and you end up repeatedly opening the CLI for `/usage` or `/status`, or checking a dashboard again and again.
 
-<img src="./src/assets/Overview.png" alt="App overview" width="720" />
+Sometimes you also have to buy extra API credits just to keep going. If your company is not paying for it, that cost is painful. This project pins those numbers to the corner of your desktop so checking them takes less effort and hurts a little less.
+
+It stays in the corner of your desktop and makes it easy to glance at how much OpenAI, Anthropic, and OpenRouter usage you have left.
 
 ## What It Does
 
 - Tracks usage-based spending for OpenAI, Anthropic, and OpenRouter
 - Shows subscription windows for OpenAI and Anthropic
-- Displays rate limits and error states
 - Auto-detects OAuth tokens from local Claude Code and Codex CLI files
 - Supports tray controls for show, hide, refresh, and settings
-- Lets you drag provider cards and keeps the saved order
-- Syncs window opacity between the widget and the settings panel
 
 ## Platform Notes
 
-- The app is mainly developed and verified on Windows for now
-- Interactions are designed to stay consistent across Windows, macOS, and Linux
+- Windows
+- Linux
+- macOS
 
 ## Why Not Every Provider Is Supported Yet
 
-This is not a matter of ignoring them. Provider integrations are much less uniform than they look.
-
-- Every provider has its own auth flow, usage endpoints, subscription windows, response shapes, and rate-limit behavior
-- Some providers simply do not expose a stable public API for usage or subscription tracking
-- The app also has to stay maintainable and consistent across Windows, Linux, and macOS
-- For now, the priority is providers I actively use and can verify with reliable local or official data sources
+Because I am lazy, honestly. And some providers simply do not expose an official API for this.
 
 If you use a provider that is still missing, PRs are welcome. The most helpful contributions usually include:
 
@@ -50,30 +45,22 @@ If the data source is trustworthy, the behavior is clear, and the change does no
 npm install
 ```
 
-### 2. Start the frontend
+### 2. Extra Linux dependencies
+
+If you are developing or packaging on Ubuntu / Debian, install these first:
 
 ```bash
-npm run dev
+sudo apt-get update
+sudo apt-get install -y build-essential curl file libfuse2 libgtk-3-dev libssl-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 ```
 
-### 3. Run the desktop app
+### 3. macOS build note
 
-```bash
-npm run tauri dev
-```
+- macOS `app` / `dmg` bundles must be built on a Mac
+- GitHub Actions is set up to produce both `x86_64` and `arm64` macOS bundles
+- The project is not signed or notarized yet, so first launch may require manual approval
 
-### 4. Run checks
-
-```bash
-npx vue-tsc --noEmit
-cargo check
-```
-
-If `cargo` is not in your PATH, add your Rust toolchain first.
-
-## macOS Note
-
-Current macOS builds are not signed or notarized yet. If macOS says the app is damaged and cannot be opened after installation, run this in Terminal:
+If macOS says the app is damaged and cannot be opened after installation, run this in Terminal:
 
 ```bash
 xattr -dr com.apple.quarantine <drag your app here>
@@ -84,6 +71,27 @@ The final command usually looks like this:
 ```bash
 xattr -dr com.apple.quarantine /Applications/AI-Usage-Peek.app
 ```
+
+### 4. Start the frontend
+
+```bash
+npm run dev
+```
+
+### 5. Run the desktop app
+
+```bash
+npm run tauri dev
+```
+
+### 6. Run checks
+
+```bash
+npx vue-tsc --noEmit
+cargo check
+```
+
+If `cargo` is not in your PATH, add your Rust toolchain first.
 
 ## Credentials
 
@@ -105,6 +113,8 @@ Notes:
 ### OAuth Tokens
 
 Subscription usage is auto-detected from local tool credentials when possible.
+
+Note: Anthropic subscription usage should not be queried too frequently, or it may return HTTP 429.
 
 | Source | File Path | Field |
 | --- | --- | --- |
@@ -131,14 +141,6 @@ src-tauri/src/
   providers/
   tray/
 ```
-
-## CI
-
-The repository includes a minimal GitHub Actions workflow that runs:
-
-- `npm ci`
-- `npx vue-tsc --noEmit`
-- `cargo check`
 
 ## License
 
