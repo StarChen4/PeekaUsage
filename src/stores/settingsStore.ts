@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import type { AppSettings } from "../types/settings";
-import { DEFAULT_SETTINGS } from "../types/settings";
+import { DEFAULT_SETTINGS, normalizePollingInterval } from "../types/settings";
 import { getSettings, saveSettings as ipcSaveSettings } from "../utils/ipc";
 
 export const useSettingsStore = defineStore("settings", () => {
@@ -25,6 +25,7 @@ export const useSettingsStore = defineStore("settings", () => {
         settings.value = {
           ...DEFAULT_SETTINGS,
           ...remoteSettings,
+          pollingInterval: normalizePollingInterval(remoteSettings.pollingInterval ?? DEFAULT_SETTINGS.pollingInterval),
           providerCardExpanded: {
             ...DEFAULT_SETTINGS.providerCardExpanded,
             ...remoteSettings.providerCardExpanded,
@@ -45,7 +46,13 @@ export const useSettingsStore = defineStore("settings", () => {
 
   /** 保存设置到后端 */
   async function saveSettings(newSettings: Partial<AppSettings>) {
-    settings.value = { ...settings.value, ...newSettings };
+    settings.value = {
+      ...settings.value,
+      ...newSettings,
+      pollingInterval: normalizePollingInterval(
+        newSettings.pollingInterval ?? settings.value.pollingInterval,
+      ),
+    };
     await ipcSaveSettings(settings.value);
   }
 

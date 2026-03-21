@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import type { ProviderConfigItem, ProviderId } from "../../types/provider";
-import type { PollingInterval } from "../../types/settings";
+import {
+  MAX_POLLING_INTERVAL,
+  MIN_POLLING_INTERVAL,
+  normalizePollingInterval,
+  type PollingMode,
+  type PollingUnit,
+} from "../../types/settings";
 import { useWindowControls } from "../../composables/useWindowControls";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
-import AppSelect from "../common/AppSelect.vue";
 import ProviderConfig from "./ProviderConfig.vue";
 
 defineEmits<{
@@ -20,19 +25,23 @@ const providerConfigs = ref<ProviderConfigItem[]>([]);
 const supportedProviders = ref<ProviderConfigItem[]>([]);
 const creatingProviderId = ref<ProviderId | null>(null);
 const opacityDraft = ref(settingsStore.settings.windowOpacity);
+const pollingIntervalDraft = ref(String(settingsStore.settings.pollingInterval));
 
-const pollingOptions: PollingInterval[] = [1, 2, 5, 10, 30];
-const pollingSelectOptions = computed(() => {
-  return pollingOptions.map((option) => ({
-    value: option,
-    label: `${option} 分钟`,
-  }));
-});
+const pollingModeOptions: Array<{ value: PollingMode; label: string }> = [
+  { value: "auto", label: "自动" },
+  { value: "manual", label: "手动" },
+];
+
+const pollingUnitOptions: Array<{ value: PollingUnit; label: string }> = [
+  { value: "seconds", label: "秒" },
+  { value: "minutes", label: "分" },
+];
 
 const configuredProviderIds = computed(() => new Set(providerConfigs.value.map((item) => item.providerId)));
 const availableProviders = computed(() => {
   return supportedProviders.value.filter((item) => !configuredProviderIds.value.has(item.providerId));
 });
+const isManualPolling = computed(() => settingsStore.settings.pollingMode === "manual");
 
 const draftProviderConfig = computed<ProviderConfigItem | null>(() => {
   if (!creatingProviderId.value) {
@@ -83,8 +92,41 @@ watch(() => settingsStore.settings.windowOpacity, (value) => {
   opacityDraft.value = value;
 }, { immediate: true });
 
-async function onPollingChange(value: PollingInterval) {
-  await settingsStore.saveSettings({ pollingInterval: value });
+watch(() => settingsStore.settings.pollingInterval, (value) => {
+  pollingIntervalDraft.value = String(value);
+}, { immediate: true });
+
+async function onPollingModeChange(value: PollingMode) {
+  await settingsStore.saveSettings({ pollingMode: value });
+}
+
+async function onPollingUnitChange(value: PollingUnit) {
+  await settingsStore.saveSettings({ pollingUnit: value });
+}
+
+function onPollingIntervalInput(event: Event) {
+  pollingIntervalDraft.value = (event.target as HTMLInputElement).value;
+}
+
+async function commitPollingInterval() {
+  const parsed = Number.parseInt(pollingIntervalDraft.value, 10);
+  const nextValue = normalizePollingInterval(
+    Number.isNaN(parsed) ? settingsStore.settings.pollingInterval : parsed,
+  );
+
+  pollingIntervalDraft.value = String(nextValue);
+
+  if (nextValue === settingsStore.settings.pollingInterval) {
+    return;
+  }
+
+  await settingsStore.saveSettings({ pollingInterval: nextValue });
+}
+
+function onPollingIntervalKeydown(event: KeyboardEvent) {
+  if (event.key === "Enter") {
+    (event.target as HTMLInputElement).blur();
+  }
 }
 
 function onOpacityInput(event: Event) {
@@ -166,15 +208,50 @@ async function onProviderRemoved() {
     <div class="settings-body">
       <section class="settings-section">
         <h3 class="section-title">通用</h3>
-        <div class="setting-row">
-          <label>轮询间隔</label>
-          <AppSelect
-            class="polling-select"
-            :model-value="settingsStore.settings.pollingInterval"
-            :options="pollingSelectOptions"
-            aria-label="轮询间隔"
-            @update:model-value="onPollingChange($event as PollingInterval)"
-          />
+        <div class="setting-row setting-row-polling">
+          <label>刷新</label>
+          <div class="polling-control">
+            <div class="polling-segment" role="group" aria-label="刷新模式">
+              <button
+                v-for="option in pollingModeOptions"
+                :key="option.value"
+                class="polling-segment-button"
+                :class="{ 'is-active': settingsStore.settings.pollingMode === option.value }"
+                type="button"
+                :aria-pressed="settingsStore.settings.pollingMode === option.value"
+                @click="onPollingModeChange(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <div v-if="!isManualPolling" class="polling-auto-inline">
+              <input
+                class="polling-interval-input"
+                type="number"
+                inputmode="numeric"
+                :min="MIN_POLLING_INTERVAL"
+                :max="MAX_POLLING_INTERVAL"
+                :value="pollingIntervalDraft"
+                aria-label="刷新数值"
+                @input="onPollingIntervalInput"
+                @blur="commitPollingInterval"
+                @keydown="onPollingIntervalKeydown"
+              />
+              <div class="polling-segment polling-unit-segment" role="group" aria-label="刷新单位">
+                <button
+                  v-for="option in pollingUnitOptions"
+                  :key="option.value"
+                  class="polling-segment-button"
+                  :class="{ 'is-active': settingsStore.settings.pollingUnit === option.value }"
+                  type="button"
+                  :aria-pressed="settingsStore.settings.pollingUnit === option.value"
+                  @click="onPollingUnitChange(option.value)"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="setting-row setting-row-slider">
           <label for="window-opacity-range">透明度</label>
@@ -338,13 +415,102 @@ async function onProviderRemoved() {
   font-size: 12px;
 }
 
+.setting-row-polling {
+  align-items: flex-start;
+}
+
 .setting-row-slider {
   align-items: flex-start;
 }
 
-.polling-select {
-  width: 112px;
+.polling-control {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.polling-auto-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.polling-segment {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius-sm) + 2px);
+  background: linear-gradient(180deg, var(--color-surface-hover), var(--color-surface));
   flex-shrink: 0;
+}
+
+.polling-unit-segment {
+  min-width: 0;
+}
+
+.polling-segment-button {
+  min-width: 38px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.polling-segment-button:hover {
+  color: var(--color-text);
+}
+
+.polling-segment-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary-soft-bg);
+}
+
+.polling-segment-button.is-active {
+  background: var(--color-primary-soft-bg);
+  color: var(--color-primary-soft-text);
+}
+
+.polling-interval-input {
+  appearance: textfield;
+  width: 56px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, var(--color-surface-hover), var(--color-surface));
+  color: var(--color-text);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.polling-interval-input:hover {
+  border-color: var(--color-border-hover);
+}
+
+.polling-interval-input:focus-visible {
+  outline: none;
+  border-color: var(--color-primary-soft-border);
+  box-shadow: 0 0 0 3px var(--color-primary-soft-bg);
+}
+
+.polling-interval-input::-webkit-outer-spin-button,
+.polling-interval-input::-webkit-inner-spin-button {
+  margin: 0;
 }
 
 .opacity-control {

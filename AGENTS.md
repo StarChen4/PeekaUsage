@@ -124,7 +124,26 @@
 - 下拉浮层通过 `Teleport` 挂到 `body`
 - 要考虑 Windows、Linux、macOS 的一致性
 
-### 8. 设置页已支持透明度调节条
+### 8. 刷新间隔已支持秒 / 分钟 / 仅手动
+
+文件：
+
+- `src/components/settings/SettingsPanel.vue`
+- `src/composables/usePolling.ts`
+- `src/composables/useProviders.ts`
+- `src/types/settings.ts`
+- `src-tauri/src/config/app_config.rs`
+
+当前要求：
+
+- 刷新设置由 `pollingMode`、`pollingInterval`、`pollingUnit` 共同决定
+- 自动刷新时允许自定义数值，并可切换按秒或按分钟
+- 选择“仅手动”后不能继续启动定时轮询
+- 设置页里的刷新配置要保持紧凑，优先用小尺寸分段按钮和窄输入框，避免在小窗口中过度占位
+- 主界面底部手动刷新按钮和托盘刷新仍然可用
+- 旧配置缺少新字段时，要继续按“5 分钟自动刷新”兼容
+
+### 9. 设置页已支持透明度调节条
 
 文件：
 
@@ -140,7 +159,7 @@
 - 应用启动后要按保存的透明度恢复
 - 当前数值语义是“不透明度/可见度”：`100%` 表示完全不透明
 
-### 9. 设置页顶部返回入口已改为图标按钮
+### 10. 设置页顶部返回入口已改为图标按钮
 
 文件：
 
@@ -152,7 +171,7 @@
 - 返回入口使用左箭头图标按钮
 - 按钮尺寸、hover 和 focus 态要与应用整体风格一致
 
-### 10. GitHub 已接入 Windows Release 自动发布
+### 11. GitHub 已接入 Windows Release 自动发布
 
 文件：
 
@@ -167,7 +186,7 @@
 - 发布前必须校验 `package.json`、`tauri.conf.json`、`Cargo.toml` 三处版本号一致
 - 标签名必须与应用版本匹配，例如 `v0.1.0`
 
-### 11. Linux 已接入 x86_64 / arm64 构建与发布
+### 12. Linux 已接入 x86_64 / arm64 构建与发布
 
 文件：
 
@@ -185,7 +204,7 @@
 - Linux CI / Release 的依赖安装要按 Tauri 官方 ARM 打包要求补齐，至少包含 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
 - 不要把 Linux 的 `deb` / `appimage` 目标混回主 `tauri.conf.json`
 
-### 12. macOS 已接入 x86_64 / arm64 构建与发布
+### 13. macOS 已接入 x86_64 / arm64 构建与发布
 
 文件：
 
@@ -203,7 +222,7 @@
 - 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/PeekaUsage.app` 作为手动放行方案
 - 不要把 macOS 的 `app` / `dmg` 目标混回主 `tauri.conf.json`
 
-### 13. 应用标识已改为 PeekaUsage 并保留旧数据迁移
+### 14. 应用标识已改为 PeekaUsage 并保留旧数据迁移
 
 文件：
 
@@ -290,7 +309,7 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `ConfirmDialog.vue`：应用内确认弹层
 - `WidgetContainer.vue`：主界面卡片和拖拽排序
 - `ProviderConfig.vue`：供应商设置卡片
-- `SettingsPanel.vue`：设置页容器、轮询间隔和透明度控件
+- `SettingsPanel.vue`：设置页容器、刷新模式/间隔/单位和透明度控件
 
 ## 核心约束
 
@@ -333,6 +352,13 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 不要为供应商选择继续写原生 `<select>`
 - 供应商选项中的图标必须继续走 `ProviderIcon.vue`
 - 小窗口下浮层不能被父容器裁切
+
+### 轮询约束
+
+- 刷新相关持久化字段是 `pollingMode`、`pollingInterval`、`pollingUnit`
+- `pollingMode = manual` 时不能继续启动自动轮询
+- 秒和分钟都属于自动刷新模式，不要再把 `pollingInterval` 固定解释成“分钟”
+- 要兼容旧配置缺少新字段的情况，默认按“5 分钟自动刷新”处理
 
 ### 透明度约束
 
@@ -405,6 +431,15 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 暗黑模式样式是否仍在走应用 CSS 变量
 - 供应商选项是否通过 `ProviderIcon.vue` 显示图标
 
+### 刷新异常
+
+检查：
+
+- `pollingMode` 当前是不是 `manual`
+- `pollingUnit` 是否被正确解释为 `seconds` 或 `minutes`
+- `usePolling.ts` 在设置切换后是否重建或停止定时器
+- 应用启动时旧配置是否被兼容成“5 分钟自动刷新”
+
 ### 透明度异常
 
 检查：
@@ -462,6 +497,7 @@ cargo check
 - 设置保存反馈
 - 自动检测 OAuth
 - 主界面拖拽推挤和顺序持久化
+- 设置页刷新模式、秒/分钟切换和“仅手动”是否按预期生效
 - 设置页自定义下拉在浅色/暗黑模式下的展开和关闭
 - 设置页透明度滑杆和主界面透明度把手是否同步
 

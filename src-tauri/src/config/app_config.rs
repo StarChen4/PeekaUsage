@@ -9,6 +9,10 @@ use tokio::sync::RwLock;
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     pub polling_interval: u32,
+    #[serde(default)]
+    pub polling_mode: PollingMode,
+    #[serde(default)]
+    pub polling_unit: PollingUnit,
     pub always_on_top: bool,
     pub launch_at_startup: bool,
     pub window_opacity: f64,
@@ -18,6 +22,22 @@ pub struct AppSettings {
     pub window_size: Option<WindowSize>,
     #[serde(default = "default_provider_card_expanded")]
     pub provider_card_expanded: HashMap<String, bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum PollingMode {
+    #[default]
+    Auto,
+    Manual,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum PollingUnit {
+    Seconds,
+    #[default]
+    Minutes,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -45,6 +65,8 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             polling_interval: 5,
+            polling_mode: PollingMode::default(),
+            polling_unit: PollingUnit::default(),
             always_on_top: true,
             launch_at_startup: false,
             window_opacity: 100.0,
@@ -53,6 +75,14 @@ impl Default for AppSettings {
             window_size: None,
             provider_card_expanded: default_provider_card_expanded(),
         }
+    }
+}
+
+impl AppSettings {
+    pub fn normalized(mut self) -> Self {
+        self.polling_interval = self.polling_interval.clamp(1, 999);
+        self.window_opacity = self.window_opacity.clamp(10.0, 100.0);
+        self
     }
 }
 
@@ -112,7 +142,11 @@ impl AppConfig {
         let config_path = app_data_dir.join("config.json");
         let config = if config_path.exists() {
             match std::fs::read_to_string(&config_path) {
-                Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+                Ok(content) => {
+                    let mut config: ConfigFile = serde_json::from_str(&content).unwrap_or_default();
+                    config.settings = config.settings.normalized();
+                    config
+                }
                 Err(_) => ConfigFile::default(),
             }
         } else {
@@ -149,7 +183,7 @@ impl AppConfig {
     pub async fn save_settings(&self, settings: AppSettings) -> Result<(), String> {
         {
             let mut config = self.config.write().await;
-            config.settings = settings;
+            config.settings = settings.normalized();
         }
         self.save().await
     }

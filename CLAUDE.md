@@ -2,6 +2,8 @@
 
 ## 补充更新
 
+- `src/components/settings/SettingsPanel.vue` 的刷新设置已支持“自动刷新 / 仅手动”切换，自动模式下可自定义数值并选择按秒或按分钟
+- 刷新相关持久化字段现在是 `pollingMode`、`pollingInterval`、`pollingUnit`，旧配置缺少新字段时继续按“5 分钟自动刷新”兼容
 - `src/components/settings/SettingsPanel.vue` 的设置页返回入口已改为左向箭头图标按钮，不再显示紫色文字按钮
 - 返回按钮的 `hover` 和 `focus` 交互态要继续跟随应用主题风格
 - GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` / `arm64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
@@ -118,7 +120,26 @@
 - 浮层支持 `Teleport`、键盘导航、点击外部关闭
 - 这套实现优先面向 Windows、Linux、macOS 的一致性
 
-### 8. 设置页已支持透明度调节条
+### 8. 刷新设置已支持秒 / 分钟 / 仅手动
+
+文件：
+
+- `src/components/settings/SettingsPanel.vue`
+- `src/composables/usePolling.ts`
+- `src/composables/useProviders.ts`
+- `src/types/settings.ts`
+- `src-tauri/src/config/app_config.rs`
+
+当前行为：
+
+- 刷新设置由 `pollingMode`、`pollingInterval`、`pollingUnit` 共同决定
+- 自动刷新支持自定义数值，并可选择按秒或按分钟
+- 选择“仅手动”后不会继续启动定时轮询
+- 设置页里的刷新配置使用紧凑分段按钮和窄输入框，减少小浮窗中的占位
+- 主界面手动刷新按钮和托盘刷新仍然保留
+- 旧配置缺少新字段时默认按“5 分钟自动刷新”解释
+
+### 9. 设置页已支持透明度调节条
 
 文件：
 
@@ -134,7 +155,7 @@
 - 应用启动时会恢复到已保存的透明度
 - 当前数值语义是“不透明度”：`100%` 表示完全不透明
 
-### 9. 后续功能开发默认按跨平台一致性设计
+### 10. 后续功能开发默认按跨平台一致性设计
 
 当前要求：
 
@@ -143,7 +164,7 @@
 - 避免优先依赖单平台系统控件外观或平台特有行为
 - 如果必须做平台分支，需要在文档里补充原因和影响范围
 
-### 10. Linux Release 已接入 `x86_64` / `arm64`
+### 11. Linux Release 已接入 `x86_64` / `arm64`
 
 文件：
 
@@ -161,7 +182,7 @@
 - Linux `arm64` 发布当前依赖 GitHub Actions 的 ARM Linux runner
 - Linux CI / Release 的依赖安装要与 Tauri 官方 ARM 打包示例保持一致，至少包含 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
 
-### 11. macOS Release 已接入 `x86_64` / `arm64`
+### 12. macOS Release 已接入 `x86_64` / `arm64`
 
 文件：
 
@@ -179,7 +200,7 @@
 - 当前 macOS 产物未签名、未 notarize
 - 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/PeekaUsage.app` 作为手动放行方案
 
-### 12. 应用标识已切到 `PeekaUsage`
+### 13. 应用标识已切到 `PeekaUsage`
 
 文件：
 
@@ -263,7 +284,8 @@ export PATH="$PATH:$HOME/.cargo/bin"
   - 手动刷新
   - 与轮询衔接
 - `src/composables/usePolling.ts`
-  - 周期性拉取用量
+  - 按秒 / 分钟启动轮询
+  - 在“仅手动”模式下停止定时器
 - `src/composables/useWindowControls.ts`
   - 窗口显示控制
   - 透明度即时预览
@@ -288,7 +310,7 @@ export PATH="$PATH:$HOME/.cargo/bin"
   - 删除确认弹层入口
 - `src/components/settings/SettingsPanel.vue`
   - 设置页容器
-  - 轮询间隔下拉
+  - 刷新模式、间隔和单位设置
   - 透明度调节条
 
 #### 静态资源
@@ -366,6 +388,12 @@ WidgetContainer 拖拽结束
 
 其中 `settings.windowOpacity` 已用于设置页滑杆和主界面透明度同步。
 
+刷新相关设置当前至少包含：
+
+- `pollingMode`
+- `pollingInterval`
+- `pollingUnit`
+
 ### OAuth 凭据位置
 
 | 来源 | 路径 | 字段 |
@@ -399,6 +427,7 @@ WidgetContainer 拖拽结束
 - 不要在多个组件里各自写图标路径，统一使用 `ProviderIcon.vue`
 - 不要为设置页核心交互继续使用原生 `<select>`
 - 不要让应用内弹层和浮层被父容器裁切，优先用 `Teleport`
+- 不要再把 `pollingInterval` 固定理解成“分钟”，现在必须结合 `pollingMode` / `pollingUnit`
 - 透明度现在由前端视觉层控制并通过 IPC 同步，Tauri v2 本身没有直接可用的 `WebviewWindow.set_opacity()`
 - 后续交互实现优先保证 Windows、Linux、macOS 的一致性，其次再考虑单平台捷径
 - `identifier` 会影响应用数据目录，品牌改名时不能只改显示名，必须处理旧数据迁移
@@ -466,6 +495,22 @@ WidgetContainer 拖拽结束
 - 供应商图标是否继续走 `ProviderIcon.vue`
 - 暗黑模式是否仍在用应用主题变量
 
+### 刷新异常
+
+先看：
+
+- `src/components/settings/SettingsPanel.vue`
+- `src/composables/usePolling.ts`
+- `src/types/settings.ts`
+- `src-tauri/src/config/app_config.rs`
+
+重点查：
+
+- 当前是否误处于 `pollingMode = manual`
+- `pollingUnit` 是否按 `seconds` / `minutes` 正确换算
+- 设置切换后 `usePolling.ts` 是否重建或停止了定时器
+- 旧配置缺少新字段时是否仍按“5 分钟自动刷新”兼容
+
 ### 透明度异常
 
 先看：
@@ -505,6 +550,7 @@ cargo check
 - 设置页保存反馈和启停同步
 - OAuth 自动检测
 - 主界面拖拽推挤、松手保存、重启后顺序保持
+- 设置页刷新模式、秒/分钟切换和“仅手动”是否按预期生效
 - 自定义下拉在浅色/暗黑模式下的打开、关闭、键盘导航
 - 设置页透明度滑杆与主界面透明度把手的同步
 ## 补充说明
