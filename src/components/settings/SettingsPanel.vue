@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { ProviderConfigItem, ProviderId } from "../../types/provider";
 import {
   MAX_POLLING_INTERVAL,
   MIN_POLLING_INTERVAL,
   getEffectivePollingSettings,
   normalizePollingInterval,
+  type AppLanguage,
   type PollingSettings,
   type PollingMode,
   type PollingUnit,
 } from "../../types/settings";
 import { useWindowControls } from "../../composables/useWindowControls";
+import { LANGUAGE_OPTIONS } from "../../i18n/messages";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
+import AppSelect from "../common/AppSelect.vue";
 import ProviderIcon from "../common/ProviderIcon.vue";
 import ProviderConfig from "./ProviderConfig.vue";
 
@@ -24,22 +28,22 @@ defineEmits<{
 const settingsStore = useSettingsStore();
 const providerStore = useProviderStore();
 const { updateOpacity } = useWindowControls();
+const { t } = useI18n();
 const providerConfigs = ref<ProviderConfigItem[]>([]);
 const supportedProviders = ref<ProviderConfigItem[]>([]);
 const creatingProviderId = ref<ProviderId | null>(null);
 const opacityDraft = ref(settingsStore.settings.windowOpacity);
 const pollingIntervalDraft = ref(String(settingsStore.settings.pollingInterval));
 const providerPollingIntervalDrafts = ref<Partial<Record<ProviderId, string>>>({});
-
-const pollingModeOptions: Array<{ value: PollingMode; label: string }> = [
-  { value: "auto", label: "自动" },
-  { value: "manual", label: "手动" },
-];
-
-const pollingUnitOptions: Array<{ value: PollingUnit; label: string }> = [
-  { value: "seconds", label: "秒" },
-  { value: "minutes", label: "分" },
-];
+const languageOptions = LANGUAGE_OPTIONS;
+const pollingModeOptions = computed<Array<{ value: PollingMode; label: string }>>(() => [
+  { value: "auto", label: t("settings.polling.auto") },
+  { value: "manual", label: t("settings.polling.manual") },
+]);
+const pollingUnitOptions = computed<Array<{ value: PollingUnit; label: string }>>(() => [
+  { value: "seconds", label: t("common.secondsShort") },
+  { value: "minutes", label: t("common.minutesShort") },
+]);
 
 const configuredProviderIds = computed(() => new Set(providerConfigs.value.map((item) => item.providerId)));
 const availableProviders = computed(() => {
@@ -64,7 +68,7 @@ const draftProviderConfig = computed<ProviderConfigItem | null>(() => {
     apiKeys: [
       {
         id: `${provider.providerId}-draft-key`,
-        name: "密钥 1",
+        name: t("settings.providerConfig.keyName", { index: 1 }),
         value: "",
       },
     ],
@@ -120,6 +124,10 @@ watch(
 
 async function onPollingModeChange(value: PollingMode) {
   await settingsStore.saveSettings({ pollingMode: value });
+}
+
+async function onLanguageChange(value: AppLanguage) {
+  await settingsStore.saveSettings({ language: value });
 }
 
 async function onPollingUnitChange(value: PollingUnit) {
@@ -286,7 +294,7 @@ async function onProviderRemoved() {
       <button
         class="back-btn"
         type="button"
-        aria-label="返回"
+        :aria-label="t('common.back')"
         @click="$emit('back')"
       >
         <svg
@@ -305,16 +313,27 @@ async function onProviderRemoved() {
           />
         </svg>
       </button>
-      <span class="settings-title">设置</span>
+      <span class="settings-title">{{ t("settings.title") }}</span>
     </div>
 
     <div class="settings-body">
       <section class="settings-section">
-        <h3 class="section-title">通用</h3>
+        <h3 class="section-title">{{ t("settings.sections.general") }}</h3>
+        <div class="setting-row">
+          <label>{{ t("settings.language.label") }}</label>
+          <div class="setting-select-wrap">
+            <AppSelect
+              :model-value="settingsStore.settings.language"
+              :options="languageOptions"
+              :aria-label="t('settings.language.ariaLabel')"
+              @update:model-value="onLanguageChange($event as AppLanguage)"
+            />
+          </div>
+        </div>
         <div class="setting-row setting-row-polling">
-          <label>全局刷新</label>
+          <label>{{ t("settings.polling.label") }}</label>
           <div class="polling-control">
-            <div class="polling-segment" role="group" aria-label="刷新模式">
+            <div class="polling-segment" role="group" :aria-label="t('settings.polling.modeAriaLabel')">
               <button
                 v-for="option in pollingModeOptions"
                 :key="option.value"
@@ -335,12 +354,12 @@ async function onProviderRemoved() {
                 :min="MIN_POLLING_INTERVAL"
                 :max="MAX_POLLING_INTERVAL"
                 :value="pollingIntervalDraft"
-                aria-label="刷新数值"
+                :aria-label="t('settings.polling.intervalAriaLabel')"
                 @input="onPollingIntervalInput"
                 @blur="commitPollingInterval"
                 @keydown="onPollingIntervalKeydown"
               />
-              <div class="polling-segment polling-unit-segment" role="group" aria-label="刷新单位">
+              <div class="polling-segment polling-unit-segment" role="group" :aria-label="t('settings.polling.unitAriaLabel')">
                 <button
                   v-for="option in pollingUnitOptions"
                   :key="option.value"
@@ -357,7 +376,7 @@ async function onProviderRemoved() {
           </div>
         </div>
         <div class="setting-row setting-row-slider">
-          <label for="window-opacity-range">透明度</label>
+          <label for="window-opacity-range">{{ t("settings.opacity.label") }}</label>
           <div class="opacity-control">
             <input
               id="window-opacity-range"
@@ -375,8 +394,8 @@ async function onProviderRemoved() {
         </div>
         <label class="setting-row setting-row-toggle">
           <span class="setting-copy">
-            <span class="setting-label">返回时刷新主界面</span>
-            <span class="setting-hint">从设置页返回主界面后，立即刷新所有供应商数据。</span>
+            <span class="setting-label">{{ t("settings.refreshOnBack.label") }}</span>
+            <span class="setting-hint">{{ t("settings.refreshOnBack.hint") }}</span>
           </span>
           <span class="switch">
             <input
@@ -392,7 +411,7 @@ async function onProviderRemoved() {
 
       <section class="settings-section">
         <div class="section-header">
-          <h3 class="section-title">供应商</h3>
+          <h3 class="section-title">{{ t("settings.sections.providers") }}</h3>
           <button
             v-if="!creatingProviderId && availableProviders.length > 0"
             class="add-provider-btn"
@@ -415,7 +434,7 @@ async function onProviderRemoved() {
         />
 
         <div v-if="providerConfigs.length === 0 && !draftProviderConfig" class="provider-empty-state">
-          <span>还没有添加供应商，点击右上角的 + 开始配置。</span>
+          <span>{{ t("settings.providersSection.empty") }}</span>
         </div>
 
         <ProviderConfig
@@ -431,13 +450,13 @@ async function onProviderRemoved() {
 
       <section class="settings-section">
         <div class="section-header">
-          <h3 class="section-title">高级</h3>
+          <h3 class="section-title">{{ t("settings.sections.advanced") }}</h3>
         </div>
 
         <label class="advanced-toggle">
           <span class="advanced-toggle-copy">
-            <span class="advanced-toggle-title">按供应商独立刷新</span>
-            <span class="advanced-toggle-hint">为已配置供应商单独设置刷新策略。</span>
+            <span class="advanced-toggle-title">{{ t("settings.advancedSection.title") }}</span>
+            <span class="advanced-toggle-hint">{{ t("settings.advancedSection.hint") }}</span>
           </span>
           <span class="switch">
             <input
@@ -454,7 +473,7 @@ async function onProviderRemoved() {
           v-if="settingsStore.settings.providerPollingOverridesEnabled && configuredPollingProviders.length === 0"
           class="provider-empty-state"
         >
-          <span>还没有可单独配置的供应商，先在上方添加并启用供应商。</span>
+          <span>{{ t("settings.advancedSection.empty") }}</span>
         </div>
 
         <div
@@ -471,7 +490,7 @@ async function onProviderRemoved() {
               <span class="provider-polling-name">{{ config.displayName }}</span>
             </div>
             <div class="polling-control polling-control-compact">
-              <div class="polling-segment polling-segment-compact" role="group" :aria-label="`${config.displayName} 刷新模式`">
+              <div class="polling-segment polling-segment-compact" role="group" :aria-label="`${config.displayName} ${t('settings.polling.modeAriaLabel')}`">
                 <button
                   v-for="option in pollingModeOptions"
                   :key="option.value"
@@ -495,12 +514,12 @@ async function onProviderRemoved() {
                   :min="MIN_POLLING_INTERVAL"
                   :max="MAX_POLLING_INTERVAL"
                   :value="providerPollingIntervalDrafts[config.providerId] ?? String(getProviderPollingSettings(config.providerId).pollingInterval)"
-                  :aria-label="`${config.displayName} 刷新数值`"
+                  :aria-label="`${config.displayName} ${t('settings.polling.intervalAriaLabel')}`"
                   @input="onProviderPollingIntervalInput(config.providerId, $event)"
                   @blur="commitProviderPollingInterval(config.providerId)"
                   @keydown="onProviderPollingIntervalKeydown($event)"
                 />
-                <div class="polling-segment polling-unit-segment polling-segment-compact" role="group" :aria-label="`${config.displayName} 刷新单位`">
+                <div class="polling-segment polling-unit-segment polling-segment-compact" role="group" :aria-label="`${config.displayName} ${t('settings.polling.unitAriaLabel')}`">
                   <button
                     v-for="option in pollingUnitOptions"
                     :key="option.value"
@@ -621,6 +640,11 @@ async function onProviderRemoved() {
   justify-content: space-between;
   gap: var(--spacing-md);
   font-size: 12px;
+}
+
+.setting-select-wrap {
+  width: min(168px, 100%);
+  flex-shrink: 0;
 }
 
 .setting-row-polling {

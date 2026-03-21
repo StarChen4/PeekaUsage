@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, watch } from "vue";
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 const props = withDefaults(defineProps<{
   open: boolean;
@@ -10,17 +12,19 @@ const props = withDefaults(defineProps<{
   busy?: boolean;
   ariaLabel?: string;
 }>(), {
-  confirmLabel: "确认",
-  cancelLabel: "取消",
   variant: "default",
   busy: false,
-  ariaLabel: "确认操作",
 });
 
 const emit = defineEmits<{
   confirm: [];
   cancel: [];
 }>();
+
+const { t } = useI18n();
+const resolvedConfirmLabel = computed(() => props.confirmLabel ?? t("common.confirm"));
+const resolvedCancelLabel = computed(() => props.cancelLabel ?? t("common.cancel"));
+const resolvedAriaLabel = computed(() => props.ariaLabel ?? t("common.confirm"));
 
 function handleKeydown(event: KeyboardEvent) {
   if (!props.open || props.busy) {
@@ -59,7 +63,7 @@ onBeforeUnmount(() => {
     >
       <div
         class="dialog-card"
-        :aria-label="ariaLabel"
+        :aria-label="resolvedAriaLabel"
         aria-modal="true"
         role="dialog"
       >
@@ -71,7 +75,7 @@ onBeforeUnmount(() => {
             type="button"
             @click="$emit('cancel')"
           >
-            {{ cancelLabel }}
+            {{ resolvedCancelLabel }}
           </button>
           <button
             class="dialog-btn"
@@ -80,7 +84,7 @@ onBeforeUnmount(() => {
             type="button"
             @click="$emit('confirm')"
           >
-            {{ confirmLabel }}
+            {{ resolvedConfirmLabel }}
           </button>
         </div>
       </div>

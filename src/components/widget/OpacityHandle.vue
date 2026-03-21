@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { useWindowControls } from "../../composables/useWindowControls";
 
 const { isDraggingOpacity, opacity, startOpacityDrag } = useWindowControls();
+const { t } = useI18n();
 
 function onMouseDown(event: MouseEvent) {
   event.preventDefault();
@@ -14,7 +16,7 @@ function onMouseDown(event: MouseEvent) {
     class="opacity-handle"
     :class="{ dragging: isDraggingOpacity }"
     @mousedown="onMouseDown"
-    :title="`透明度 ${opacity}%`"
+    :title="t('widget.opacityHandle.title', { opacity })"
   >
     <div class="handle-track">
       <div class="handle-fill" :style="{ height: `${opacity}%` }"></div>

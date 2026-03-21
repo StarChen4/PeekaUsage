@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { useWindowControls } from "../../composables/useWindowControls";
 
 const { minimizeWindow, closeToTray } = useWindowControls();
+const { t } = useI18n();
 </script>
 
 <template>
@@ -11,12 +13,12 @@ const { minimizeWindow, closeToTray } = useWindowControls();
       <span class="titlebar-title" data-tauri-drag-region>PeekaUsage</span>
     </div>
     <div class="titlebar-actions">
-      <button class="titlebar-btn" @click="minimizeWindow" title="最小化">
+      <button class="titlebar-btn" @click="minimizeWindow" :title="t('titleBar.minimize')">
         <svg width="10" height="10" viewBox="0 0 10 10">
           <rect x="0" y="4" width="10" height="1.5" fill="currentColor" rx="0.5" />
         </svg>
       </button>
-      <button class="titlebar-btn titlebar-btn-close" @click="closeToTray" title="隐藏到托盘">
+      <button class="titlebar-btn titlebar-btn-close" @click="closeToTray" :title="t('titleBar.hideToTray')">
         <svg width="10" height="10" viewBox="0 0 10 10">
           <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
         </svg>

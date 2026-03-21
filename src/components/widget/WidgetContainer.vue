@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { ComponentPublicInstance } from "vue";
+import { useI18n } from "vue-i18n";
 import { useProviders } from "../../composables/useProviders";
+import { THEME_OPTION_ORDER } from "../../i18n/messages";
 import { useSettingsStore } from "../../stores/settingsStore";
 import type { ProviderId, UsageSummary } from "../../types/provider";
 import type { ThemeMode } from "../../types/settings";
@@ -33,12 +35,14 @@ interface DragState {
 
 const { providerStore, manualRefresh, manualRefreshProvider } = useProviders();
 const settingsStore = useSettingsStore();
+const { t } = useI18n();
 
-const themeOptions: Array<{ value: ThemeMode; label: string }> = [
-  { value: "light", label: "明亮" },
-  { value: "dark", label: "暗黑" },
-  { value: "system", label: "跟随系统" },
-];
+const themeOptions = computed<Array<{ value: ThemeMode; label: string }>>(() => {
+  return THEME_OPTION_ORDER.map((value) => ({
+    value,
+    label: t(`widget.theme.${value}`),
+  }));
+});
 
 const cardListRef = ref<HTMLElement | null>(null);
 const themeMenuRef = ref<HTMLElement | null>(null);
@@ -56,13 +60,13 @@ const isDragging = computed(() => !!dragState.value && !dragState.value.releasin
 const layoutStatusText = computed(() => {
   switch (layoutSaveState.value) {
     case "saving":
-      return "正在保存布局...";
+      return t("widget.layout.saving");
     case "saved":
-      return "布局已保存";
+      return t("widget.layout.saved");
     case "error":
-      return "布局保存失败";
+      return t("widget.layout.error");
     default:
-      return orderedProviders.value.length > 1 ? "拖动卡片可调整顺序" : "";
+      return orderedProviders.value.length > 1 ? t("widget.layout.hint") : "";
   }
 });
 
@@ -415,8 +419,8 @@ function getCardClass(providerId: ProviderId) {
         </div>
       </template>
       <div v-else class="empty-state">
-        <p>暂无已启用的供应商</p>
-        <button class="btn-link" @click="$emit('openSettings')">前往设置</button>
+        <p>{{ t("widget.emptyState.title") }}</p>
+        <button class="btn-link" @click="$emit('openSettings')">{{ t("widget.emptyState.action") }}</button>
       </div>
     </div>
 
@@ -431,7 +435,7 @@ function getCardClass(providerId: ProviderId) {
             ref="themeTriggerRef"
             class="icon-btn"
             :class="{ 'is-active': isThemeMenuOpen }"
-            title="主题切换"
+            :title="t('widget.actions.theme')"
             @click="toggleThemeMenu"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -517,7 +521,7 @@ function getCardClass(providerId: ProviderId) {
         <button
           class="icon-btn pin-icon-btn"
           :class="{ 'is-active': settingsStore.settings.alwaysOnTop }"
-          :title="settingsStore.settings.alwaysOnTop ? '取消始终置顶' : '始终置顶'"
+          :title="settingsStore.settings.alwaysOnTop ? t('widget.actions.cancelAlwaysOnTop') : t('widget.actions.alwaysOnTop')"
           @click="toggleAlwaysOnTop"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -543,7 +547,7 @@ function getCardClass(providerId: ProviderId) {
           class="icon-btn"
           :class="{ spinning: providerStore.isRefreshing }"
           :disabled="providerStore.isRefreshing || isDragging"
-          title="手动刷新"
+          :title="t('widget.actions.manualRefresh')"
           @click="manualRefresh"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -565,7 +569,7 @@ function getCardClass(providerId: ProviderId) {
           </svg>
         </button>
 
-        <button class="icon-btn" title="设置" @click="$emit('openSettings')">
+        <button class="icon-btn" :title="t('widget.actions.settings')" @click="$emit('openSettings')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M12 8.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 0 1 0-7Z"

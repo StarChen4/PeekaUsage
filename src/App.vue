@@ -6,6 +6,7 @@ import TitleBar from "./components/common/TitleBar.vue";
 import WidgetContainer from "./components/widget/WidgetContainer.vue";
 import SettingsPanel from "./components/settings/SettingsPanel.vue";
 import { useWindowControls } from "./composables/useWindowControls";
+import { setI18nLanguage } from "./i18n";
 import { useProviderStore } from "./stores/providerStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import { applyTheme, observeSystemTheme } from "./utils/theme";
@@ -40,6 +41,7 @@ async function syncAlwaysOnTop() {
 }
 
 watch(() => settingsStore.settings.theme, syncTheme, { immediate: true });
+watch(() => settingsStore.settings.language, setI18nLanguage, { immediate: true });
 watch(() => settingsStore.settings.alwaysOnTop, () => {
   void syncAlwaysOnTop();
 });

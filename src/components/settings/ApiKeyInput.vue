@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 defineProps<{
   modelValue: string;
@@ -10,6 +11,7 @@ const emit = defineEmits<{
   "update:modelValue": [value: string];
 }>();
 
+const { t } = useI18n();
 const showKey = ref(false);
 
 function onInput(event: Event) {
@@ -22,7 +24,7 @@ function onInput(event: Event) {
     <input
       :type="showKey ? 'text' : 'password'"
       :value="modelValue"
-      :placeholder="placeholder ?? '输入 API Key...'"
+      :placeholder="placeholder ?? t('settings.providerConfig.apiKeyInputPlaceholder')"
       @input="onInput"
       class="key-input"
       spellcheck="false"
@@ -31,10 +33,10 @@ function onInput(event: Event) {
     <button
       class="toggle-btn"
       @click="showKey = !showKey"
-      :title="showKey ? '隐藏' : '显示'"
+      :title="showKey ? t('common.hide') : t('common.show')"
       type="button"
     >
-      {{ showKey ? "隐藏" : "显示" }}
+      {{ showKey ? t("common.hide") : t("common.show") }}
     </button>
   </div>
 </template>

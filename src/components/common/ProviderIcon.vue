@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { ProviderId } from "../../types/provider";
 import openaiIcon from "../../assets/provider-icons/openai.svg";
 import anthropicIcon from "../../assets/provider-icons/anthropic.png";
@@ -19,6 +20,7 @@ const iconStyle = computed(() => ({
   width: `${props.size}px`,
   height: `${props.size}px`,
 }));
+const { t } = useI18n();
 
 const iconSrcMap: Record<ProviderId, string> = {
   openai: openaiIcon,
@@ -33,7 +35,7 @@ const iconAltMap: Record<ProviderId, string> = {
 };
 
 const iconSrc = computed(() => iconSrcMap[props.providerId]);
-const iconAlt = computed(() => `${iconAltMap[props.providerId]} 图标`);
+const iconAlt = computed(() => t("providerIcon.alt", { providerName: iconAltMap[props.providerId] }));
 </script>
 
 <template>

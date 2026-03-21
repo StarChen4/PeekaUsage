@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { ProviderApiKeyItem, ProviderConfigItem, ProviderId } from "../../types/provider";
 import ApiKeyInput from "./ApiKeyInput.vue";
 import {
@@ -40,6 +41,7 @@ const saving = ref(false);
 const removing = ref(false);
 const showRemoveDialog = ref(false);
 const saveResult = ref<{ type: "success" | "error"; message: string } | null>(null);
+const { t } = useI18n();
 
 let syncingFromProps = false;
 let keepSaveResultOnNextSync = false;
@@ -79,15 +81,19 @@ const hasChanges = computed(() => {
 
 const saveButtonLabel = computed(() => {
   if (saving.value) {
-    return isCreateMode.value ? "添加中..." : "保存中...";
+    return isCreateMode.value ? t("settings.providerConfig.adding") : t("common.saving");
   }
 
   if (!isCreateMode.value && saveResult.value?.type === "success" && !hasChanges.value) {
-    return "已保存";
+    return t("common.saved");
   }
 
-  return isCreateMode.value ? "确认" : "保存";
+  return isCreateMode.value ? t("settings.providerConfig.addConfirm") : t("common.save");
 });
+
+function defaultKeyName(index: number) {
+  return t("settings.providerConfig.keyName", { index: index + 1 });
+}
 
 function createKeyId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -99,7 +105,7 @@ function createKeyId() {
 function createEmptyApiKey(index: number): ProviderApiKeyItem {
   return {
     id: createKeyId(),
-    name: `密钥 ${index + 1}`,
+    name: defaultKeyName(index),
     value: "",
   };
 }
@@ -111,7 +117,7 @@ function cloneApiKeys(source: ProviderApiKeyItem[]) {
 
   return source.map((item, index) => ({
     id: item.id || createKeyId(),
-    name: item.name || `密钥 ${index + 1}`,
+    name: item.name || defaultKeyName(index),
     value: item.value,
   }));
 }
@@ -120,7 +126,7 @@ function sanitizedApiKeys(items: ProviderApiKeyItem[]) {
   return items
     .map((item, index) => ({
       id: item.id,
-      name: item.name.trim() || `密钥 ${index + 1}`,
+      name: item.name.trim() || defaultKeyName(index),
       value: item.value.trim(),
     }))
     .filter((item) => item.value.length > 0);
@@ -230,14 +236,19 @@ async function onDetectToken() {
 
     if (found) {
       oauthToken.value = found.token;
-      const subscriptionType = found.subscriptionType ? `（${found.subscriptionType}）` : "";
-      detectResult.value = `已从 ${found.source} 检测到 Token${subscriptionType}`;
+      const subscriptionType = found.subscriptionType
+        ? t("settings.providerConfig.detectedTokenType", { subscriptionType: found.subscriptionType })
+        : "";
+      detectResult.value = t("settings.providerConfig.detectedToken", {
+        source: found.source,
+        subscriptionType,
+      });
     } else {
-      detectResult.value = "未找到本地 OAuth Token。";
+      detectResult.value = t("settings.providerConfig.tokenNotFound");
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    detectResult.value = `检测失败：${message}`;
+    detectResult.value = t("settings.providerConfig.detectFailed", { message });
   } finally {
     detecting.value = false;
   }
@@ -269,11 +280,11 @@ async function onSave() {
     }
 
     keepSaveResultOnNextSync = true;
-    setSaveResult("success", "保存成功，主界面已同步刷新。");
+    setSaveResult("success", t("settings.providerConfig.saveSuccess"));
     emit("saved");
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    setSaveResult("error", `保存失败：${message}`);
+    setSaveResult("error", t("settings.providerConfig.saveFailed", { message }));
   } finally {
     saving.value = false;
   }
@@ -309,37 +320,11 @@ async function confirmRemove() {
     emit("removed");
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    setSaveResult("error", `移除失败：${message}`);
+    setSaveResult("error", t("settings.providerConfig.removeFailed", { message }));
   } finally {
     removing.value = false;
   }
 }
-
-async function onRemove() {
-  if (removing.value) {
-    return;
-  }
-
-  const confirmed = window.confirm(`确认移除 ${props.config.displayName} 吗？已保存的 Key 和 OAuth Token 会一并清除。`);
-  if (!confirmed) {
-    return;
-  }
-
-  removing.value = true;
-  clearSaveResult();
-
-  try {
-    await removeProviderConfig(props.config.providerId);
-    emit("removed");
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    setSaveResult("error", `移除失败：${message}`);
-  } finally {
-    removing.value = false;
-  }
-}
-
-void onRemove;
 </script>
 
 <template>
@@ -347,13 +332,13 @@ void onRemove;
     <div class="config-header">
       <template v-if="isCreateMode">
         <div class="provider-select-wrap">
-          <label class="field-label">选择供应商</label>
+          <label class="field-label">{{ t("settings.providerConfig.selectProvider") }}</label>
           <AppSelect
             class="provider-select"
             :model-value="config.providerId"
             :options="selectableProviderOptions"
-            aria-label="选择供应商"
-            placeholder="选择供应商"
+            :aria-label="t('settings.providerConfig.selectProvider')"
+            :placeholder="t('settings.providerConfig.selectProvider')"
             @update:model-value="updateProvider($event as ProviderId)"
           >
             <template #selected="{ option }">
@@ -363,7 +348,7 @@ void onRemove;
                   <span class="provider-select-text">{{ option.label }}</span>
                 </template>
                 <template v-else>
-                  <span class="provider-select-text">选择供应商</span>
+                  <span class="provider-select-text">{{ t("settings.providerConfig.selectProvider") }}</span>
                 </template>
               </span>
             </template>
@@ -388,7 +373,7 @@ void onRemove;
           class="collapse-toggle"
           type="button"
           :aria-expanded="expanded"
-          :aria-label="expanded ? '收起' : '展开'"
+          :aria-label="expanded ? t('settings.providerConfig.collapse') : t('settings.providerConfig.expand')"
           @click="toggleExpanded"
         >
           <svg
@@ -407,9 +392,9 @@ void onRemove;
     <div v-show="isCreateMode || expanded" class="config-body">
       <div class="field-group">
         <div class="field-row">
-          <label class="field-label">API Key（按量计费）</label>
+          <label class="field-label">{{ t("settings.providerConfig.apiKeyLabel") }}</label>
           <button class="btn btn-sm btn-secondary" type="button" @click="addApiKey">
-            + 添加 Key
+            {{ t("settings.providerConfig.addKey") }}
           </button>
         </div>
 
@@ -419,10 +404,10 @@ void onRemove;
               v-model="item.name"
               class="key-name-input"
               type="text"
-              :placeholder="`密钥 ${index + 1}`"
+              :placeholder="t('settings.providerConfig.keyName', { index: index + 1 })"
             />
             <button class="btn btn-sm btn-ghost" type="button" @click="removeApiKey(index)">
-              删除
+              {{ t("settings.providerConfig.deleteKey") }}
             </button>
           </div>
 
@@ -435,40 +420,40 @@ void onRemove;
               type="button"
               @click="onValidate(index)"
             >
-              {{ validatingKeyId === item.id ? "验证中..." : "验证" }}
+              {{ validatingKeyId === item.id ? t("settings.providerConfig.validating") : t("settings.providerConfig.validate") }}
             </button>
-            <span v-if="validationResults[item.id] === true" class="valid-mark">有效</span>
-            <span v-else-if="validationResults[item.id] === false" class="invalid-mark">无效</span>
+            <span v-if="validationResults[item.id] === true" class="valid-mark">{{ t("settings.providerConfig.valid") }}</span>
+            <span v-else-if="validationResults[item.id] === false" class="invalid-mark">{{ t("settings.providerConfig.invalid") }}</span>
           </div>
         </div>
       </div>
 
       <div v-if="canDetectOAuth" class="field-group">
-        <label class="field-label">OAuth Token（订阅计划）</label>
+        <label class="field-label">{{ t("settings.providerConfig.oauthTokenLabel") }}</label>
         <ApiKeyInput
           v-model="oauthToken"
           :placeholder="config.providerId === 'anthropic' ? 'sk-ant-oat01-...' : 'eyJ...'"
         />
         <div class="config-actions">
           <button class="btn btn-sm btn-detect" :disabled="detecting" type="button" @click="onDetectToken">
-            {{ detecting ? "检测中..." : "自动检测" }}
+            {{ detecting ? t("settings.providerConfig.detecting") : t("settings.providerConfig.detect") }}
           </button>
         </div>
         <div v-if="detectResult" class="detect-result">{{ detectResult }}</div>
         <div class="field-hint">
           <template v-if="config.providerId === 'anthropic'">
-            自动检测读取 <code>~/.claude/.credentials.json</code><br />
-            手动获取可读取 <code>accessToken</code>
+            {{ t("settings.providerConfig.detectAnthropicHintAuto") }} <code>~/.claude/.credentials.json</code><br />
+            {{ t("settings.providerConfig.detectAnthropicHintManual") }} <code>accessToken</code>
           </template>
           <template v-else>
-            自动检测读取 <code>~/.codex/auth.json</code><br />
-            手动获取可运行 <code>codex --login</code> 后读取 <code>access_token</code>
+            {{ t("settings.providerConfig.detectOpenAIHintAuto") }} <code>~/.codex/auth.json</code><br />
+            {{ t("settings.providerConfig.detectOpenAIHintManual", { command: "codex --login" }) }} <code>access_token</code>
           </template>
         </div>
       </div>
 
       <div v-if="!hasAnyCredential" class="field-hint">
-        请至少填写一个 API Key；支持订阅的供应商可额外填写一个 OAuth Token。
+        {{ t("settings.providerConfig.credentialHint") }}
       </div>
 
       <div
@@ -482,7 +467,7 @@ void onRemove;
       <div class="footer-actions">
         <template v-if="isCreateMode">
           <button class="btn btn-sm btn-secondary" type="button" @click="$emit('canceled')">
-            取消
+            {{ t("common.cancel") }}
           </button>
           <button
             class="btn btn-sm btn-primary"
@@ -501,7 +486,7 @@ void onRemove;
             type="button"
             @click="openRemoveDialog"
           >
-            {{ removing ? "移除中..." : "移除" }}
+            {{ removing ? t("common.removing") : t("common.remove") }}
           </button>
           <button
             class="btn btn-sm btn-primary"
@@ -518,10 +503,10 @@ void onRemove;
     <ConfirmDialog
       :open="showRemoveDialog"
       :busy="removing"
-      :message="`确认移除 ${props.config.displayName} 吗？\n已保存的 Key 和 OAuth Token 会一并清除。`"
-      aria-label="确认移除供应商"
-      confirm-label="移除"
-      cancel-label="取消"
+      :message="t('settings.providerConfig.removeConfirmMessage', { providerName: props.config.displayName })"
+      :aria-label="t('settings.providerConfig.removeConfirmAria')"
+      :confirm-label="t('common.remove')"
+      :cancel-label="t('common.cancel')"
       variant="danger"
       @cancel="cancelRemove"
       @confirm="confirmRemove"

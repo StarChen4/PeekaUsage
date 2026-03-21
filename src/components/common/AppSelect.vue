@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 
 type SelectValue = string | number;
 
@@ -18,9 +19,7 @@ const props = withDefaults(defineProps<{
   ariaLabel?: string;
   listMaxHeight?: number;
 }>(), {
-  placeholder: "请选择",
   disabled: false,
-  ariaLabel: "选择选项",
   listMaxHeight: 240,
 });
 
@@ -31,6 +30,8 @@ const emit = defineEmits<{
   close: [];
 }>();
 
+const { t } = useI18n();
+
 const isOpen = ref(false);
 const activeIndex = ref(-1);
 const triggerRef = ref<HTMLButtonElement | null>(null);
@@ -40,6 +41,8 @@ const panelStyle = ref<Record<string, string>>({});
 const selectedOption = computed(() => {
   return props.options.find((option) => option.value === props.modelValue) ?? null;
 });
+const resolvedPlaceholder = computed(() => props.placeholder ?? t("common.select"));
+const resolvedAriaLabel = computed(() => props.ariaLabel ?? t("common.selectOption"));
 
 function closeMenu() {
   if (!isOpen.value) {
@@ -284,7 +287,7 @@ onBeforeUnmount(() => {
       :class="{ 'is-open': isOpen, 'is-disabled': disabled }"
       :aria-expanded="isOpen"
       :aria-haspopup="'listbox'"
-      :aria-label="ariaLabel"
+      :aria-label="resolvedAriaLabel"
       type="button"
       @click="toggleMenu"
       @keydown="onKeydown"
@@ -292,7 +295,7 @@ onBeforeUnmount(() => {
       <span class="select-trigger-content">
         <slot name="selected" :option="selectedOption">
           <span class="select-trigger-label" :class="{ 'is-placeholder': !selectedOption }">
-            {{ selectedOption?.label ?? placeholder }}
+            {{ selectedOption?.label ?? resolvedPlaceholder }}
           </span>
         </slot>
       </span>
@@ -314,7 +317,7 @@ onBeforeUnmount(() => {
         class="select-panel"
         :style="panelStyle"
         role="listbox"
-        :aria-label="ariaLabel"
+        :aria-label="resolvedAriaLabel"
       >
         <button
           v-for="(option, index) in options"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { SubscriptionUsage } from "../../types/provider";
 import UsageProgressBar from "./UsageProgressBar.vue";
 
@@ -7,7 +8,21 @@ const props = defineProps<{
   subscription: SubscriptionUsage;
 }>();
 
-const planLabel = computed(() => props.subscription.planName ?? "订阅");
+const { t } = useI18n();
+const planLabel = computed(() => props.subscription.planName ?? t("widget.subscription.fallbackPlan"));
+
+function formatResetTime(isoStr: string): string {
+  const reset = new Date(isoStr);
+  const now = Date.now();
+  const diffMs = reset.getTime() - now;
+  if (diffMs <= 0) return t("widget.subscription.resetSoon");
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 60) return t("widget.subscription.resetInMinutes", { count: diffMin });
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return t("widget.subscription.resetInHours", { count: diffHr });
+  const diffDay = Math.floor(diffHr / 24);
+  return t("widget.subscription.resetInDays", { count: diffDay });
+}
 </script>
 
 <template>
@@ -46,21 +61,6 @@ const planLabel = computed(() => props.subscription.planName ?? "订阅");
     </div>
   </div>
 </template>
-
-<script lang="ts">
-function formatResetTime(isoStr: string): string {
-  const reset = new Date(isoStr);
-  const now = Date.now();
-  const diffMs = reset.getTime() - now;
-  if (diffMs <= 0) return "即将重置";
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 60) return `${diffMin}分钟后重置`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}小时后重置`;
-  const diffDay = Math.floor(diffHr / 24);
-  return `${diffDay}天后重置`;
-}
-</script>
 
 <style scoped>
 .subscription-section {

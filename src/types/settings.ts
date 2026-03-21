@@ -3,10 +3,12 @@ import type { ProviderId } from "./provider";
 export type PollingMode = "auto" | "manual";
 export type PollingUnit = "seconds" | "minutes";
 export type ThemeMode = "system" | "light" | "dark";
+export type AppLanguage = "zh-Hans" | "zh-Hant" | "en";
 
 export const DEFAULT_POLLING_INTERVAL = 5;
 export const MIN_POLLING_INTERVAL = 1;
 export const MAX_POLLING_INTERVAL = 999;
+export const SUPPORTED_LANGUAGES: AppLanguage[] = ["zh-Hans", "zh-Hant", "en"];
 
 export interface PollingSettings {
   pollingInterval: number;
@@ -19,6 +21,7 @@ export interface AppSettings extends PollingSettings {
   providerPollingOverridesEnabled: boolean;
   providerPollingOverrides: Partial<Record<ProviderId, PollingSettings>>;
   refreshOnSettingsClose: boolean;
+  language: AppLanguage;
   alwaysOnTop: boolean;
   launchAtStartup: boolean;
   windowOpacity: number;
@@ -36,6 +39,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   providerPollingOverridesEnabled: false,
   providerPollingOverrides: {},
   refreshOnSettingsClose: false,
+  language: "zh-Hans",
   alwaysOnTop: true,
   launchAtStartup: false,
   windowOpacity: 100,
@@ -95,6 +99,7 @@ export function normalizeAppSettings(settings: AppSettings): AppSettings {
     providerPollingOverridesEnabled: !!settings.providerPollingOverridesEnabled,
     providerPollingOverrides: normalizeProviderPollingOverrides(settings.providerPollingOverrides),
     refreshOnSettingsClose: !!settings.refreshOnSettingsClose,
+    language: normalizeAppLanguage(settings.language),
   };
 }
 
@@ -121,4 +126,12 @@ export function getEffectivePollingSettings(
   }
 
   return normalizePollingSettings(settings);
+}
+
+export function normalizeAppLanguage(language: AppLanguage | string | undefined): AppLanguage {
+  if (language && SUPPORTED_LANGUAGES.includes(language as AppLanguage)) {
+    return language as AppLanguage;
+  }
+
+  return DEFAULT_SETTINGS.language;
 }

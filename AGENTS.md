@@ -246,6 +246,25 @@
 - 迁移只在新目录缺少对应文件时执行，不能覆盖新标识下已经存在的数据
 - 如果后续继续改 `identifier`，必须同步更新迁移逻辑，不能只改配置不处理老用户数据
 
+### 15. 多语言支持已接入
+
+文件：
+
+- `src/i18n/index.ts`
+- `src/i18n/messages.ts`
+- `src/components/settings/SettingsPanel.vue`
+- `src-tauri/src/config/app_config.rs`
+- `src/types/settings.ts`
+
+当前要求：
+
+- 设置页“通用”里提供语言选择，顺序固定为“简体中文”“繁体中文”“English”
+- 当前持久化字段是 `language`
+- 当前仅支持 `zh-Hans`、`zh-Hant`、`en`
+- 主界面、设置页和通用交互文案切换要即时生效
+- 新增文案不要再直接散落在组件里，优先收敛到 `src/i18n/messages.ts`
+- 旧配置缺少 `language` 时要继续兼容，默认按简体中文处理
+
 ## 先读哪些文件
 
 如果你是新的 coding agent，按这个顺序进入代码：
@@ -258,16 +277,18 @@
 6. `src-tauri/src/commands/window_commands.rs`
 7. `src-tauri/src/tray/mod.rs`
 8. `src/App.vue`
-9. `src/composables/useWindowControls.ts`
-10. `src/components/common/AppSelect.vue`
-11. `src/components/common/ConfirmDialog.vue`
-12. `src/components/widget/WidgetContainer.vue`
-13. `src/components/settings/ProviderConfig.vue`
-14. `src/components/settings/SettingsPanel.vue`
-15. `src-tauri/tauri.linux.conf.json`
-16. `.github/workflows/ci.yml`
-17. `.github/workflows/release.yml`
-18. `src-tauri/tauri.macos.conf.json`
+9. `src/i18n/index.ts`
+10. `src/i18n/messages.ts`
+11. `src/composables/useWindowControls.ts`
+12. `src/components/common/AppSelect.vue`
+13. `src/components/common/ConfirmDialog.vue`
+14. `src/components/widget/WidgetContainer.vue`
+15. `src/components/settings/ProviderConfig.vue`
+16. `src/components/settings/SettingsPanel.vue`
+17. `src-tauri/tauri.linux.conf.json`
+18. `.github/workflows/ci.yml`
+19. `.github/workflows/release.yml`
+20. `src-tauri/tauri.macos.conf.json`
 
 ## 快速开发命令
 
@@ -313,13 +334,14 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `useWindowControls.ts`：窗口隐藏、最小化、透明度同步
 - `providerStore`：主数据
 - `settingsStore`：设置数据
+- `i18n`：语言包和运行时语言切换
 - `ProviderIcon.vue`：供应商图标共享组件
 - `AppSelect.vue`：跨平台自定义下拉组件
 - `ConfirmDialog.vue`：应用内确认弹层
 - `WidgetContainer.vue`：主界面卡片和拖拽排序
 - `ProviderCard.vue`：供应商卡片和单卡片刷新入口
 - `ProviderConfig.vue`：供应商设置卡片
-- `SettingsPanel.vue`：设置页容器、全局刷新、高级分供应商刷新和透明度控件
+- `SettingsPanel.vue`：设置页容器、语言选择、全局刷新、高级分供应商刷新和透明度控件
 
 ## 核心约束
 
@@ -370,6 +392,15 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 秒和分钟都属于自动刷新模式，不要再把 `pollingInterval` 固定解释成“分钟”
 - 分供应商定时器要按每个供应商的生效策略独立调度，不能继续假设全局只有一个定时器
 - 要兼容旧配置缺少新字段的情况，默认按“5 分钟自动刷新”处理
+
+### 多语言约束
+
+- 语言持久化字段是 `language`
+- 允许值当前只有 `zh-Hans`、`zh-Hant`、`en`
+- 设置页语言选项顺序固定为“简体中文”“繁体中文”“English”，不要擅自改顺序
+- 新增界面文案时，优先写进 `src/i18n/messages.ts`，不要继续把可见文案硬编码在组件里
+- 通用组件的默认占位符、按钮文案和 `aria-label` 也要跟随语言切换
+- 旧配置缺少 `language` 时要继续兼容，默认简体中文
 
 ### 透明度约束
 
@@ -516,6 +547,7 @@ cargo check
 - 主界面卡片右上角单独刷新按钮是否只刷新当前供应商
 - 设置页自定义下拉在浅色/暗黑模式下的展开和关闭
 - 设置页透明度滑杆和主界面透明度把手是否同步
+- 设置页切换简体中文、繁体中文、English 后，设置页和主界面文案是否即时同步
 
 如果改了 Linux 构建或发布链路，再额外确认：
 

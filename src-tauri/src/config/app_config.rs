@@ -19,6 +19,8 @@ pub struct AppSettings {
     pub provider_polling_overrides: HashMap<String, PollingSettings>,
     #[serde(default)]
     pub refresh_on_settings_close: bool,
+    #[serde(default)]
+    pub language: AppLanguage,
     pub always_on_top: bool,
     pub launch_at_startup: bool,
     pub window_opacity: f64,
@@ -65,6 +67,17 @@ pub enum ThemeMode {
     Dark,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum AppLanguage {
+    #[default]
+    #[serde(rename = "zh-Hans")]
+    ZhHans,
+    #[serde(rename = "zh-Hant")]
+    ZhHant,
+    #[serde(rename = "en")]
+    En,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowPosition {
     pub x: f64,
@@ -86,6 +99,7 @@ impl Default for AppSettings {
             provider_polling_overrides_enabled: false,
             provider_polling_overrides: HashMap::new(),
             refresh_on_settings_close: false,
+            language: AppLanguage::default(),
             always_on_top: true,
             launch_at_startup: false,
             window_opacity: 100.0,

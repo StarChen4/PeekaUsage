@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { ApiKeyUsageSummary, UsageSummary } from "../../types/provider";
 import { calcUsagePercent, formatCurrency } from "../../utils/formatters";
 import UsageProgressBar from "./UsageProgressBar.vue";
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   refresh: [];
 }>();
 
+const { t } = useI18n();
 const hasSubscription = computed(() => !!props.provider.subscription);
 const hasApiUsage = computed(() => props.provider.apiKeyUsages.length > 0);
 const hasMultipleApiKeys = computed(() => props.provider.apiKeyUsages.length > 1);
@@ -41,8 +43,8 @@ function usagePercent(item: ApiKeyUsageSummary) {
         :class="{ 'is-spinning': isRefreshing }"
         :disabled="isRefreshing"
         type="button"
-        title="刷新当前供应商"
-        aria-label="刷新当前供应商"
+        :title="t('widget.actions.refreshProvider')"
+        :aria-label="t('widget.actions.refreshProvider')"
         @pointerdown.stop
         @click.stop="emit('refresh')"
       >
@@ -73,14 +75,16 @@ function usagePercent(item: ApiKeyUsageSummary) {
 
     <div v-if="hasApiUsage" class="api-section">
       <div class="api-header-block">
-        <div v-if="hasSubscription" class="api-label">按量 API</div>
+        <div v-if="hasSubscription" class="api-label">{{ t("widget.providerCard.apiLabel") }}</div>
         <div v-if="provider.usage" class="api-total">
-          <span class="api-total-label">{{ hasMultipleApiKeys ? "合计" : "当前" }}</span>
+          <span class="api-total-label">
+            {{ hasMultipleApiKeys ? t("widget.providerCard.total") : t("widget.providerCard.current") }}
+          </span>
           <span class="usage-amount">
             {{ formatCurrency(provider.usage.totalUsed, provider.usage.currency) }}
           </span>
           <span v-if="provider.usage.remaining != null" class="balance-info">
-            余额: {{ formatCurrency(provider.usage.remaining, provider.usage.currency) }}
+            {{ t("widget.providerCard.balance") }}: {{ formatCurrency(provider.usage.remaining, provider.usage.currency) }}
           </span>
         </div>
       </div>
@@ -100,7 +104,7 @@ function usagePercent(item: ApiKeyUsageSummary) {
 
         <div v-if="item.usage" class="api-key-meta">
           <span v-if="item.usage.remaining != null" class="balance-info">
-            余额: {{ formatCurrency(item.usage.remaining, item.usage.currency) }}
+            {{ t("widget.providerCard.balance") }}: {{ formatCurrency(item.usage.remaining, item.usage.currency) }}
           </span>
         </div>
 

@@ -9,6 +9,8 @@
 - `src/components/settings/SettingsPanel.vue` 的设置页返回入口已改为左向箭头图标按钮，不再显示紫色文字按钮
 - 返回按钮的 `hover` 和 `focus` 交互态要继续跟随应用主题风格
 - 设置页“通用”里新增了“返回时刷新主界面”开关，默认关闭；只有勾选后，从设置返回主界面才会触发一次全部供应商刷新
+- 设置页“通用”里已新增语言选择，顺序固定为“简体中文”“繁體中文”“English”，持久化字段是 `language`
+- 当前前端文案统一收敛到 `src/i18n/messages.ts`，默认支持 `zh-Hans`、`zh-Hant`、`en`
 - GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` / `arm64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
 - 发版前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 三处版本号一致
 
@@ -284,6 +286,7 @@ export PATH="$PATH:$HOME/.cargo/bin"
 
 - `src/stores/providerStore.ts` 管理主界面数据
 - `src/stores/settingsStore.ts` 管理设置页数据
+- `src/i18n/index.ts` 和 `src/i18n/messages.ts` 管理语言包与运行时语言切换
 
 #### 组合式逻辑
 
@@ -411,6 +414,7 @@ WidgetContainer 拖拽结束
 - `providerPollingOverridesEnabled`
 - `providerPollingOverrides`
 - `refreshOnSettingsClose`
+- `language`
 
 ### OAuth 凭据位置
 
@@ -448,6 +452,8 @@ WidgetContainer 拖拽结束
 - 不要再把 `pollingInterval` 固定理解成“分钟”，现在必须结合 `pollingMode` / `pollingUnit`
 - 不要再假设轮询只有一个全局定时器；分供应商策略开启后必须按供应商独立调度
 - 不要假设从设置返回一定刷新；是否刷新取决于 `refreshOnSettingsClose`
+- 不要把新文案继续直接写死在组件里，优先统一到 `src/i18n/messages.ts`
+- 不要改动设置页语言选项的顺序；当前固定为“简体中文”“繁體中文”“English”
 - 透明度现在由前端视觉层控制并通过 IPC 同步，Tauri v2 本身没有直接可用的 `WebviewWindow.set_opacity()`
 - 后续交互实现优先保证 Windows、Linux、macOS 的一致性，其次再考虑单平台捷径
 - `identifier` 会影响应用数据目录，品牌改名时不能只改显示名，必须处理旧数据迁移
@@ -579,6 +585,7 @@ cargo check
 - 主界面卡片右上角单独刷新按钮是否只刷新当前供应商
 - 自定义下拉在浅色/暗黑模式下的打开、关闭、键盘导航
 - 设置页透明度滑杆与主界面透明度把手的同步
+- 设置页切换简体中文、繁體中文、English 后，设置页与主界面文案是否即时同步
 ## 补充说明
 
 ### 主界面主题入口
