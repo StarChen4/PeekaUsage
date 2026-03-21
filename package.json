@@ -1,17 +1,17 @@
 {
-  "name": "ai-usage-peek",
+  "name": "peeka-usage",
   "private": true,
   "version": "0.1.3",
   "description": "A Tauri desktop widget for tracking OpenAI, Anthropic, and OpenRouter usage.",
   "author": "Star Chen",
   "license": "MIT",
-  "homepage": "https://github.com/StarChen4/AI-Usage-Peek",
+  "homepage": "https://github.com/StarChen4/PeekaUsage",
   "bugs": {
-    "url": "https://github.com/StarChen4/AI-Usage-Peek/issues"
+    "url": "https://github.com/StarChen4/PeekaUsage/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/StarChen4/AI-Usage-Peek.git"
+    "url": "git+https://github.com/StarChen4/PeekaUsage.git"
   },
   "type": "module",
   "scripts": {

@@ -6,6 +6,7 @@ mod polling;
 
 use config::app_config::AppConfig;
 use config::encryption::KeyStore;
+use config::migration::migrate_legacy_app_data;
 use providers::ProviderManager;
 use tauri::Manager;
 
@@ -20,6 +21,10 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .expect("无法获取应用数据目录");
+
+            // 品牌改名后保留旧数据，避免 identifier 变化导致用户配置和凭据丢失。
+            migrate_legacy_app_data(&app_data_dir)
+                .map_err(std::io::Error::other)?;
 
             // 初始化状态
             let app_config = AppConfig::new(app_data_dir.clone());

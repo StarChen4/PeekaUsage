@@ -51,7 +51,7 @@ jobs:
           output_path = os.environ["GITHUB_OUTPUT"]
           with open(output_path, "a", encoding="utf-8") as output:
               output.write(f"tag_name={tag}\n")
-              output.write(f"release_name=AI-Usage-Peek {tag}\n")
+              output.write(f"release_name=PeekaUsage {tag}\n")
           PY
 
   prepare-release:

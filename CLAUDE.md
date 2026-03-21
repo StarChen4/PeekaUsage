@@ -177,7 +177,22 @@
 - macOS 打包目标单独放在 `src-tauri/tauri.macos.conf.json`
 - 本地 macOS 打包使用 `npm run tauri:build:macos`
 - 当前 macOS 产物未签名、未 notarize
-- 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/AI-Usage-Peek.app` 作为手动放行方案
+- 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/PeekaUsage.app` 作为手动放行方案
+
+### 12. 应用标识已切到 `PeekaUsage`
+
+文件：
+
+- `src-tauri/tauri.conf.json`
+- `src-tauri/src/config/migration.rs`
+- `src-tauri/src/lib.rs`
+
+当前行为：
+
+- 当前 Tauri `identifier` 是 `com.peekausage.desktop`
+- 应用启动时会尝试从旧标识 `com.ai-usage-peek.desktop` 的应用数据目录迁移 `config.json` 和 `keys.dat`
+- 只有新目录里对应文件不存在时才会复制，避免覆盖已经迁移或新生成的数据
+- 如果后续继续改 `identifier`，必须同步维护迁移逻辑
 
 ## 开发命令
 
@@ -386,6 +401,7 @@ WidgetContainer 拖拽结束
 - 不要让应用内弹层和浮层被父容器裁切，优先用 `Teleport`
 - 透明度现在由前端视觉层控制并通过 IPC 同步，Tauri v2 本身没有直接可用的 `WebviewWindow.set_opacity()`
 - 后续交互实现优先保证 Windows、Linux、macOS 的一致性，其次再考虑单平台捷径
+- `identifier` 会影响应用数据目录，品牌改名时不能只改显示名，必须处理旧数据迁移
 - 不要只改一个版本号文件就直接发版，`package.json`、`tauri.conf.json`、`Cargo.toml` 必须同步
 - 不要推送和版本号不一致的标签，Release 流水线会直接失败
 - 不要把 Linux 的 `deb` / `appimage` 目标直接塞回主 `tauri.conf.json`，统一放在 `src-tauri/tauri.linux.conf.json`
@@ -420,6 +436,20 @@ WidgetContainer 拖拽结束
 - 保存后是否刷新 provider store
 - 空值是否真的清掉密钥
 - disabled provider 是否仍被主界面保留
+
+### 改名后数据丢失
+
+先看：
+
+- `src-tauri/tauri.conf.json`
+- `src-tauri/src/config/migration.rs`
+- `src-tauri/src/lib.rs`
+
+重点查：
+
+- `identifier` 是否已经改成 `com.peekausage.desktop`
+- 迁移逻辑里的旧标识是否仍是 `com.ai-usage-peek.desktop`
+- 新目录已存在文件时是否被错误覆盖
 
 ### 自定义下拉异常
 

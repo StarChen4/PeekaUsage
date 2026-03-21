@@ -40,7 +40,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut tray_builder = TrayIconBuilder::new()
         .menu(&menu)
-        .tooltip("AI Usage Monitor")
+        .tooltip("PeekaUsage")
         .show_menu_on_left_click(false)
         .on_menu_event(move |app, event| {
             match event.id.as_ref() {

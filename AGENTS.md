@@ -200,8 +200,23 @@
 - 本地 macOS 打包使用 `npm run tauri:build:macos`
 - GitHub Release 会同时上传 macOS `x86_64` / `arm64` 的 `app` 和 `dmg`
 - 当前 macOS 产物未签名、未 notarize
-- 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/AI-Usage-Peek.app` 作为手动放行方案
+- 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/PeekaUsage.app` 作为手动放行方案
 - 不要把 macOS 的 `app` / `dmg` 目标混回主 `tauri.conf.json`
+
+### 13. 应用标识已改为 PeekaUsage 并保留旧数据迁移
+
+文件：
+
+- `src-tauri/tauri.conf.json`
+- `src-tauri/src/config/migration.rs`
+- `src-tauri/src/lib.rs`
+
+当前要求：
+
+- 当前 Tauri `identifier` 是 `com.peekausage.desktop`
+- 启动时会从旧标识 `com.ai-usage-peek.desktop` 的应用数据目录迁移 `config.json` 和 `keys.dat`
+- 迁移只在新目录缺少对应文件时执行，不能覆盖新标识下已经存在的数据
+- 如果后续继续改 `identifier`，必须同步更新迁移逻辑，不能只改配置不处理老用户数据
 
 ## 先读哪些文件
 
@@ -333,6 +348,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 不要优先依赖 Windows 特有 API、系统控件外观或只在单平台稳定的行为
 - 能复用现有共享组件时，优先复用 `AppSelect.vue`、`ConfirmDialog.vue`、`ProviderIcon.vue`
 - 如果必须做平台差异处理，要先确认是否真的不可避免，并在文档中补充说明
+- `identifier` 会影响应用数据目录，改名时必须考虑 Windows、Linux、macOS 的旧数据迁移
 
 ### 发版约束
 
@@ -412,6 +428,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - `src-tauri/tauri.macos.conf.json` 是否仍然只负责 macOS `app` / `dmg`
 - macOS job 是否仍然分别产出 `x86_64` / `arm64` 包
 - 如果启用了签名或 notarization，相关密钥和证书配置是否完整
+- `src-tauri/tauri.conf.json` 的 `identifier` 是否和迁移逻辑中的新旧标识保持一致
 
 ## 修改流程
 

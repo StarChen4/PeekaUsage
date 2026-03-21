@@ -8,7 +8,7 @@ const { minimizeWindow, closeToTray } = useWindowControls();
   <div class="titlebar" data-tauri-drag-region>
     <div class="titlebar-left" data-tauri-drag-region>
       <span class="titlebar-dot"></span>
-      <span class="titlebar-title" data-tauri-drag-region>AI Usage Monitor</span>
+      <span class="titlebar-title" data-tauri-drag-region>PeekaUsage</span>
     </div>
     <div class="titlebar-actions">
       <button class="titlebar-btn" @click="minimizeWindow" title="最小化">

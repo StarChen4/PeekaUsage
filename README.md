@@ -1,4 +1,4 @@
-# AI-Usage-Peek
+# PeekaUsage
 
 [English README](./README.en.md)
 
@@ -69,7 +69,7 @@ xattr -dr com.apple.quarantine <drag your app here>
 最终命令通常类似这样：
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/AI-Usage-Peek.app
+xattr -dr com.apple.quarantine /Applications/PeekaUsage.app
 ```
 
 ### 4. 启动前端

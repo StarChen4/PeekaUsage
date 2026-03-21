@@ -1,4 +1,4 @@
-# AI-Usage-Peek
+# PeekaUsage
 
 [中文 README](./README.md)
 
@@ -69,7 +69,7 @@ xattr -dr com.apple.quarantine <drag your app here>
 The final command usually looks like this:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/AI-Usage-Peek.app
+xattr -dr com.apple.quarantine /Applications/PeekaUsage.app
 ```
 
 ### 4. Start the frontend
