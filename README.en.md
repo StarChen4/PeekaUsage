@@ -4,7 +4,11 @@
 
 A small desktop widget that tries to ease AI token anxiety. Well, not really fix it.
 
-<img src="./src/assets/Overview.png" alt="App overview" width="300" />
+<p align="center">
+  <img src="./src/assets/Overview.png" alt="App overview" width="300" />
+  <img src="./src/assets/Overview1.png" alt="App overview 1" width="300" />
+  <img src="./src/assets/Overview2.png" alt="App overview 2" width="300" />
+</p>
 
 If you are also juggling Anthropic and OpenAI subscriptions for tools like Claude Code, Codex, or Openclaw, you probably know the feeling: after running for a while, you want to see how much quota is gone, and you end up repeatedly opening the CLI for `/usage` or `/status`, or checking a dashboard again and again.
 
