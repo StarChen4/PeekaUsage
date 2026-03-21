@@ -4,7 +4,9 @@ import type { ProviderConfigItem, ProviderId } from "../../types/provider";
 import {
   MAX_POLLING_INTERVAL,
   MIN_POLLING_INTERVAL,
+  getEffectivePollingSettings,
   normalizePollingInterval,
+  type PollingSettings,
   type PollingMode,
   type PollingUnit,
 } from "../../types/settings";
@@ -12,6 +14,7 @@ import { useWindowControls } from "../../composables/useWindowControls";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
+import ProviderIcon from "../common/ProviderIcon.vue";
 import ProviderConfig from "./ProviderConfig.vue";
 
 defineEmits<{
@@ -26,6 +29,7 @@ const supportedProviders = ref<ProviderConfigItem[]>([]);
 const creatingProviderId = ref<ProviderId | null>(null);
 const opacityDraft = ref(settingsStore.settings.windowOpacity);
 const pollingIntervalDraft = ref(String(settingsStore.settings.pollingInterval));
+const providerPollingIntervalDrafts = ref<Partial<Record<ProviderId, string>>>({});
 
 const pollingModeOptions: Array<{ value: PollingMode; label: string }> = [
   { value: "auto", label: "自动" },
@@ -42,6 +46,7 @@ const availableProviders = computed(() => {
   return supportedProviders.value.filter((item) => !configuredProviderIds.value.has(item.providerId));
 });
 const isManualPolling = computed(() => settingsStore.settings.pollingMode === "manual");
+const configuredPollingProviders = computed(() => providerConfigs.value.filter((item) => item.enabled));
 
 const draftProviderConfig = computed<ProviderConfigItem | null>(() => {
   if (!creatingProviderId.value) {
@@ -80,6 +85,8 @@ async function loadProviderData() {
     if (creatingProviderId.value && !availableProviders.value.some((item) => item.providerId === creatingProviderId.value)) {
       creatingProviderId.value = availableProviders.value[0]?.providerId ?? null;
     }
+
+    syncProviderPollingDrafts();
   } catch {
     providerConfigs.value = [];
     supportedProviders.value = [];
@@ -96,12 +103,32 @@ watch(() => settingsStore.settings.pollingInterval, (value) => {
   pollingIntervalDraft.value = String(value);
 }, { immediate: true });
 
+watch(
+  () => JSON.stringify({
+    providerConfigs: configuredPollingProviders.value.map((item) => item.providerId),
+    providerPollingOverrides: settingsStore.settings.providerPollingOverrides,
+    providerPollingOverridesEnabled: settingsStore.settings.providerPollingOverridesEnabled,
+    pollingInterval: settingsStore.settings.pollingInterval,
+    pollingMode: settingsStore.settings.pollingMode,
+    pollingUnit: settingsStore.settings.pollingUnit,
+  }),
+  () => {
+    syncProviderPollingDrafts();
+  },
+  { immediate: true },
+);
+
 async function onPollingModeChange(value: PollingMode) {
   await settingsStore.saveSettings({ pollingMode: value });
 }
 
 async function onPollingUnitChange(value: PollingUnit) {
   await settingsStore.saveSettings({ pollingUnit: value });
+}
+
+async function onProviderPollingOverridesEnabledChange(event: Event) {
+  const checked = (event.target as HTMLInputElement).checked;
+  await settingsStore.saveSettings({ providerPollingOverridesEnabled: checked });
 }
 
 function onPollingIntervalInput(event: Event) {
@@ -124,6 +151,77 @@ async function commitPollingInterval() {
 }
 
 function onPollingIntervalKeydown(event: KeyboardEvent) {
+  if (event.key === "Enter") {
+    (event.target as HTMLInputElement).blur();
+  }
+}
+
+function getProviderPollingSettings(providerId: ProviderId): PollingSettings {
+  return getEffectivePollingSettings(settingsStore.settings, providerId);
+}
+
+function syncProviderPollingDrafts() {
+  const nextDrafts: Partial<Record<ProviderId, string>> = {};
+
+  for (const item of configuredPollingProviders.value) {
+    nextDrafts[item.providerId] = String(getProviderPollingSettings(item.providerId).pollingInterval);
+  }
+
+  providerPollingIntervalDrafts.value = nextDrafts;
+}
+
+async function saveProviderPollingSettings(
+  providerId: ProviderId,
+  nextSettings: Partial<PollingSettings>,
+) {
+  const current = getProviderPollingSettings(providerId);
+  await settingsStore.saveSettings({
+    providerPollingOverrides: {
+      ...settingsStore.settings.providerPollingOverrides,
+      [providerId]: {
+        ...current,
+        ...nextSettings,
+      },
+    },
+  });
+}
+
+async function onProviderPollingModeChange(providerId: ProviderId, value: PollingMode) {
+  await saveProviderPollingSettings(providerId, { pollingMode: value });
+}
+
+async function onProviderPollingUnitChange(providerId: ProviderId, value: PollingUnit) {
+  await saveProviderPollingSettings(providerId, { pollingUnit: value });
+}
+
+function onProviderPollingIntervalInput(providerId: ProviderId, event: Event) {
+  providerPollingIntervalDrafts.value = {
+    ...providerPollingIntervalDrafts.value,
+    [providerId]: (event.target as HTMLInputElement).value,
+  };
+}
+
+async function commitProviderPollingInterval(providerId: ProviderId) {
+  const rawValue = providerPollingIntervalDrafts.value[providerId] ?? "";
+  const current = getProviderPollingSettings(providerId);
+  const parsed = Number.parseInt(rawValue, 10);
+  const nextValue = normalizePollingInterval(
+    Number.isNaN(parsed) ? current.pollingInterval : parsed,
+  );
+
+  providerPollingIntervalDrafts.value = {
+    ...providerPollingIntervalDrafts.value,
+    [providerId]: String(nextValue),
+  };
+
+  if (nextValue === current.pollingInterval) {
+    return;
+  }
+
+  await saveProviderPollingSettings(providerId, { pollingInterval: nextValue });
+}
+
+function onProviderPollingIntervalKeydown(event: KeyboardEvent) {
   if (event.key === "Enter") {
     (event.target as HTMLInputElement).blur();
   }
@@ -209,7 +307,7 @@ async function onProviderRemoved() {
       <section class="settings-section">
         <h3 class="section-title">通用</h3>
         <div class="setting-row setting-row-polling">
-          <label>刷新</label>
+          <label>全局刷新</label>
           <div class="polling-control">
             <div class="polling-segment" role="group" aria-label="刷新模式">
               <button
@@ -309,6 +407,96 @@ async function onProviderRemoved() {
           @saved="onProviderSaved"
           @removed="onProviderRemoved"
         />
+      </section>
+
+      <section class="settings-section">
+        <div class="section-header">
+          <h3 class="section-title">高级</h3>
+        </div>
+
+        <label class="advanced-toggle">
+          <span class="advanced-toggle-copy">
+            <span class="advanced-toggle-title">按供应商独立刷新</span>
+            <span class="advanced-toggle-hint">为已配置供应商单独设置刷新策略。</span>
+          </span>
+          <span class="switch">
+            <input
+              class="switch-input"
+              type="checkbox"
+              :checked="settingsStore.settings.providerPollingOverridesEnabled"
+              @change="onProviderPollingOverridesEnabledChange"
+            >
+            <span class="switch-track" />
+          </span>
+        </label>
+
+        <div
+          v-if="settingsStore.settings.providerPollingOverridesEnabled && configuredPollingProviders.length === 0"
+          class="provider-empty-state"
+        >
+          <span>还没有可单独配置的供应商，先在上方添加并启用供应商。</span>
+        </div>
+
+        <div
+          v-if="settingsStore.settings.providerPollingOverridesEnabled && configuredPollingProviders.length > 0"
+          class="provider-polling-list"
+        >
+          <div
+            v-for="config in configuredPollingProviders"
+            :key="config.providerId"
+            class="provider-polling-item"
+          >
+            <div class="provider-polling-meta">
+              <ProviderIcon :provider-id="config.providerId" :size="16" />
+              <span class="provider-polling-name">{{ config.displayName }}</span>
+            </div>
+            <div class="polling-control polling-control-compact">
+              <div class="polling-segment polling-segment-compact" role="group" :aria-label="`${config.displayName} 刷新模式`">
+                <button
+                  v-for="option in pollingModeOptions"
+                  :key="option.value"
+                  class="polling-segment-button polling-segment-button-compact"
+                  :class="{ 'is-active': getProviderPollingSettings(config.providerId).pollingMode === option.value }"
+                  type="button"
+                  :aria-pressed="getProviderPollingSettings(config.providerId).pollingMode === option.value"
+                  @click="onProviderPollingModeChange(config.providerId, option.value)"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+              <div
+                v-if="getProviderPollingSettings(config.providerId).pollingMode !== 'manual'"
+                class="polling-auto-inline polling-auto-inline-compact"
+              >
+                <input
+                  class="polling-interval-input polling-interval-input-compact"
+                  type="number"
+                  inputmode="numeric"
+                  :min="MIN_POLLING_INTERVAL"
+                  :max="MAX_POLLING_INTERVAL"
+                  :value="providerPollingIntervalDrafts[config.providerId] ?? String(getProviderPollingSettings(config.providerId).pollingInterval)"
+                  :aria-label="`${config.displayName} 刷新数值`"
+                  @input="onProviderPollingIntervalInput(config.providerId, $event)"
+                  @blur="commitProviderPollingInterval(config.providerId)"
+                  @keydown="onProviderPollingIntervalKeydown($event)"
+                />
+                <div class="polling-segment polling-unit-segment polling-segment-compact" role="group" :aria-label="`${config.displayName} 刷新单位`">
+                  <button
+                    v-for="option in pollingUnitOptions"
+                    :key="option.value"
+                    class="polling-segment-button polling-segment-button-compact"
+                    :class="{ 'is-active': getProviderPollingSettings(config.providerId).pollingUnit === option.value }"
+                    type="button"
+                    :aria-pressed="getProviderPollingSettings(config.providerId).pollingUnit === option.value"
+                    @click="onProviderPollingUnitChange(config.providerId, option.value)"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   </div>
@@ -423,6 +611,86 @@ async function onProviderRemoved() {
   align-items: flex-start;
 }
 
+.advanced-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.advanced-toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.advanced-toggle-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.advanced-toggle-hint {
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--color-text-secondary);
+}
+
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 34px;
+  height: 20px;
+}
+
+.switch-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.switch-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--color-progress-track);
+  border: 1px solid var(--color-border);
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  transition: transform 0.18s ease;
+}
+
+.switch-input:checked + .switch-track {
+  background: var(--color-primary-soft-bg);
+  border-color: var(--color-primary-soft-border);
+}
+
+.switch-input:checked + .switch-track::after {
+  transform: translateX(14px);
+}
+
+.switch-input:focus-visible + .switch-track {
+  box-shadow: 0 0 0 3px var(--color-primary-soft-bg);
+}
+
 .polling-control {
   flex: 1;
   min-width: 0;
@@ -441,6 +709,44 @@ async function onProviderRemoved() {
   min-width: 0;
 }
 
+.provider-polling-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.provider-polling-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.provider-polling-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.provider-polling-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.provider-polling-item .polling-control {
+  justify-content: flex-start;
+}
+
+.polling-control-compact {
+  gap: 4px;
+}
+
 .polling-segment {
   display: inline-flex;
   align-items: center;
@@ -455,6 +761,12 @@ async function onProviderRemoved() {
   min-width: 0;
 }
 
+.polling-segment-compact {
+  padding: 1px;
+  border-radius: var(--radius-sm);
+  background: var(--color-ghost-bg);
+}
+
 .polling-segment-button {
   min-width: 38px;
   height: 28px;
@@ -467,6 +779,13 @@ async function onProviderRemoved() {
   line-height: 1;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
+}
+
+.polling-segment-button-compact {
+  min-width: 34px;
+  height: 24px;
+  padding: 0 8px;
+  font-size: 10px;
 }
 
 .polling-segment-button:hover {
@@ -496,6 +815,17 @@ async function onProviderRemoved() {
   line-height: 1.4;
   text-align: center;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.polling-auto-inline-compact {
+  gap: 4px;
+}
+
+.polling-interval-input-compact {
+  width: 44px;
+  min-height: 24px;
+  padding: 2px 6px;
+  font-size: 10px;
 }
 
 .polling-interval-input:hover {

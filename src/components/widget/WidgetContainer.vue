@@ -31,7 +31,7 @@ interface DragState {
   releasing: boolean;
 }
 
-const { providerStore, manualRefresh } = useProviders();
+const { providerStore, manualRefresh, manualRefreshProvider } = useProviders();
 const settingsStore = useSettingsStore();
 
 const themeOptions: Array<{ value: ThemeMode; label: string }> = [
@@ -407,7 +407,11 @@ function getCardClass(providerId: ProviderId) {
           :style="getCardStyle(provider.providerId)"
           @pointerdown="startDrag(provider.providerId, $event)"
         >
-          <ProviderCard :provider="provider" />
+          <ProviderCard
+            :provider="provider"
+            :is-refreshing="providerStore.isProviderRefreshing(provider.providerId)"
+            @refresh="manualRefreshProvider(provider.providerId)"
+          />
         </div>
       </template>
       <div v-else class="empty-state">

@@ -18,10 +18,15 @@ export function useProviders() {
     await providerStore.refreshAll();
   }
 
+  async function manualRefreshProvider(providerId: Parameters<typeof providerStore.refreshProvider>[0]) {
+    await providerStore.refreshProvider(providerId);
+  }
+
   return {
     providerStore,
     settingsStore,
     polling,
     manualRefresh,
+    manualRefreshProvider,
   };
 }

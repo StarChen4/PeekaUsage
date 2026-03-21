@@ -6,6 +6,7 @@ import { fetchAllUsage, fetchProviderUsage } from "../utils/ipc";
 export const useProviderStore = defineStore("provider", () => {
   const providers = ref<UsageSummary[]>([]);
   const isRefreshing = ref(false);
+  const refreshingProviders = ref<Partial<Record<ProviderId, boolean>>>({});
   const lastError = ref<string | null>(null);
 
   /** 刷新所有供应商数据 */
@@ -24,6 +25,15 @@ export const useProviderStore = defineStore("provider", () => {
 
   /** 刷新单个供应商 */
   async function refreshProvider(providerId: ProviderId) {
+    if (isRefreshing.value || refreshingProviders.value[providerId]) {
+      return;
+    }
+
+    refreshingProviders.value = {
+      ...refreshingProviders.value,
+      [providerId]: true,
+    };
+
     try {
       const updated = await fetchProviderUsage(providerId);
       const idx = providers.value.findIndex((p) => p.providerId === providerId);
@@ -34,6 +44,11 @@ export const useProviderStore = defineStore("provider", () => {
       }
     } catch (e: any) {
       lastError.value = e?.toString() ?? "未知错误";
+    } finally {
+      refreshingProviders.value = {
+        ...refreshingProviders.value,
+        [providerId]: false,
+      };
     }
   }
 
@@ -42,12 +57,18 @@ export const useProviderStore = defineStore("provider", () => {
     return providers.value.filter((p) => p.enabled);
   }
 
+  function isProviderRefreshing(providerId: ProviderId) {
+    return isRefreshing.value || !!refreshingProviders.value[providerId];
+  }
+
   return {
     providers,
     isRefreshing,
+    refreshingProviders,
     lastError,
     refreshAll,
     refreshProvider,
     enabledProviders,
+    isProviderRefreshing,
   };
 });

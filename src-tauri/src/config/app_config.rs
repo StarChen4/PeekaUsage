@@ -13,6 +13,10 @@ pub struct AppSettings {
     pub polling_mode: PollingMode,
     #[serde(default)]
     pub polling_unit: PollingUnit,
+    #[serde(default)]
+    pub provider_polling_overrides_enabled: bool,
+    #[serde(default)]
+    pub provider_polling_overrides: HashMap<String, PollingSettings>,
     pub always_on_top: bool,
     pub launch_at_startup: bool,
     pub window_opacity: f64,
@@ -38,6 +42,16 @@ pub enum PollingUnit {
     Seconds,
     #[default]
     Minutes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PollingSettings {
+    pub polling_interval: u32,
+    #[serde(default)]
+    pub polling_mode: PollingMode,
+    #[serde(default)]
+    pub polling_unit: PollingUnit,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -67,6 +81,8 @@ impl Default for AppSettings {
             polling_interval: 5,
             polling_mode: PollingMode::default(),
             polling_unit: PollingUnit::default(),
+            provider_polling_overrides_enabled: false,
+            provider_polling_overrides: HashMap::new(),
             always_on_top: true,
             launch_at_startup: false,
             window_opacity: 100.0,
@@ -81,7 +97,25 @@ impl Default for AppSettings {
 impl AppSettings {
     pub fn normalized(mut self) -> Self {
         self.polling_interval = self.polling_interval.clamp(1, 999);
+        self.provider_polling_overrides = self
+            .provider_polling_overrides
+            .into_iter()
+            .filter_map(|(provider_id, settings)| {
+                if is_supported_provider_id(&provider_id) {
+                    Some((provider_id, settings.normalized()))
+                } else {
+                    None
+                }
+            })
+            .collect();
         self.window_opacity = self.window_opacity.clamp(10.0, 100.0);
+        self
+    }
+}
+
+impl PollingSettings {
+    pub fn normalized(mut self) -> Self {
+        self.polling_interval = self.polling_interval.clamp(1, 999);
         self
     }
 }
@@ -92,6 +126,10 @@ fn default_provider_card_expanded() -> HashMap<String, bool> {
         ("anthropic".to_string(), true),
         ("openrouter".to_string(), true),
     ])
+}
+
+fn is_supported_provider_id(provider_id: &str) -> bool {
+    matches!(provider_id, "openai" | "anthropic" | "openrouter")
 }
 
 /// 供应商下单个 API Key 的元数据

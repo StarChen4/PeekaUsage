@@ -8,11 +8,16 @@ export const DEFAULT_POLLING_INTERVAL = 5;
 export const MIN_POLLING_INTERVAL = 1;
 export const MAX_POLLING_INTERVAL = 999;
 
-/** 应用设置 */
-export interface AppSettings {
+export interface PollingSettings {
   pollingInterval: number;
   pollingMode: PollingMode;
   pollingUnit: PollingUnit;
+}
+
+/** 应用设置 */
+export interface AppSettings extends PollingSettings {
+  providerPollingOverridesEnabled: boolean;
+  providerPollingOverrides: Partial<Record<ProviderId, PollingSettings>>;
   alwaysOnTop: boolean;
   launchAtStartup: boolean;
   windowOpacity: number;
@@ -27,6 +32,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pollingInterval: DEFAULT_POLLING_INTERVAL,
   pollingMode: "auto",
   pollingUnit: "minutes",
+  providerPollingOverridesEnabled: false,
+  providerPollingOverrides: {},
   alwaysOnTop: true,
   launchAtStartup: false,
   windowOpacity: 100,
@@ -55,7 +62,40 @@ export function normalizePollingInterval(value: number): number {
   );
 }
 
-export function getPollingIntervalMs(settings: Pick<AppSettings, "pollingInterval" | "pollingMode" | "pollingUnit">): number | null {
+export function normalizePollingSettings(settings: PollingSettings): PollingSettings {
+  return {
+    pollingInterval: normalizePollingInterval(settings.pollingInterval),
+    pollingMode: settings.pollingMode,
+    pollingUnit: settings.pollingUnit,
+  };
+}
+
+export function normalizeProviderPollingOverrides(
+  overrides: Partial<Record<ProviderId, PollingSettings>> | undefined,
+): Partial<Record<ProviderId, PollingSettings>> {
+  const next: Partial<Record<ProviderId, PollingSettings>> = {};
+
+  for (const providerId of ["openai", "anthropic", "openrouter"] as const) {
+    const item = overrides?.[providerId];
+    if (!item) {
+      continue;
+    }
+    next[providerId] = normalizePollingSettings(item);
+  }
+
+  return next;
+}
+
+export function normalizeAppSettings(settings: AppSettings): AppSettings {
+  return {
+    ...settings,
+    ...normalizePollingSettings(settings),
+    providerPollingOverridesEnabled: !!settings.providerPollingOverridesEnabled,
+    providerPollingOverrides: normalizeProviderPollingOverrides(settings.providerPollingOverrides),
+  };
+}
+
+export function getPollingIntervalMs(settings: PollingSettings): number | null {
   if (settings.pollingMode === "manual") {
     return null;
   }
@@ -64,4 +104,18 @@ export function getPollingIntervalMs(settings: Pick<AppSettings, "pollingInterva
   return settings.pollingUnit === "seconds"
     ? interval * 1000
     : interval * 60 * 1000;
+}
+
+export function getEffectivePollingSettings(
+  settings: AppSettings,
+  providerId: ProviderId,
+): PollingSettings {
+  if (settings.providerPollingOverridesEnabled) {
+    const override = settings.providerPollingOverrides[providerId];
+    if (override) {
+      return normalizePollingSettings(override);
+    }
+  }
+
+  return normalizePollingSettings(settings);
 }

@@ -9,6 +9,11 @@ import ProviderIcon from "../common/ProviderIcon.vue";
 
 const props = defineProps<{
   provider: UsageSummary;
+  isRefreshing?: boolean;
+}>();
+
+const emit = defineEmits<{
+  refresh: [];
 }>();
 
 const hasSubscription = computed(() => !!props.provider.subscription);
@@ -31,7 +36,34 @@ function usagePercent(item: ApiKeyUsageSummary) {
         <ProviderIcon :provider-id="provider.providerId" :size="20" />
         <span class="provider-name">{{ provider.displayName }}</span>
       </div>
-      <span v-if="provider.status === 'loading'" class="status-loading">⟳</span>
+      <button
+        class="refresh-btn"
+        :class="{ 'is-spinning': isRefreshing }"
+        :disabled="isRefreshing"
+        type="button"
+        title="刷新当前供应商"
+        aria-label="刷新当前供应商"
+        @pointerdown.stop
+        @click.stop="emit('refresh')"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M20 12a8 8 0 1 1-2.34-5.66"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-width="1.8"
+          />
+          <path
+            d="M20 5.5v5h-5"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.8"
+          />
+        </svg>
+      </button>
     </div>
 
     <SubscriptionBadge
@@ -138,9 +170,45 @@ function usagePercent(item: ApiKeyUsageSummary) {
   line-height: 1.1;
 }
 
-.status-loading {
+.refresh-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.refresh-btn:hover {
+  background: var(--color-ghost-bg-hover);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refresh-btn:focus-visible {
+  outline: none;
+  border-color: var(--color-primary-soft-border);
+  box-shadow: 0 0 0 3px var(--color-primary-soft-bg);
+}
+
+.refresh-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.refresh-btn.is-spinning svg {
   animation: spin 1s linear infinite;
-  font-size: 14px;
 }
 
 @keyframes spin {

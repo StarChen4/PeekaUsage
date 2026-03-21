@@ -129,6 +129,7 @@
 文件：
 
 - `src/components/settings/SettingsPanel.vue`
+- `src/components/widget/ProviderCard.vue`
 - `src/composables/usePolling.ts`
 - `src/composables/useProviders.ts`
 - `src/types/settings.ts`
@@ -140,6 +141,9 @@
 - 自动刷新时允许自定义数值，并可切换按秒或按分钟
 - 选择“仅手动”后不能继续启动定时轮询
 - 设置页里的刷新配置要保持紧凑，优先用小尺寸分段按钮和窄输入框，避免在小窗口中过度占位
+- 设置页高级区域可开启“按供应商独立刷新”，开启后仅对已配置供应商显示单独策略
+- 分供应商策略支持自动 / 手动、秒 / 分、自定义数值，并在未单独修改时沿用全局策略
+- 每张供应商卡片右上角都有单独刷新按钮，只刷新当前供应商
 - 主界面底部手动刷新按钮和托盘刷新仍然可用
 - 旧配置缺少新字段时，要继续按“5 分钟自动刷新”兼容
 
@@ -308,8 +312,9 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `AppSelect.vue`：跨平台自定义下拉组件
 - `ConfirmDialog.vue`：应用内确认弹层
 - `WidgetContainer.vue`：主界面卡片和拖拽排序
+- `ProviderCard.vue`：供应商卡片和单卡片刷新入口
 - `ProviderConfig.vue`：供应商设置卡片
-- `SettingsPanel.vue`：设置页容器、刷新模式/间隔/单位和透明度控件
+- `SettingsPanel.vue`：设置页容器、全局刷新、高级分供应商刷新和透明度控件
 
 ## 核心约束
 
@@ -355,9 +360,10 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 
 ### 轮询约束
 
-- 刷新相关持久化字段是 `pollingMode`、`pollingInterval`、`pollingUnit`
+- 刷新相关持久化字段是 `pollingMode`、`pollingInterval`、`pollingUnit`、`providerPollingOverridesEnabled`、`providerPollingOverrides`
 - `pollingMode = manual` 时不能继续启动自动轮询
 - 秒和分钟都属于自动刷新模式，不要再把 `pollingInterval` 固定解释成“分钟”
+- 分供应商定时器要按每个供应商的生效策略独立调度，不能继续假设全局只有一个定时器
 - 要兼容旧配置缺少新字段的情况，默认按“5 分钟自动刷新”处理
 
 ### 透明度约束
@@ -437,7 +443,9 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 
 - `pollingMode` 当前是不是 `manual`
 - `pollingUnit` 是否被正确解释为 `seconds` 或 `minutes`
-- `usePolling.ts` 在设置切换后是否重建或停止定时器
+- `providerPollingOverridesEnabled` 是否已开启且 `providerPollingOverrides` 是否写入了预期供应商
+- `usePolling.ts` 是否按供应商重建、停止了对应定时器
+- 卡片右上角单独刷新按钮是否调用了 `refreshProvider`
 - 应用启动时旧配置是否被兼容成“5 分钟自动刷新”
 
 ### 透明度异常
@@ -497,7 +505,8 @@ cargo check
 - 设置保存反馈
 - 自动检测 OAuth
 - 主界面拖拽推挤和顺序持久化
-- 设置页刷新模式、秒/分钟切换和“仅手动”是否按预期生效
+- 设置页全局刷新、分供应商刷新、秒/分钟切换和“仅手动”是否按预期生效
+- 主界面卡片右上角单独刷新按钮是否只刷新当前供应商
 - 设置页自定义下拉在浅色/暗黑模式下的展开和关闭
 - 设置页透明度滑杆和主界面透明度把手是否同步
 

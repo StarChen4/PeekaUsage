@@ -3,7 +3,9 @@
 ## 补充更新
 
 - `src/components/settings/SettingsPanel.vue` 的刷新设置已支持“自动刷新 / 仅手动”切换，自动模式下可自定义数值并选择按秒或按分钟
-- 刷新相关持久化字段现在是 `pollingMode`、`pollingInterval`、`pollingUnit`，旧配置缺少新字段时继续按“5 分钟自动刷新”兼容
+- 刷新相关持久化字段现在是 `pollingMode`、`pollingInterval`、`pollingUnit`、`providerPollingOverridesEnabled`、`providerPollingOverrides`
+- 设置页高级区域可开启按供应商独立刷新；开启后会按已配置供应商显示单独策略，且主界面每张供应商卡片右上角都有单独刷新按钮
+- 旧配置缺少新字段时继续按“5 分钟自动刷新”兼容
 - `src/components/settings/SettingsPanel.vue` 的设置页返回入口已改为左向箭头图标按钮，不再显示紫色文字按钮
 - 返回按钮的 `hover` 和 `focus` 交互态要继续跟随应用主题风格
 - GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` / `arm64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
@@ -125,6 +127,7 @@
 文件：
 
 - `src/components/settings/SettingsPanel.vue`
+- `src/components/widget/ProviderCard.vue`
 - `src/composables/usePolling.ts`
 - `src/composables/useProviders.ts`
 - `src/types/settings.ts`
@@ -136,6 +139,9 @@
 - 自动刷新支持自定义数值，并可选择按秒或按分钟
 - 选择“仅手动”后不会继续启动定时轮询
 - 设置页里的刷新配置使用紧凑分段按钮和窄输入框，减少小浮窗中的占位
+- 设置页高级区域可开启“按供应商独立刷新”，开启后按已配置供应商展示单独策略
+- 分供应商策略支持自动 / 手动、秒 / 分和自定义数值；未单独修改时沿用全局策略
+- 主界面每张供应商卡片右上角都有单独刷新按钮，只刷新当前供应商
 - 主界面手动刷新按钮和托盘刷新仍然保留
 - 旧配置缺少新字段时默认按“5 分钟自动刷新”解释
 
@@ -282,10 +288,12 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `src/composables/useProviders.ts`
   - 初始化主数据
   - 手动刷新
+  - 单供应商刷新
   - 与轮询衔接
 - `src/composables/usePolling.ts`
+  - 按供应商独立调度定时轮询
   - 按秒 / 分钟启动轮询
-  - 在“仅手动”模式下停止定时器
+  - 在“仅手动”模式下停止对应供应商的定时器
 - `src/composables/useWindowControls.ts`
   - 窗口显示控制
   - 透明度即时预览
@@ -303,6 +311,9 @@ export PATH="$PATH:$HOME/.cargo/bin"
   - 渲染主界面卡片列表
   - 拖拽排序
   - 底部状态区
+- `src/components/widget/ProviderCard.vue`
+  - 单个供应商卡片
+  - 右上角单卡片刷新按钮
 - `src/components/widget/OpacityHandle.vue`
   - 主界面侧边透明度拖拽把手
 - `src/components/settings/ProviderConfig.vue`
@@ -310,7 +321,8 @@ export PATH="$PATH:$HOME/.cargo/bin"
   - 删除确认弹层入口
 - `src/components/settings/SettingsPanel.vue`
   - 设置页容器
-  - 刷新模式、间隔和单位设置
+  - 全局刷新设置
+  - 高级分供应商刷新设置
   - 透明度调节条
 
 #### 静态资源
@@ -393,6 +405,8 @@ WidgetContainer 拖拽结束
 - `pollingMode`
 - `pollingInterval`
 - `pollingUnit`
+- `providerPollingOverridesEnabled`
+- `providerPollingOverrides`
 
 ### OAuth 凭据位置
 
@@ -428,6 +442,7 @@ WidgetContainer 拖拽结束
 - 不要为设置页核心交互继续使用原生 `<select>`
 - 不要让应用内弹层和浮层被父容器裁切，优先用 `Teleport`
 - 不要再把 `pollingInterval` 固定理解成“分钟”，现在必须结合 `pollingMode` / `pollingUnit`
+- 不要再假设轮询只有一个全局定时器；分供应商策略开启后必须按供应商独立调度
 - 透明度现在由前端视觉层控制并通过 IPC 同步，Tauri v2 本身没有直接可用的 `WebviewWindow.set_opacity()`
 - 后续交互实现优先保证 Windows、Linux、macOS 的一致性，其次再考虑单平台捷径
 - `identifier` 会影响应用数据目录，品牌改名时不能只改显示名，必须处理旧数据迁移
@@ -500,6 +515,7 @@ WidgetContainer 拖拽结束
 先看：
 
 - `src/components/settings/SettingsPanel.vue`
+- `src/components/widget/ProviderCard.vue`
 - `src/composables/usePolling.ts`
 - `src/types/settings.ts`
 - `src-tauri/src/config/app_config.rs`
@@ -508,7 +524,9 @@ WidgetContainer 拖拽结束
 
 - 当前是否误处于 `pollingMode = manual`
 - `pollingUnit` 是否按 `seconds` / `minutes` 正确换算
-- 设置切换后 `usePolling.ts` 是否重建或停止了定时器
+- `providerPollingOverridesEnabled` 是否开启且覆盖项是否写到了对应供应商
+- 设置切换后 `usePolling.ts` 是否按供应商重建或停止了定时器
+- 单卡片刷新按钮是否只调用了当前供应商的 `refreshProvider`
 - 旧配置缺少新字段时是否仍按“5 分钟自动刷新”兼容
 
 ### 透明度异常
@@ -550,7 +568,8 @@ cargo check
 - 设置页保存反馈和启停同步
 - OAuth 自动检测
 - 主界面拖拽推挤、松手保存、重启后顺序保持
-- 设置页刷新模式、秒/分钟切换和“仅手动”是否按预期生效
+- 设置页全局刷新、分供应商刷新、秒/分钟切换和“仅手动”是否按预期生效
+- 主界面卡片右上角单独刷新按钮是否只刷新当前供应商
 - 自定义下拉在浅色/暗黑模式下的打开、关闭、键盘导航
 - 设置页透明度滑杆与主界面透明度把手的同步
 ## 补充说明
