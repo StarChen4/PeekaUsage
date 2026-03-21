@@ -177,6 +177,7 @@
 - macOS 打包目标单独放在 `src-tauri/tauri.macos.conf.json`
 - 本地 macOS 打包使用 `npm run tauri:build:macos`
 - 当前 macOS 产物未签名、未 notarize
+- 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/AI-Usage-Peek.app` 作为手动放行方案
 
 ## 开发命令
 

@@ -68,6 +68,18 @@ sudo apt-get install -y build-essential curl file libfuse2 libgtk-3-dev libssl-d
 - 当前仓库已接入 GitHub Actions 的 macOS runner 来产出 `x86_64` 和 `arm64`
 - 当前未接入 Apple Developer 签名与 notarization，所以下载后的首次打开可能需要手动放行
 
+如果安装后提示“文件已损坏，无法打开”，可以在终端执行：
+
+```bash
+xattr -dr com.apple.quarantine <drag your app here>
+```
+
+最终命令通常类似这样：
+
+```bash
+xattr -dr com.apple.quarantine /Applications/AI-Usage-Peek.app
+```
+
 ### 4. 启动前端
 
 ```bash
@@ -180,6 +192,7 @@ npm run tauri:build:macos
 - 在 Intel Mac 上执行会默认产出 `x86_64` 包
 - 仓库的 GitHub Actions 会额外产出 `arm64` 和 `x86_64` 两套 macOS 包
 - 当前未接入签名与 notarization，首次打开可能需要右键“打开”或移除 quarantine
+- 如果安装后被提示“文件已损坏，无法打开”，可以执行 `xattr -dr com.apple.quarantine /Applications/AI-Usage-Peek.app`
 ## 发布 Windows / Linux / macOS Release
 
 仓库现在已经接入 GitHub Actions 自动发布 Windows、Linux、macOS 安装包。

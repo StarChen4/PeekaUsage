@@ -200,6 +200,7 @@
 - 本地 macOS 打包使用 `npm run tauri:build:macos`
 - GitHub Release 会同时上传 macOS `x86_64` / `arm64` 的 `app` 和 `dmg`
 - 当前 macOS 产物未签名、未 notarize
+- 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/AI-Usage-Peek.app` 作为手动放行方案
 - 不要把 macOS 的 `app` / `dmg` 目标混回主 `tauri.conf.json`
 
 ## 先读哪些文件
