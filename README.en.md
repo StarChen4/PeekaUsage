@@ -1,56 +1,112 @@
-﻿# PeekaUsage
+# PeekaUsage
 
 [中文 README](./README.md)
 
-A small desktop widget that tries to ease AI token anxiety. Well, not really fix it.
+> A small desktop widget that lives in the corner of your screen and lets you quickly check OpenAI, Anthropic, and OpenRouter subscription quotas, API usage, budget, balance, and rate limits without constantly bouncing between terminals and dashboards.
 
 <p align="center">
-  <img src="./src/assets/Overview.png" alt="App overview" width="300" />
-  <img src="./src/assets/Overview1.png" alt="App overview 1" width="300" />
-  <img src="./src/assets/Overview2.png" alt="App overview 2" width="300" />
-  <img src="./src/assets/Overview3.png" alt="App overview 3" width="300" />
+  <a href="https://github.com/StarChen4/PeekaUsage/releases/latest"><img alt="Latest Release" src="https://img.shields.io/github/v/release/StarChen4/PeekaUsage?label=release" /></a>
+  <a href="https://github.com/StarChen4/PeekaUsage/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/StarChen4/PeekaUsage" /></a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-blue" />
+  <img alt="Built with" src="https://img.shields.io/badge/built%20with-Tauri%20%2B%20React-orange" />
 </p>
 
-If you are also juggling Anthropic and OpenAI subscriptions for tools like Claude Code, Codex, or Openclaw, you probably know the feeling: after running for a while, you want to see how much quota is gone, and you end up repeatedly opening the CLI for `/usage` or `/status`, or checking a dashboard again and again.
+<p align="center">
+  <img src="./src/assets/Overview.png" alt="PeekaUsage overview" width="280" />
+  <img src="./src/assets/Overview1.png" alt="PeekaUsage view 1" width="280" />
+  <img src="./src/assets/Overview2.png" alt="PeekaUsage view 2" width="280" />
+  <img src="./src/assets/Overview3.png" alt="PeekaUsage view 3" width="280" />
+</p>
 
-Sometimes you also have to buy extra API credits just to keep going. If your company is not paying for it, that cost is painful. This project pins those numbers to the corner of your desktop so checking them takes less effort and hurts a little less.
+## What Problem It Solves
 
-It stays in the corner of your desktop and makes it easy to glance at how much OpenAI, Anthropic, and OpenRouter usage you have left.
+If you actively use Claude Code, Codex, OpenClaw, or your own scripts against OpenAI / Anthropic / OpenRouter APIs, you probably know the routine:
 
-## What It Does
+- You want to know how much quota is left
+- You keep opening a CLI and running `/usage` or `/status`
+- Or you bounce across multiple provider dashboards
+- Meanwhile you also care about budgets, balances, rate limits, and subscription windows
 
-- Tracks usage-based spending, budgets, balances, and rate limits for OpenAI, Anthropic, and OpenRouter
-- Shows subscription usage windows for OpenAI and Anthropic
-- Auto-detects OAuth tokens from local Claude Code and Codex CLI credentials, and links to the official auth guides
-- Lets each provider store multiple named API keys, validate them, clear them, and switch the active system environment variable with one click
-- Supports widget-wide manual refresh, per-card refresh, and tray refresh
-- Supports auto refresh and manual-only mode, with intervals configurable in seconds or minutes
-- Supports provider-specific polling overrides
-- Supports drag-and-drop card ordering with persistence
-- Supports detailed and compact widget display modes
-- Supports light, dark, and system themes, always-on-top mode, and window opacity control
-- Supports instant language switching between Simplified Chinese, Traditional Chinese, and English
-- Supports tray actions for show, hide, refresh, and opening settings
+PeekaUsage does one thing really well: **it pins those numbers to your desktop so they are always one glance away.**
 
-## Platform Notes
+It is not a new model gateway or another chat wrapper. It is a lightweight desktop widget for answering the questions you actually care about during the day:
 
-- Windows
-- Linux
-- macOS
+- How much have I spent?
+- How much is left?
+- Which provider is about to hit its limit?
+- Do I need to switch keys, switch accounts, or stop burning tokens?
 
-## Why Not Every Provider Is Supported Yet
+## Who It Is For
 
-Because I am lazy, honestly. And some providers simply do not expose an official API for this.
+- Developers who actively use both OpenAI and Anthropic subscriptions
+- People using Claude Code / Codex while also calling APIs directly
+- Anyone who wants always-visible usage data instead of terminal and dashboard hopping
+- Individuals or small teams who care about costs, rate limits, and subscription windows
 
-If you use a provider that is still missing, PRs are welcome. The most helpful contributions usually include:
+## Core Features
 
-- Rust-side provider implementation and type updates
-- Frontend settings and card display support
-- Matching docs, environment variables, icons, and verification notes
+### Multi-provider overview
 
-If the data source is trustworthy, the behavior is clear, and the change does not break the existing UX, I am very happy to merge it.
+- Usage-based spend, budget, balance, and rate limits for OpenAI, Anthropic, and OpenRouter
+- Subscription usage windows for OpenAI and Anthropic
+- A single desktop widget instead of multiple dashboards and CLI commands
 
-## Quick Start
+### OAuth and API key workflows
+
+- Auto-detects OAuth tokens from local Claude Code and Codex CLI credentials
+- Includes links to official auth guides
+- Lets each provider store multiple named API keys
+- Supports validation, cleanup, and one-click switching of the active system environment variable
+
+### Built for everyday desktop use
+
+- Manual refresh for the whole widget, per-card refresh, and tray refresh
+- Auto refresh and manual-only modes
+- Refresh intervals configurable in seconds or minutes
+- Provider-specific polling overrides
+- Drag-and-drop card ordering with persistence
+- Detailed and compact display modes
+- Light, dark, and system themes
+- Always-on-top mode and window opacity controls
+- Tray actions for show, hide, refresh, and settings
+- Instant language switching between Simplified Chinese, Traditional Chinese, and English
+
+## Why It May Be Worth a Star
+
+PeekaUsage is not trying to be another LLM frontend or provider aggregator.
+
+It is closer to an **AI usage dashboard widget**:
+
+- It solves a very real pain point for heavy AI-tool users
+- It shortens the path from curiosity to answer
+- It works especially well if you mix multiple providers
+- It is designed to stay quietly useful in the corner of your desktop
+
+If you also have AI quota anxiety, this app will not cure it — but it can at least make that anxiety more efficient.
+
+## Download
+
+Download the latest build from [GitHub Releases](https://github.com/StarChen4/PeekaUsage/releases/latest).
+
+Current release artifacts include:
+
+- Windows: NSIS installer
+- Linux: DEB / AppImage
+- macOS: `app` / `dmg` for both `x86_64` and `arm64`
+
+### macOS note
+
+- macOS bundles must be built on a Mac
+- Apple Developer signing and notarization are not set up yet
+- First launch may require manual approval depending on system settings
+
+If macOS says the app is damaged and cannot be opened, run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/PeekaUsage.app
+```
+
+## Local Development
 
 ### 1. Install dependencies
 
@@ -67,50 +123,30 @@ sudo apt-get update
 sudo apt-get install -y build-essential curl file libfuse2 libgtk-3-dev libssl-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 ```
 
-### 3. macOS build note
-
-- macOS `app` / `dmg` bundles must be built on a Mac
-- GitHub Actions is set up to produce both `x86_64` and `arm64` macOS bundles
-- The project is not signed or notarized yet, so first launch may require manual approval
-
-If macOS says the app is damaged and cannot be opened after installation, run this in Terminal:
-
-```bash
-xattr -dr com.apple.quarantine <drag your app here>
-```
-
-The final command usually looks like this:
-
-```bash
-xattr -dr com.apple.quarantine /Applications/PeekaUsage.app
-```
-
-### 4. Start the frontend
+### 3. Start the frontend
 
 ```bash
 npm run dev
 ```
 
-### 5. Run the desktop app
+### 4. Run the desktop app
 
 ```bash
 npm run tauri dev
 ```
 
-### 6. Run checks
+### 5. Run checks
 
 ```bash
-npx tsc --noEmit
-cargo check
+npm run typecheck
+cargo check --manifest-path src-tauri/Cargo.toml
 ```
-
-If `cargo` is not in your PATH, add your Rust toolchain first.
 
 ## Credentials
 
 ### API Keys
 
-You can either save them in the settings UI or provide them with environment variables.
+You can save them in the settings UI or provide them via environment variables.
 
 | Provider | Environment Variable |
 | --- | --- |
@@ -122,12 +158,14 @@ Notes:
 
 - Anthropic cost reporting requires an Admin Key
 - Environment variables take precedence over saved settings
+- The settings page can switch a saved key into the active system environment variable with one click
+- On Windows this writes a user-level environment variable; on Linux and macOS it updates the current process and the app-managed shell environment script for new terminals
 
 ### OAuth Tokens
 
 Subscription usage is auto-detected from local tool credentials when possible.
 
-Note: Anthropic subscription usage should not be queried too frequently, or it may return HTTP 429.
+> Note: Anthropic subscription endpoints may return HTTP 429 if queried too frequently.
 
 | Source | File Path | Field |
 | --- | --- | --- |
@@ -137,7 +175,13 @@ Note: Anthropic subscription usage should not be queried too frequently, or it m
 Notes:
 
 - OpenAI `tokens.access_token` supports both string and indexed-object formats
-- OpenRouter does not currently provide subscription OAuth usage here
+- OpenRouter does not currently expose subscription OAuth usage here
+
+## Supported Platforms
+
+- Windows
+- Linux
+- macOS
 
 ## Project Layout
 
@@ -155,7 +199,34 @@ src-tauri/src/
   tray/
 ```
 
+## Why Not Every Provider Is Supported Yet
+
+Some providers simply do not expose a stable, official, maintainable usage API. And yes, part of the reason is also ordinary after-work energy limits.
+
+If you use a provider that is still missing, PRs are welcome. The most helpful contributions usually include:
+
+- Rust-side provider implementation and type updates
+- Frontend settings and card display support
+- Matching docs, environment variables, icons, and verification notes
+
+If the data source is trustworthy, the behavior is clear, and the change does not break the UX, I will be very happy to merge it.
+
+## Roadmap
+
+Good next steps for the project include:
+
+- More providers with official usage APIs
+- Better error states and diagnostics
+- More widget presentation options
+- Smoother first-run onboarding
+- Signed and notarized macOS release flow
+
+## Contributing
+
+Issues, PRs, and feature suggestions are all welcome.
+
+If this project helps you, consider giving it a star. At minimum, it tells me I am not the only one being bullied by token limits.
+
 ## License
 
 [MIT](./LICENSE)
-
