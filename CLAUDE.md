@@ -11,7 +11,7 @@
 - 设置页“通用”里新增了“返回时刷新主界面”开关，默认关闭；只有勾选后，从设置返回主界面才会触发一次全部供应商刷新
 - 设置页“通用”里已新增语言选择，顺序固定为“简体中文”“繁體中文”“English”，持久化字段是 `language`
 - 当前前端文案统一收敛到 `src/i18n/messages.ts`，默认支持 `zh-Hans`、`zh-Hant`、`en`
-- GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` / `arm64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
+- GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
 - 发版前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 三处版本号一致
 
 ## 项目概览
@@ -174,7 +174,7 @@
 - 避免优先依赖单平台系统控件外观或平台特有行为
 - 如果必须做平台分支，需要在文档里补充原因和影响范围
 
-### 11. Linux Release 已接入 `x86_64` / `arm64`
+### 11. Linux Release 已接入 `x86_64`
 
 文件：
 
@@ -186,10 +186,10 @@
 当前行为：
 
 - CI 会在 Windows 和 Linux `x86_64` 上执行 `npm ci`、`tsc --noEmit`、`cargo check`
-- 推送 `v*` 标签后会发布 Windows NSIS、Linux `x86_64` / `arm64` 的 `deb` 和 `AppImage`
+- 推送 `v*` 标签后会发布 Windows NSIS、Linux `x86_64` 的 `deb` 和 `AppImage`
 - Linux 打包目标单独放在 `src-tauri/tauri.linux.conf.json`
 - 本地 Linux 打包使用 `npm run tauri:build:linux`
-- Linux `arm64` 发布当前依赖 GitHub Actions 的 ARM Linux runner
+- Linux `arm64` 发布当前暂时关闭，不要在 release workflow 里默认恢复
 - Linux CI / Release 的依赖安装要与 Tauri 官方 ARM 打包示例保持一致，至少包含 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
 
 ### 12. macOS Release 已接入 `x86_64` / `arm64`
@@ -660,7 +660,6 @@ cargo check
 - `.github/workflows/release.yml` 仍然只在 `v*` 标签触发
 - Windows runner 能成功构建 `nsis`
 - Linux `x86_64` runner 能成功构建 `deb` 和 `AppImage`
-- Linux `arm64` runner 能成功构建 `deb` 和 `AppImage`
 - macOS runner 能成功构建 `x86_64` / `arm64` 的 `app` 和 `dmg`
 
 涉及交互改动时建议再手动验证：

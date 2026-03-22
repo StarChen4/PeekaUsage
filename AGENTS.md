@@ -195,7 +195,7 @@
 - 发布前必须校验 `package.json`、`tauri.conf.json`、`Cargo.toml` 三处版本号一致
 - 标签名必须与应用版本匹配，例如 `v0.1.0`
 
-### 12. Linux 已接入 x86_64 / arm64 构建与发布
+### 12. Linux 已接入 x86_64 构建与发布
 
 文件：
 
@@ -208,8 +208,8 @@
 
 - Linux 打包目标统一放在 `src-tauri/tauri.linux.conf.json`
 - 本地 Linux 打包使用 `npm run tauri:build:linux`
-- GitHub Release 会同时上传 Linux `x86_64` / `arm64` 的 `deb` 和 `AppImage`
-- Linux `arm64` 发布当前依赖 GitHub Actions ARM Linux runner
+- GitHub Release 当前会上传 Linux `x86_64` 的 `deb` 和 `AppImage`
+- Linux `arm64` 发布当前暂时关闭，不要在 release workflow 里默认恢复
 - Linux CI / Release 的依赖安装要按 Tauri 官方 ARM 打包要求补齐，至少包含 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
 - 不要把 Linux 的 `deb` / `appimage` 目标混回主 `tauri.conf.json`
 
@@ -509,7 +509,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 改版本号时，必须同步修改 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`
 - GitHub Release 的标签名必须使用 `v` 前缀并与应用版本完全一致
 - Windows 产物是 `nsis`
-- Linux 产物是 `x86_64` / `arm64` 的 `deb` 和 `appimage`
+- Linux 产物当前是 `x86_64` 的 `deb` 和 `appimage`
 - macOS 产物是 `x86_64` / `arm64` 的 `app` 和 `dmg`
 - Linux 打包目标统一维护在 `src-tauri/tauri.linux.conf.json`
 - macOS 打包目标统一维护在 `src-tauri/tauri.macos.conf.json`
@@ -610,7 +610,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - GitHub Actions 是否具有 `contents: write` 权限
 - `src-tauri/tauri.linux.conf.json` 是否仍然只负责 Linux `deb` / `appimage`
 - Linux runner 是否安装了 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
-- Linux `arm64` job 是否仍然使用 ARM Linux runner
+- 如果后续要恢复 Linux `arm64`，先确认 runner、依赖和文档说明一起恢复
 - `src-tauri/tauri.macos.conf.json` 是否仍然只负责 macOS `app` / `dmg`
 - macOS job 是否仍然分别产出 `x86_64` / `arm64` 包
 - 如果启用了签名或 notarization，相关密钥和证书配置是否完整
@@ -660,7 +660,7 @@ cargo check
 如果改了 Linux 构建或发布链路，再额外确认：
 
 - `.github/workflows/ci.yml` 的 Linux `x86_64` 检查仍然可跑
-- `.github/workflows/release.yml` 的 Linux `x86_64` / `arm64` 产物仍然是 `deb` 和 `appimage`
+- `.github/workflows/release.yml` 的 Linux `x86_64` 产物仍然是 `deb` 和 `appimage`
 
 如果改了 macOS 构建或发布链路，再额外确认：
 

@@ -74,7 +74,7 @@ jobs:
           script: |
             const tag = process.env.TAG_NAME;
             const releaseName = process.env.RELEASE_NAME;
-            const releaseBody = "Windows NSIS 安装包、Linux x86_64 / arm64 的 DEB 与 AppImage 包，以及 macOS x86_64 / arm64 的 app 与 dmg 包。当前 macOS 产物未签名、未 notarize。";
+            const releaseBody = "Windows NSIS 安装包、Linux x86_64 的 DEB 与 AppImage 包，以及 macOS x86_64 / arm64 的 app 与 dmg 包。当前 macOS 产物未签名、未 notarize。";
 
             try {
               const existing = await github.rest.repos.getReleaseByTag({
@@ -116,11 +116,6 @@ jobs:
             rust_targets: ""
           - name: 发布 Linux x86_64 安装包
             platform: ubuntu-22.04
-            tauri_args: --config src-tauri/tauri.linux.conf.json --verbose
-            install_linux_deps: true
-            rust_targets: ""
-          - name: 发布 Linux arm64 安装包
-            platform: ubuntu-22.04-arm
             tauri_args: --config src-tauri/tauri.linux.conf.json --verbose
             install_linux_deps: true
             rust_targets: ""
