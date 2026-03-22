@@ -169,6 +169,8 @@ pub struct ProviderApiKeyItem {
     pub id: String,
     pub name: String,
     pub value: String,
+    #[serde(default)]
+    pub is_active_in_environment: bool,
 }
 
 /// 供应商配置项（返回给前端，不含完整 Key）
@@ -182,4 +184,8 @@ pub struct ProviderConfigItem {
     pub api_keys: Vec<ProviderApiKeyItem>,
     pub oauth_token: String,
     pub capabilities: ProviderCapabilities,
+    #[serde(default)]
+    pub environment_variable_name: String,
+    #[serde(default)]
+    pub active_api_key_id: Option<String>,
 }

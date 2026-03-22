@@ -1,8 +1,8 @@
 mod commands;
 mod config;
+mod polling;
 mod providers;
 mod tray;
-mod polling;
 
 use config::app_config::AppConfig;
 use config::encryption::KeyStore;
@@ -17,14 +17,10 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             // 获取应用数据目录
-            let app_data_dir = app
-                .path()
-                .app_data_dir()
-                .expect("无法获取应用数据目录");
+            let app_data_dir = app.path().app_data_dir().expect("无法获取应用数据目录");
 
             // 品牌改名后保留旧数据，避免 identifier 变化导致用户配置和凭据丢失。
-            migrate_legacy_app_data(&app_data_dir)
-                .map_err(std::io::Error::other)?;
+            migrate_legacy_app_data(&app_data_dir).map_err(std::io::Error::other)?;
 
             // 初始化状态
             let app_config = AppConfig::new(app_data_dir.clone());
@@ -61,6 +57,7 @@ pub fn run() {
             commands::provider_commands::remove_provider_config,
             commands::provider_commands::save_provider_order,
             commands::provider_commands::validate_api_key,
+            commands::provider_commands::activate_provider_api_key,
             commands::settings_commands::get_settings,
             commands::settings_commands::save_settings,
             commands::window_commands::set_window_opacity,

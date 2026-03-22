@@ -67,9 +67,12 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
             id: `${selectedDraftProvider.providerId}-draft-key`,
             name: t("settings.providerConfig.keyName", { index: 1 }),
             value: "",
+            isActiveInEnvironment: false,
           },
         ],
         oauthToken: "",
+        environmentVariableName: selectedDraftProvider.environmentVariableName,
+        activeApiKeyId: null,
       }
     : null;
 
@@ -356,6 +359,7 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
                 await reloadProviders();
               })()}
               onRemoved={() => void reloadProviders()}
+              onEnvironmentChanged={() => loadProviderData()}
             />
           ))}
         </section>

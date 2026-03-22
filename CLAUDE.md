@@ -241,7 +241,29 @@
 - 下方提示文案区分“自动检测读取位置”和“官方获取方式”
 - OpenAI 文案不再假设 `~/.codex/auth.json` 一定存在，需要兼容系统凭据库存储
 
-### 15. 主界面已支持精简 / 详细显示模式
+### 15. 设置页已支持一键切换 API Key 到系统环境变量
+
+文件：
+
+- `src/components/settings/ProviderConfig.tsx`
+- `src/components/settings/SettingsPanel.tsx`
+- `src/utils/ipc.ts`
+- `src/types/provider.ts`
+- `src-tauri/src/commands/provider_commands.rs`
+- `src-tauri/src/config/app_config.rs`
+- `src-tauri/src/config/system_env.rs`
+
+当前行为：
+
+- 设置页每个 API Key 卡片都可以把当前 Key 切换到对应供应商的系统环境变量
+- 只有用户显式点击“切换环境”后，应用才会接管该供应商的环境变量
+- 有未保存改动时会先阻止切换，避免把旧值写进环境变量
+- 当前激活的 Key 会显示“当前环境”
+- Windows 同步用户级环境变量
+- Linux / macOS 会同步当前进程，并写入应用托管的 Shell 环境脚本；新开终端会读取新值
+- macOS 额外同步 `launchctl` 会话环境；Linux 当前主要保证 Shell 启动的命令链路
+
+### 16. 主界面已支持精简 / 详细显示模式
 
 文件：
 
@@ -304,6 +326,7 @@ export PATH="$PATH:$HOME/.cargo/bin"
   - 保存供应商配置
   - 拉取用量
   - 保存供应商顺序
+  - 激活当前系统环境变量使用的 API Key
 - `src-tauri/src/commands/window_commands.rs`
   - OAuth 自动检测
   - 窗口透明度命令
@@ -315,6 +338,8 @@ export PATH="$PATH:$HOME/.cargo/bin"
   - 持久化应用设置、供应商启用状态、`provider_order`
 - `src-tauri/src/config/encryption.rs`
   - 管理 key/token 存取
+- `src-tauri/src/config/system_env.rs`
+  - 同步当前激活的 API Key 到系统环境变量
 
 #### 托盘
 
@@ -589,6 +614,22 @@ WidgetContainer 拖拽结束
 - 单卡片刷新按钮是否只调用了当前供应商的 `refreshProvider`
 - 旧配置缺少新字段时是否仍按“5 分钟自动刷新”兼容
 
+### 环境变量切换异常
+
+先看：
+
+- `src/components/settings/ProviderConfig.tsx`
+- `src-tauri/src/commands/provider_commands.rs`
+- `src-tauri/src/config/system_env.rs`
+
+重点查：
+
+- 切换按钮是否在未保存改动时被禁用
+- `active_api_key_id` / `manage_api_key_environment` 是否被正确写回配置
+- Windows 是否成功写入用户级环境变量
+- Linux / macOS 的 `~/.peekausage/env.sh` 和 Shell 启动文件 source 块是否已写入
+- macOS 的 `launchctl setenv` / `unsetenv` 是否执行成功
+
 ### 透明度异常
 
 先看：
@@ -635,6 +676,7 @@ cargo check
 - 自定义下拉在浅色/暗黑模式下的打开、关闭、键盘导航
 - 设置页透明度滑杆与主界面透明度把手的同步
 - 设置页切换简体中文、繁體中文、English 后，设置页与主界面文案是否即时同步
+- 设置页 API Key “切换环境”后，对应环境变量是否更新，新开终端读取是否符合预期
 ## 补充说明
 
 ### 主界面主题入口

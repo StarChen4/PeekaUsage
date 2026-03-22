@@ -22,6 +22,7 @@
 - 看 OpenAI、Anthropic、OpenRouter 的按量用量
 - 看 OpenAI、Anthropic 的订阅窗口消耗
 - 从本地 Claude Code / Codex CLI 自动检测 OAuth Token
+- 在设置页把某个已保存的 API Key 一键切换到系统环境变量
 - 通过系统托盘显示、隐藏、刷新和打开设置
 
 ## 支持情况
@@ -114,6 +115,8 @@ cargo check
 
 - Anthropic 的按量成本接口需要 Admin Key
 - 环境变量优先级高于设置页里保存的值
+- 设置页支持把某个已保存的 Key 一键切换为当前系统环境变量
+- Windows 会写入用户级环境变量；Linux / macOS 会同步当前进程并写入应用托管的 Shell 环境脚本，新开的终端会读取新值
 
 ### OAuth Token
 
