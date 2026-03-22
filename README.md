@@ -8,6 +8,7 @@
   <img src="./src/assets/Overview.png" alt="应用概览" width="300" />
   <img src="./src/assets/Overview1.png" alt="应用概览 1" width="300" />
   <img src="./src/assets/Overview2.png" alt="应用概览 2" width="300" />
+  <img src="./src/assets/Overview3.png" alt="应用概览 3" width="300" />
 </p>
 
 不知道各位有没有像我一样的，同时用着Anthropic和openai的订阅来跑Claude Code、Codex、Openclaw，由于订阅的按时间窗口限额设计，跑一阵之后，想看用了多少，还得反复打开 CLI 敲 `/usage`、`/status` 或者去 Dashboard上看，又累又难受。
