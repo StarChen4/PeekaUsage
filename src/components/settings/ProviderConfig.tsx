@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useI18n } from "../../i18n";
 import type {
   ProviderApiKeyItem,
@@ -15,6 +16,11 @@ import AppSelect, { type SelectOption } from "../common/AppSelect";
 import ConfirmDialog from "../common/ConfirmDialog";
 import ProviderIcon from "../common/ProviderIcon";
 import ApiKeyInput from "./ApiKeyInput";
+
+const OAUTH_METHOD_URLS: Partial<Record<ProviderId, string>> = {
+  anthropic: "https://code.claude.com/docs/en/authentication",
+  openai: "https://developers.openai.com/codex/auth",
+};
 
 type ProviderConfigProps = {
   config: ProviderConfigItem;
@@ -213,6 +219,20 @@ export default function ProviderConfig({
       setDetectResult(t("settings.providerConfig.detectFailed", { message }));
     } finally {
       setDetecting(false);
+    }
+  }
+
+  async function handleOpenOauthMethod() {
+    const url = OAUTH_METHOD_URLS[config.providerId];
+    if (!url) {
+      return;
+    }
+
+    try {
+      await openUrl(url);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setDetectResult(t("settings.providerConfig.openMethodFailed", { message }));
     }
   }
 
@@ -434,18 +454,21 @@ export default function ProviderConfig({
                 <button className="btn btn-sm btn-detect" disabled={detecting} type="button" onClick={() => void handleDetectToken()}>
                   {detecting ? t("settings.providerConfig.detecting") : t("settings.providerConfig.detect")}
                 </button>
+                <button className="btn btn-sm btn-secondary" type="button" onClick={() => void handleOpenOauthMethod()}>
+                  {t("settings.providerConfig.getMethod")}
+                </button>
               </div>
               {detectResult && <div className="detect-result">{detectResult}</div>}
               <div className="field-hint">
                 {config.providerId === "anthropic" ? (
                   <>
                     {t("settings.providerConfig.detectAnthropicHintAuto")} <code>~/.claude/.credentials.json</code><br />
-                    {t("settings.providerConfig.detectAnthropicHintManual")} <code>accessToken</code>
+                    {t("settings.providerConfig.detectAnthropicHintManual")} <code>claude</code>
                   </>
                 ) : (
                   <>
                     {t("settings.providerConfig.detectOpenAIHintAuto")} <code>~/.codex/auth.json</code><br />
-                    {t("settings.providerConfig.detectOpenAIHintManual", { command: "codex --login" })} <code>access_token</code>
+                    {t("settings.providerConfig.detectOpenAIHintManual", { command: "codex login" })} <code>codex login --device-auth</code>
                   </>
                 )}
               </div>
