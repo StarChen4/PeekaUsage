@@ -265,6 +265,50 @@
 - 新增文案不要再直接散落在组件里，优先收敛到 `src/i18n/messages.ts`
 - 旧配置缺少 `language` 时要继续兼容，默认按简体中文处理
 
+### 16. 设置页 OAuth Token 区域已新增官方获取入口
+
+文件：
+
+- `src/components/settings/ProviderConfig.tsx`
+- `src/i18n/messages.ts`
+
+当前要求：
+
+- `OAuth Token（订阅计划）` 输入框下方保留“自动检测”按钮
+- “自动检测”右侧新增“获取方式”按钮，点击后打开当前供应商的官方认证文档
+- Anthropic 跳转 `Claude Code Authentication` 官方文档
+- OpenAI 跳转 `Codex Authentication` 官方文档
+- 下方提示文案要区分“自动检测读取位置”和“官方获取方式”，不要再暗示本地文件是默认必然存在
+- OpenAI 文案要兼容官方当前“可能写入 `~/.codex/auth.json`，也可能使用系统凭据库”的现状
+
+### 17. 主界面底部已支持精简 / 详细显示模式
+
+文件：
+
+- `src/components/widget/WidgetContainer.tsx`
+- `src/components/widget/ProviderCard.tsx`
+- `src/assets/styles/widget.css`
+- `src/i18n/messages.ts`
+- `src/types/settings.ts`
+- `src-tauri/src/config/app_config.rs`
+
+当前要求：
+
+- 主界面底部提供显示模式切换入口，使用紧凑的分段按钮
+- 主界面底部提供显示模式切换入口，使用和其他底部按钮一致的单个图标按钮
+- 持久化字段是 `widgetDisplayMode`
+- 当前允许值只有 `detailed`、`compact`
+- 默认按 `detailed` 处理
+- 详细模式保持现有完整卡片结构
+- 精简模式保留供应商图标、名称、单卡刷新，以及“标签 + 进度条 + 百分比”的横向摘要行
+- 订阅摘要不显示订阅名和重置时间
+- 精简模式要保留所有订阅窗口进度条，不能只保留利用率最高的一条
+- OpenAI 订阅窗口在精简模式下要按窗口标签分别显示，例如 `5小时`、`7天`
+- 多个 API Key 在精简模式下按一行一个显示
+- 精简模式不显示逐 Key 的金额/余额明细块和 rate limit badge
+- 切换模式后刷新和重启都要保持所选显示方式
+- 旧配置缺少 `widgetDisplayMode` 时要继续兼容，默认详细模式
+
 ## 先读哪些文件
 
 如果你是新的 coding agent，按这个顺序进入代码：
@@ -339,7 +383,7 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `AppSelect.tsx`：跨平台自定义下拉组件
 - `ConfirmDialog.tsx`：应用内确认弹层
 - `WidgetContainer.tsx`：主界面卡片和拖拽排序
-- `ProviderCard.tsx`：供应商卡片和单卡片刷新入口
+- `ProviderCard.tsx`：供应商卡片、单卡片刷新和精简/详细两套展示
 - `ProviderConfig.tsx`：供应商设置卡片
 - `SettingsPanel.tsx`：设置页容器、语言选择、全局刷新、高级分供应商刷新和透明度控件
 
@@ -402,6 +446,16 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 通用组件的默认占位符、按钮文案和 `aria-label` 也要跟随语言切换
 - 旧配置缺少 `language` 时要继续兼容，默认简体中文
 
+### 显示模式约束
+
+- 显示模式持久化字段是 `widgetDisplayMode`
+- 允许值当前只有 `detailed`、`compact`
+- 详细模式保持现有完整卡片，不要偷偷删掉已有信息
+- 精简模式只显示供应商级汇总，不显示逐 Key 明细和 rate limit badge
+- 显示模式切换入口固定在主界面底部，交互要紧凑，且样式要与其他底部图标按钮保持一致
+- 两套卡片显示逻辑优先收敛在 `ProviderCard.tsx`，不要散落到多个页面各写一套
+- 旧配置缺少 `widgetDisplayMode` 时默认按详细模式兼容
+
 ### 透明度约束
 
 - 透明度值持久化字段是 `windowOpacity`
@@ -447,6 +501,15 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - `tokens.access_token` 实际是字符串还是对象
 - `parse_codex_access_token()` 是否被走到
 - 本地文件路径是否正确
+- 是否当前机器把 Codex 凭据存到了系统凭据库而不是 `~/.codex/auth.json`
+
+### OAuth 获取入口异常
+
+检查：
+
+- `ProviderConfig.tsx` 中“获取方式”按钮是否仍放在“自动检测”右侧
+- Anthropic / OpenAI 跳转链接是否仍然是各自官方认证文档
+- `@tauri-apps/plugin-opener` 是否已在前端接入，且 `src-tauri/capabilities/default.json` 仍保留 `opener:default`
 
 ### 拖拽排序异常
 
@@ -548,6 +611,7 @@ cargo check
 - 设置页自定义下拉在浅色/暗黑模式下的展开和关闭
 - 设置页透明度滑杆和主界面透明度把手是否同步
 - 设置页切换简体中文、繁体中文、English 后，设置页和主界面文案是否即时同步
+- 主界面底部精简 / 详细切换后，卡片内容和高度是否按预期变化，刷新或重启后是否保持
 
 如果改了 Linux 构建或发布链路，再额外确认：
 
@@ -575,4 +639,23 @@ cargo check
 - 三个主题选项横向排列，保持小浮窗下的紧凑占用
 - 主题菜单的水平位置以主题按钮图标为中心，不再贴右对齐
 - 主题菜单仍然只负责切换 `light`、`dark`、`system` 三种模式
+
+### 主界面显示模式入口
+
+文件：
+
+- `src/components/widget/WidgetContainer.tsx`
+- `src/components/widget/ProviderCard.tsx`
+
+当前要求：
+
+- 主界面底部显示模式切换使用单个图标按钮，点亮表示精简模式开启
+- 详细模式保持当前完整展示
+- 精简模式使用“标签 + 进度条 + 百分比”的横向行布局
+- 精简模式下订阅不显示订阅名和重置时间
+- 精简模式下要保留所有订阅窗口进度条，OpenAI 的 `5小时` / `7天` 之类窗口要分别显示
+- 精简模式下多个 API Key 按一行一个显示
+- 精简模式下 API 行标签优先显示用户自定义的 Key 名称
+- 精简模式不显示逐 Key 的金额/余额明细块和 rate limit badge
+- 切换结果写入 `widgetDisplayMode`，刷新和重启后都要恢复
 

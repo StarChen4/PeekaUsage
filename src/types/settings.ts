@@ -4,6 +4,7 @@ export type PollingMode = "auto" | "manual";
 export type PollingUnit = "seconds" | "minutes";
 export type ThemeMode = "system" | "light" | "dark";
 export type AppLanguage = "zh-Hans" | "zh-Hant" | "en";
+export type WidgetDisplayMode = "detailed" | "compact";
 
 export const DEFAULT_POLLING_INTERVAL = 5;
 export const MIN_POLLING_INTERVAL = 1;
@@ -22,6 +23,7 @@ export interface AppSettings extends PollingSettings {
   providerPollingOverrides: Partial<Record<ProviderId, PollingSettings>>;
   refreshOnSettingsClose: boolean;
   language: AppLanguage;
+  widgetDisplayMode: WidgetDisplayMode;
   alwaysOnTop: boolean;
   launchAtStartup: boolean;
   windowOpacity: number;
@@ -40,6 +42,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   providerPollingOverrides: {},
   refreshOnSettingsClose: false,
   language: "zh-Hans",
+  widgetDisplayMode: "detailed",
   alwaysOnTop: true,
   launchAtStartup: false,
   windowOpacity: 100,
@@ -100,6 +103,7 @@ export function normalizeAppSettings(settings: AppSettings): AppSettings {
     providerPollingOverrides: normalizeProviderPollingOverrides(settings.providerPollingOverrides),
     refreshOnSettingsClose: !!settings.refreshOnSettingsClose,
     language: normalizeAppLanguage(settings.language),
+    widgetDisplayMode: normalizeWidgetDisplayMode(settings.widgetDisplayMode),
   };
 }
 
@@ -134,4 +138,10 @@ export function normalizeAppLanguage(language: AppLanguage | string | undefined)
   }
 
   return DEFAULT_SETTINGS.language;
+}
+
+export function normalizeWidgetDisplayMode(
+  mode: WidgetDisplayMode | string | undefined,
+): WidgetDisplayMode {
+  return mode === "compact" ? "compact" : DEFAULT_SETTINGS.widgetDisplayMode;
 }

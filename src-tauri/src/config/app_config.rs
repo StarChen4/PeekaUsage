@@ -21,6 +21,8 @@ pub struct AppSettings {
     pub refresh_on_settings_close: bool,
     #[serde(default)]
     pub language: AppLanguage,
+    #[serde(default)]
+    pub widget_display_mode: WidgetDisplayMode,
     pub always_on_top: bool,
     pub launch_at_startup: bool,
     pub window_opacity: f64,
@@ -78,6 +80,14 @@ pub enum AppLanguage {
     En,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum WidgetDisplayMode {
+    #[default]
+    Detailed,
+    Compact,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowPosition {
     pub x: f64,
@@ -100,6 +110,7 @@ impl Default for AppSettings {
             provider_polling_overrides: HashMap::new(),
             refresh_on_settings_close: false,
             language: AppLanguage::default(),
+            widget_display_mode: WidgetDisplayMode::default(),
             always_on_top: true,
             launch_at_startup: false,
             window_opacity: 100.0,

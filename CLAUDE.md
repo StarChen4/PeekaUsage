@@ -225,6 +225,49 @@
 - 只有新目录里对应文件不存在时才会复制，避免覆盖已经迁移或新生成的数据
 - 如果后续继续改 `identifier`，必须同步维护迁移逻辑
 
+### 14. 设置页 OAuth Token 区域已新增官方获取入口
+
+文件：
+
+- `src/components/settings/ProviderConfig.tsx`
+- `src/i18n/messages.ts`
+
+当前行为：
+
+- `OAuth Token（订阅计划）` 输入框下方保留“自动检测”按钮
+- “自动检测”右侧新增“获取方式”按钮
+- Anthropic 点击后打开 `Claude Code Authentication` 官方文档
+- OpenAI 点击后打开 `Codex Authentication` 官方文档
+- 下方提示文案区分“自动检测读取位置”和“官方获取方式”
+- OpenAI 文案不再假设 `~/.codex/auth.json` 一定存在，需要兼容系统凭据库存储
+
+### 15. 主界面已支持精简 / 详细显示模式
+
+文件：
+
+- `src/components/widget/WidgetContainer.tsx`
+- `src/components/widget/ProviderCard.tsx`
+- `src/assets/styles/widget.css`
+- `src/i18n/messages.ts`
+- `src/types/settings.ts`
+- `src-tauri/src/config/app_config.rs`
+
+当前行为：
+
+- 主界面底部新增显示模式切换，使用和其他底部按钮一致的单个图标按钮
+- 持久化字段是 `widgetDisplayMode`
+- 当前支持 `detailed`、`compact`
+- 默认保持 `detailed`
+- 详细模式继续显示完整卡片内容
+- 精简模式使用“标签 + 进度条 + 百分比”的横向摘要行
+- 精简模式下订阅不显示订阅名和重置时间
+- 精简模式要保留所有订阅窗口进度条，不能只显示单个汇总窗口
+- OpenAI 的 `5小时`、`7天` 等订阅窗口会在精简模式下分别显示
+- 多个 API Key 在精简模式下按一行一个显示
+- 精简模式不再显示逐 Key 的金额/余额明细块和 rate limit badge
+- 切换结果会持久化，重启后继续保持
+- 旧配置缺少 `widgetDisplayMode` 时默认按详细模式兼容
+
 ## 开发命令
 
 ```bash
@@ -316,9 +359,11 @@ export PATH="$PATH:$HOME/.cargo/bin"
   - 渲染主界面卡片列表
   - 拖拽排序
   - 底部状态区
+  - 显示模式切换入口
 - `src/components/widget/ProviderCard.tsx`
   - 单个供应商卡片
   - 右上角单卡片刷新按钮
+  - 精简 / 详细两套展示
 - `src/components/widget/OpacityHandle.tsx`
   - 主界面侧边透明度拖拽把手
 - `src/components/settings/ProviderConfig.tsx`
@@ -415,13 +460,14 @@ WidgetContainer 拖拽结束
 - `providerPollingOverrides`
 - `refreshOnSettingsClose`
 - `language`
+- `widgetDisplayMode`
 
 ### OAuth 凭据位置
 
 | 来源 | 路径 | 字段 |
 |------|------|------|
-| Claude Code | `~/.claude/.credentials.json` | `claudeAiOauth.accessToken` |
-| Codex CLI | `~/.codex/auth.json` | `tokens.access_token` |
+| Claude Code | Windows / Linux 默认在 `~/.claude/.credentials.json`；macOS 默认在 Keychain | `claudeAiOauth.accessToken` |
+| Codex CLI | 可能在 `~/.codex/auth.json`，也可能在系统凭据库，取决于 `cli_auth_credentials_store` | `tokens.access_token` |
 
 ## API 端点
 
@@ -452,6 +498,8 @@ WidgetContainer 拖拽结束
 - 不要再把 `pollingInterval` 固定理解成“分钟”，现在必须结合 `pollingMode` / `pollingUnit`
 - 不要再假设轮询只有一个全局定时器；分供应商策略开启后必须按供应商独立调度
 - 不要假设从设置返回一定刷新；是否刷新取决于 `refreshOnSettingsClose`
+- 不要把精简 / 详细模式的渲染逻辑散落到多个组件里，优先收敛到 `ProviderCard.tsx`
+- 不要让精简模式继续显示逐 Key 的金额/余额明细块或 rate limit badge
 - 不要把新文案继续直接写死在组件里，优先统一到 `src/i18n/messages.ts`
 - 不要改动设置页语言选项的顺序；当前固定为“简体中文”“繁體中文”“English”
 - 透明度现在由前端视觉层控制并通过 IPC 同步，Tauri v2 本身没有直接可用的 `WebviewWindow.set_opacity()`
@@ -583,6 +631,7 @@ cargo check
 - 设置页全局刷新、分供应商刷新、秒/分钟切换和“仅手动”是否按预期生效
 - 设置页“返回时刷新主界面”开关在默认关闭和开启后两种情况下是否都符合预期
 - 主界面卡片右上角单独刷新按钮是否只刷新当前供应商
+- 主界面底部精简 / 详细切换后卡片内容和高度是否符合预期，刷新或重启后是否保持
 - 自定义下拉在浅色/暗黑模式下的打开、关闭、键盘导航
 - 设置页透明度滑杆与主界面透明度把手的同步
 - 设置页切换简体中文、繁體中文、English 后，设置页与主界面文案是否即时同步
@@ -599,5 +648,22 @@ cargo check
 - 三个主题图标横向排列，减少在小浮窗中的遮挡和空间占用
 - 主题菜单的水平位置以主题按钮图标为中心，垂直偏移保持不变
 - 菜单仍保留 `light`、`dark`、`system` 三个主题选项
+
+### 主界面显示模式入口
+
+文件：
+- `src/components/widget/WidgetContainer.tsx`
+- `src/components/widget/ProviderCard.tsx`
+
+当前行为：
+- 主界面底部显示模式切换使用单个图标按钮，点亮表示精简模式开启
+- 详细模式保留完整卡片内容
+- 精简模式使用“标签 + 进度条 + 百分比”的横向行布局
+- 精简模式下订阅不显示订阅名和重置时间
+- 精简模式下要保留所有订阅窗口进度条，OpenAI 的 `5小时` / `7天` 等窗口分别显示
+- 精简模式下多个 API Key 按一行一个显示
+- 精简模式下 API 行标签优先显示用户自定义的 Key 名称
+- 精简模式不显示逐 Key 的金额/余额明细块和 rate limit badge
+- 选择结果通过 `widgetDisplayMode` 持久化，重启后恢复
 
 

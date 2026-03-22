@@ -418,6 +418,7 @@ export default function WidgetContainer({ onOpenSettings }: WidgetContainerProps
             >
               <ProviderCard
                 provider={provider}
+                displayMode={settings.widgetDisplayMode}
                 isRefreshing={useProviderStore.getState().isProviderRefreshing(provider.providerId)}
                 onRefresh={() => void manualRefreshProvider(provider.providerId)}
               />
@@ -439,6 +440,37 @@ export default function WidgetContainer({ onOpenSettings }: WidgetContainerProps
         )}
 
         <div className="footer-actions">
+          <button
+            className={`icon-btn${settings.widgetDisplayMode === "compact" ? " is-active" : ""}`}
+            title={settings.widgetDisplayMode === "compact"
+              ? t("widget.actions.disableCompactMode")
+              : t("widget.actions.enableCompactMode")}
+            aria-label={settings.widgetDisplayMode === "compact"
+              ? t("widget.actions.disableCompactMode")
+              : t("widget.actions.enableCompactMode")}
+            aria-pressed={settings.widgetDisplayMode === "compact"}
+            onClick={() => void saveSettings({
+              widgetDisplayMode: settings.widgetDisplayMode === "compact" ? "detailed" : "compact",
+            })}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M5 7.5h14M5 12h14M5 16.5h14"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="1.8"
+              />
+              <path
+                d="M5 7.5h4M5 12h8M5 16.5h6"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="3"
+              />
+            </svg>
+          </button>
+
           <div className="theme-picker">
             <button
               ref={themeTriggerRef}
