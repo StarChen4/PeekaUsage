@@ -19,10 +19,17 @@
 
 ## 它能做什么
 
-- 看 OpenAI、Anthropic、OpenRouter 的按量用量
+- 看 OpenAI、Anthropic、OpenRouter 的按量用量、预算、余额和速率限制
 - 看 OpenAI、Anthropic 的订阅窗口消耗
-- 从本地 Claude Code / Codex CLI 自动检测 OAuth Token
-- 在设置页把某个已保存的 API Key 一键切换到系统环境变量
+- 从本地 Claude Code / Codex CLI 自动检测 OAuth Token，并提供官方获取入口
+- 为单个供应商保存多个命名 API Key，并支持校验、清理和一键切换当前系统环境变量
+- 支持主界面手动刷新、单卡刷新和托盘刷新
+- 支持自动刷新 / 仅手动，刷新间隔可按秒或按分钟配置
+- 支持按供应商独立刷新策略
+- 主界面卡片支持拖拽排序并持久化
+- 主界面支持详细 / 精简两种显示模式
+- 支持浅色 / 深色 / 跟随系统主题、始终置顶和窗口透明度调节
+- 支持简体中文、繁体中文、English 即时切换
 - 通过系统托盘显示、隐藏、刷新和打开设置
 
 ## 支持情况
