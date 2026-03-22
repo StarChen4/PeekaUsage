@@ -1,9 +1,9 @@
-pub mod traits;
-pub mod types;
-pub mod openai;
 pub mod anthropic;
+pub mod openai;
 pub mod openrouter;
 pub mod subscription;
+pub mod traits;
+pub mod types;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -51,6 +51,8 @@ impl ProviderManager {
                 api_keys: Vec::new(),
                 oauth_token: String::new(),
                 capabilities: provider.capabilities(),
+                environment_variable_name: provider.id().env_key_name().to_string(),
+                active_api_key_id: None,
             })
             .collect();
 
@@ -59,14 +61,18 @@ impl ProviderManager {
     }
 
     pub fn get_provider_config_item(&self, provider_id: &str) -> Option<ProviderConfigItem> {
-        self.providers.get(provider_id).map(|provider| ProviderConfigItem {
-            provider_id: provider.id(),
-            display_name: provider.display_name().to_string(),
-            enabled: false,
-            api_keys: Vec::new(),
-            oauth_token: String::new(),
-            capabilities: provider.capabilities(),
-        })
+        self.providers
+            .get(provider_id)
+            .map(|provider| ProviderConfigItem {
+                provider_id: provider.id(),
+                display_name: provider.display_name().to_string(),
+                enabled: false,
+                api_keys: Vec::new(),
+                oauth_token: String::new(),
+                capabilities: provider.capabilities(),
+                environment_variable_name: provider.id().env_key_name().to_string(),
+                active_api_key_id: None,
+            })
     }
 
     /// 获取单个供应商的按量 API 数据

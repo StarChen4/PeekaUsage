@@ -7,6 +7,7 @@ import type {
   ProviderId,
 } from "../../types/provider";
 import {
+  activateProviderApiKey,
   detectOAuthTokens,
   removeProviderConfig,
   saveProviderConfig,
@@ -32,6 +33,7 @@ type ProviderConfigProps = {
   onRemoved?: () => void;
   onExpandedChange?: (expanded: boolean) => void;
   onProviderChange?: (providerId: ProviderId) => void;
+  onEnvironmentChanged?: () => void | Promise<void>;
 };
 
 export default function ProviderConfig({
@@ -44,11 +46,13 @@ export default function ProviderConfig({
   onRemoved,
   onExpandedChange,
   onProviderChange,
+  onEnvironmentChanged,
 }: ProviderConfigProps) {
   const { t } = useI18n();
   const [apiKeys, setApiKeys] = useState<ProviderApiKeyItem[]>([]);
   const [oauthToken, setOauthToken] = useState("");
   const [validatingKeyId, setValidatingKeyId] = useState<string | null>(null);
+  const [activatingKeyId, setActivatingKeyId] = useState<string | null>(null);
   const [validationResults, setValidationResults] = useState<Record<string, boolean | null>>({});
   const [detecting, setDetecting] = useState(false);
   const [detectResult, setDetectResult] = useState<string | null>(null);
@@ -89,6 +93,7 @@ export default function ProviderConfig({
       id: createKeyId(),
       name: defaultKeyName(index),
       value: "",
+      isActiveInEnvironment: false,
     };
   }
 
@@ -101,6 +106,7 @@ export default function ProviderConfig({
       id: item.id || createKeyId(),
       name: item.name || defaultKeyName(index),
       value: item.value,
+      isActiveInEnvironment: !!item.isActiveInEnvironment,
     }));
   }
 
@@ -116,6 +122,7 @@ export default function ProviderConfig({
 
   function clearTransientState() {
     setValidatingKeyId(null);
+    setActivatingKeyId(null);
     setValidationResults({});
     setDetecting(false);
     setDetectResult(null);
@@ -278,6 +285,35 @@ export default function ProviderConfig({
     }
   }
 
+  async function handleActivateApiKey(item: ProviderApiKeyItem) {
+    if (isCreateMode || hasChanges || activatingKeyId || saving || removing) {
+      return;
+    }
+
+    setActivatingKeyId(item.id);
+    setSaveResult(null);
+
+    try {
+      await activateProviderApiKey(config.providerId, item.id);
+      keepSaveResultOnNextSyncRef.current = true;
+      setSaveResult({
+        type: "success",
+        message: t("settings.providerConfig.environmentActivated", {
+          envVar: config.environmentVariableName,
+        }),
+      });
+      await onEnvironmentChanged?.();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setSaveResult({
+        type: "error",
+        message: t("settings.providerConfig.environmentActivateFailed", { message }),
+      });
+    } finally {
+      setActivatingKeyId(null);
+    }
+  }
+
   async function handleConfirmRemove() {
     if (removing) {
       return;
@@ -437,9 +473,31 @@ export default function ProviderConfig({
                   {validationResults[item.id] === false && (
                     <span className="invalid-mark">{t("settings.providerConfig.invalid")}</span>
                   )}
+                  {item.isActiveInEnvironment ? (
+                    <span className="environment-pill">{t("settings.providerConfig.activeEnvironment")}</span>
+                  ) : (
+                    <button
+                      className="btn btn-sm btn-secondary"
+                      disabled={isCreateMode || hasChanges || saving || removing || activatingKeyId === item.id || !item.value.trim()}
+                      type="button"
+                      onClick={() => void handleActivateApiKey(item)}
+                    >
+                      {activatingKeyId === item.id
+                        ? t("settings.providerConfig.activatingEnvironment")
+                        : t("settings.providerConfig.activateEnvironment")}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
+
+            <div className="field-hint">
+              {hasChanges
+                ? t("settings.providerConfig.environmentSaveFirstHint")
+                : t("settings.providerConfig.environmentHint", {
+                    envVar: config.environmentVariableName,
+                  })}
+            </div>
           </div>
 
           {canDetectOAuth && (

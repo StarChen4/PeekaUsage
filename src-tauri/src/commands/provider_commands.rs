@@ -2,6 +2,7 @@ use tauri::State;
 
 use crate::config::app_config::{AppConfig, ProviderApiKeyEntry, ProviderEntry};
 use crate::config::encryption::KeyStore;
+use crate::config::system_env::sync_active_api_key_envs;
 use crate::providers::types::*;
 use crate::providers::ProviderManager;
 
@@ -80,15 +81,22 @@ pub async fn get_provider_configs(
         )
         .await;
 
+        let active_api_key_id = entry
+            .as_ref()
+            .and_then(|provider_entry| provider_entry.active_api_key_id.clone());
+
         item.enabled = true;
         item.api_keys = api_keys
             .into_iter()
             .map(|key| ProviderApiKeyItem {
+                is_active_in_environment: active_api_key_id.as_deref() == Some(key.id.as_str()),
                 id: key.id,
                 name: key.name,
                 value: mask_value(&key.value),
             })
             .collect();
+        item.environment_variable_name = item.provider_id.env_key_name().to_string();
+        item.active_api_key_id = active_api_key_id;
 
         if let Some(env_name) = item.provider_id.env_oauth_token_name() {
             item.oauth_token = key_store
@@ -160,6 +168,18 @@ pub async fn save_provider_config(
                 name: key.name.clone(),
             })
             .collect(),
+        active_api_key_id: existing_entry
+            .as_ref()
+            .and_then(|entry| entry.active_api_key_id.clone())
+            .filter(|active_key_id| {
+                sanitized_api_keys
+                    .iter()
+                    .any(|key| key.id == *active_key_id)
+            }),
+        manage_api_key_environment: existing_entry
+            .as_ref()
+            .map(|entry| entry.manage_api_key_environment)
+            .unwrap_or(false),
     };
 
     app_config
@@ -204,6 +224,8 @@ pub async fn save_provider_config(
             .await?;
     }
 
+    sync_active_api_key_envs(app_config.inner(), key_store.inner()).await?;
+
     Ok(())
 }
 
@@ -216,8 +238,8 @@ pub async fn remove_provider_config(
 ) -> Result<(), String> {
     let existing_entry = app_config.get_provider_entry(&provider_id).await;
 
-    if let Some(entry) = existing_entry {
-        for key in entry.api_keys {
+    if let Some(entry) = existing_entry.as_ref() {
+        for key in &entry.api_keys {
             key_store
                 .set_key(&api_key_storage_key(&provider_id, &key.id), "")
                 .await?;
@@ -225,7 +247,9 @@ pub async fn remove_provider_config(
     }
 
     key_store.set_key(&provider_id, "").await?;
-    key_store.set_key(&oauth_storage_key(&provider_id), "").await?;
+    key_store
+        .set_key(&oauth_storage_key(&provider_id), "")
+        .await?;
 
     app_config
         .save_provider_entry(
@@ -234,9 +258,16 @@ pub async fn remove_provider_config(
                 provider_id: provider_id.clone(),
                 enabled: false,
                 api_keys: Vec::new(),
+                active_api_key_id: None,
+                manage_api_key_environment: existing_entry
+                    .as_ref()
+                    .map(|entry| entry.manage_api_key_environment)
+                    .unwrap_or(false),
             },
         )
-        .await
+        .await?;
+
+    sync_active_api_key_envs(app_config.inner(), key_store.inner()).await
 }
 
 /// 验证 API Key
@@ -267,6 +298,38 @@ pub async fn save_provider_order(
     }
 
     app_config.save_provider_order(deduped).await
+}
+
+#[tauri::command]
+pub async fn activate_provider_api_key(
+    provider_id: String,
+    api_key_id: String,
+    app_config: State<'_, AppConfig>,
+    key_store: State<'_, KeyStore>,
+) -> Result<(), String> {
+    let Some(mut entry) = app_config.get_provider_entry(&provider_id).await else {
+        return Err("未找到供应商配置".to_string());
+    };
+
+    if !entry.api_keys.iter().any(|key| key.id == api_key_id) {
+        return Err("未找到要激活的 API Key".to_string());
+    }
+
+    let storage_key = api_key_storage_key(&provider_id, &api_key_id);
+    let has_stored_value = key_store
+        .get_stored_key(&storage_key)
+        .await
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false);
+
+    if !has_stored_value {
+        return Err("当前 API Key 尚未保存，请先保存配置".to_string());
+    }
+
+    entry.active_api_key_id = Some(api_key_id);
+    entry.manage_api_key_environment = true;
+    app_config.save_provider_entry(&provider_id, entry).await?;
+    sync_active_api_key_envs(app_config.inner(), key_store.inner()).await
 }
 
 async fn build_usage_summary(
@@ -330,7 +393,11 @@ async fn build_usage_summary(
 
     let usage = aggregate_usage_data(&successful_usages);
     let subscription = if let Some(token) = oauth_token.as_ref().filter(|token| !token.is_empty()) {
-        Some(provider_manager.fetch_subscription_usage(provider_id, token).await)
+        Some(
+            provider_manager
+                .fetch_subscription_usage(provider_id, token)
+                .await,
+        )
     } else {
         None
     };
@@ -403,7 +470,10 @@ async fn load_provider_api_keys(
         return api_keys;
     }
 
-    if let Some(legacy_value) = key_store.get_key(provider_id, provider.env_key_name()).await {
+    if let Some(legacy_value) = key_store
+        .get_key(provider_id, provider.env_key_name())
+        .await
+    {
         if !legacy_value.is_empty() {
             api_keys.push(ResolvedApiKey {
                 id: LEGACY_API_KEY_ID.to_string(),

@@ -74,6 +74,7 @@ export interface ProviderApiKeyItem {
   id: string;
   name: string;
   value: string;
+  isActiveInEnvironment: boolean;
 }
 
 /** 供应商配置（前端用） */
@@ -84,4 +85,6 @@ export interface ProviderConfigItem {
   apiKeys: ProviderApiKeyItem[];
   oauthToken: string;
   capabilities: ProviderCapabilities;
+  environmentVariableName: string;
+  activeApiKeyId: string | null;
 }

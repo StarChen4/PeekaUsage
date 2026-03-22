@@ -176,6 +176,10 @@ pub struct ProviderEntry {
     pub enabled: bool,
     #[serde(default)]
     pub api_keys: Vec<ProviderApiKeyEntry>,
+    #[serde(default)]
+    pub active_api_key_id: Option<String>,
+    #[serde(default)]
+    pub manage_api_key_environment: bool,
 }
 
 /// 配置文件内容
@@ -228,12 +232,11 @@ impl AppConfig {
     /// 保存配置到文件
     async fn save(&self) -> Result<(), String> {
         let config = self.config.read().await;
-        let content = serde_json::to_string_pretty(&*config)
-            .map_err(|e| format!("序列化配置失败: {}", e))?;
+        let content =
+            serde_json::to_string_pretty(&*config).map_err(|e| format!("序列化配置失败: {}", e))?;
 
         if let Some(parent) = self.config_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("创建配置目录失败: {}", e))?;
+            std::fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {}", e))?;
         }
 
         std::fs::write(&self.config_path, content)
@@ -259,6 +262,10 @@ impl AppConfig {
         config.providers.get(provider_id).cloned()
     }
 
+    pub async fn get_provider_entries(&self) -> HashMap<String, ProviderEntry> {
+        self.config.read().await.providers.clone()
+    }
+
     pub async fn save_provider_entry(
         &self,
         provider_id: &str,
@@ -280,7 +287,8 @@ impl AppConfig {
             .map(|(provider_id, _)| provider_id.clone())
             .collect();
 
-        configured.sort_by(|left, right| compare_provider_order(&config.provider_order, left, right));
+        configured
+            .sort_by(|left, right| compare_provider_order(&config.provider_order, left, right));
         configured
     }
 
@@ -298,10 +306,7 @@ impl AppConfig {
 }
 
 fn compare_provider_order(order: &[String], left: &str, right: &str) -> std::cmp::Ordering {
-    let left_index = order
-        .iter()
-        .position(|id| id == left)
-        .unwrap_or(usize::MAX);
+    let left_index = order.iter().position(|id| id == left).unwrap_or(usize::MAX);
     let right_index = order
         .iter()
         .position(|id| id == right)

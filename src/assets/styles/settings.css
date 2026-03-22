@@ -144,6 +144,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  flex-wrap: wrap;
 }
 
 .field-hint {
@@ -190,6 +191,19 @@
 .invalid-mark {
   font-size: 11px;
   color: var(--color-danger);
+}
+
+.environment-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--color-primary-soft-border);
+  background: var(--color-primary-soft-bg);
+  color: var(--color-primary-soft-text);
+  font-size: 11px;
+  line-height: 1;
 }
 
 .footer-actions {

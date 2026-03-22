@@ -19,10 +19,18 @@ It stays in the corner of your desktop and makes it easy to glance at how much O
 
 ## What It Does
 
-- Tracks usage-based spending for OpenAI, Anthropic, and OpenRouter
-- Shows subscription windows for OpenAI and Anthropic
-- Auto-detects OAuth tokens from local Claude Code and Codex CLI files
-- Supports tray controls for show, hide, refresh, and settings
+- Tracks usage-based spending, budgets, balances, and rate limits for OpenAI, Anthropic, and OpenRouter
+- Shows subscription usage windows for OpenAI and Anthropic
+- Auto-detects OAuth tokens from local Claude Code and Codex CLI credentials, and links to the official auth guides
+- Lets each provider store multiple named API keys, validate them, clear them, and switch the active system environment variable with one click
+- Supports widget-wide manual refresh, per-card refresh, and tray refresh
+- Supports auto refresh and manual-only mode, with intervals configurable in seconds or minutes
+- Supports provider-specific polling overrides
+- Supports drag-and-drop card ordering with persistence
+- Supports detailed and compact widget display modes
+- Supports light, dark, and system themes, always-on-top mode, and window opacity control
+- Supports instant language switching between Simplified Chinese, Traditional Chinese, and English
+- Supports tray actions for show, hide, refresh, and opening settings
 
 ## Platform Notes
 

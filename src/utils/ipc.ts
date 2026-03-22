@@ -30,7 +30,7 @@ export async function getSupportedProviders(): Promise<ProviderConfigItem[]> {
 /** 保存供应商配置 */
 export async function saveProviderConfig(config: {
   providerId: ProviderId;
-  apiKeys: ProviderApiKeyItem[];
+  apiKeys: Array<Pick<ProviderApiKeyItem, "id" | "name" | "value">>;
   oauthToken: string;
   enabled: boolean;
 }): Promise<void> {
@@ -44,6 +44,11 @@ export async function removeProviderConfig(providerId: ProviderId): Promise<void
 
 export async function saveProviderOrder(order: ProviderId[]): Promise<void> {
   return invoke("save_provider_order", { order });
+}
+
+/** 激活某个 API Key 并同步到系统环境变量 */
+export async function activateProviderApiKey(providerId: ProviderId, apiKeyId: string): Promise<void> {
+  return invoke("activate_provider_api_key", { providerId, apiKeyId });
 }
 
 /** 验证 API Key */

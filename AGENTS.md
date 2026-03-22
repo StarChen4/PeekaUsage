@@ -309,6 +309,29 @@
 - 切换模式后刷新和重启都要保持所选显示方式
 - 旧配置缺少 `widgetDisplayMode` 时要继续兼容，默认详细模式
 
+### 18. 设置页已支持一键切换 API Key 到系统环境变量
+
+文件：
+
+- `src/components/settings/ProviderConfig.tsx`
+- `src/components/settings/SettingsPanel.tsx`
+- `src/utils/ipc.ts`
+- `src/types/provider.ts`
+- `src-tauri/src/commands/provider_commands.rs`
+- `src-tauri/src/config/app_config.rs`
+- `src-tauri/src/config/system_env.rs`
+
+当前要求：
+
+- 每个供应商的每个 API Key 都可以在设置页里单独点“切换环境”
+- 只有用户显式点击后，应用才接管对应供应商的环境变量，不要因为普通保存就覆盖用户原本手动配置的系统环境变量
+- 当前激活的 Key 要在设置页中明确显示“当前环境”
+- 有未保存改动时，不允许直接切换环境变量，必须先保存，避免把旧值写进系统环境
+- OpenAI / Anthropic / OpenRouter 对应的环境变量仍然分别是 `OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`OPENROUTER_API_KEY`
+- Windows 需要写入用户级环境变量
+- Linux / macOS 需要同步当前进程，并写入应用托管的 Shell 环境脚本；新开的终端会读取新值
+- macOS 额外同步 `launchctl` 会话环境，Linux 当前以 Shell 启动链路为主，不要假设所有图形界面进程都能立即感知
+
 ## 先读哪些文件
 
 如果你是新的 coding agent，按这个顺序进入代码：
@@ -369,6 +392,7 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `commands/provider_commands.rs`：配置、用量、顺序保存
 - `commands/window_commands.rs`：OAuth 自动检测、窗口透明度命令
 - `config/app_config.rs`：设置、供应商启停、`provider_order`
+- `config/system_env.rs`：当前激活 API Key 到系统环境变量的同步
 - `tray/mod.rs`：托盘
 
 ### Vue
@@ -421,6 +445,14 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 保存后前端状态要同步刷新
 - 空字符串保存要真正清掉凭据
 - 启用状态变化不能只停留在设置页
+
+### 环境变量切换约束
+
+- 环境变量切换是“显式动作”，不能绑定到普通保存按钮后自动执行
+- 后端持久化字段是 `active_api_key_id` 和 `manage_api_key_environment`
+- 只有 `manage_api_key_environment = true` 的供应商，应用才会继续同步对应环境变量
+- 如果当前激活的 Key 被删除，应用要把自己管理的对应环境变量清掉
+- 当前实现优先覆盖“新开的终端 / 新启动的进程”读取场景，不要承诺已运行进程会实时切换
 
 ### 下拉组件约束
 
@@ -548,6 +580,17 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 卡片右上角单独刷新按钮是否调用了 `refreshProvider`
 - 应用启动时旧配置是否被兼容成“5 分钟自动刷新”
 
+### 环境变量切换异常
+
+检查：
+
+- `ProviderConfig.tsx` 里切换按钮是否在有未保存改动时被正确禁用
+- `provider_commands.rs` 是否把 `active_api_key_id` 写回配置
+- `system_env.rs` 是否只同步 `manage_api_key_environment = true` 的供应商
+- Windows 下用户级环境变量是否成功写入
+- Linux / macOS 下 `~/.peekausage/env.sh` 和对应 Shell 启动文件的 source 块是否存在
+- macOS 下 `launchctl setenv` / `unsetenv` 是否执行成功
+
 ### 透明度异常
 
 检查：
@@ -612,6 +655,7 @@ cargo check
 - 设置页透明度滑杆和主界面透明度把手是否同步
 - 设置页切换简体中文、繁体中文、English 后，设置页和主界面文案是否即时同步
 - 主界面底部精简 / 详细切换后，卡片内容和高度是否按预期变化，刷新或重启后是否保持
+- 设置页 API Key “切换环境”后，对应的系统环境变量是否更新；新开终端读取是否符合预期
 
 如果改了 Linux 构建或发布链路，再额外确认：
 
