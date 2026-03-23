@@ -11,14 +11,32 @@ export type LogicalWindowPosition = {
   y: number;
 };
 
+export type WindowDockEdge = "left" | "right" | "top" | "bottom";
+
+export type WindowDockBounds = {
+  edge: WindowDockEdge;
+  expandedPosition: LogicalWindowPosition;
+  expandedSize: LogicalWindowSize;
+  collapsedPosition: LogicalWindowPosition;
+  collapsedSize: LogicalWindowSize;
+};
+
+type ResolveWindowDockBoundsOptions = {
+  requireExceeded?: boolean;
+};
+
 export const MIN_WINDOW_WIDTH = 220;
 export const MIN_WINDOW_HEIGHT = 200;
+export const EDGE_DOCK_COLLAPSED_THICKNESS = 14;
 
 const WINDOW_SIZE_EPSILON = 1;
 const WINDOW_SCREEN_MARGIN = 16;
 const WINDOW_POSITION_SENTINEL_THRESHOLD = 10000;
 const PROGRAMMATIC_RESIZE_HOLD_MS = 400;
 const MANUAL_RESIZE_SUPPRESSION_MS = 600;
+const EDGE_DOCK_TRIGGER_DISTANCE = 24;
+const EDGE_DOCK_RESIZE_ESCAPE_PX = 48;
+const EDGE_DOCK_RESIZE_ESCAPE_RATIO = 0.18;
 
 let programmaticResizeUntil = 0;
 let suppressAutoFitUntil = 0;
@@ -37,6 +55,14 @@ export function markProgrammaticWindowResize() {
 
 export function isProgrammaticWindowResize() {
   return programmaticResizeUntil > now();
+}
+
+export function markProgrammaticWindowMove() {
+  markProgrammaticWindowResize();
+}
+
+export function isProgrammaticWindowMove() {
+  return isProgrammaticWindowResize();
 }
 
 export function suppressAutoFitAfterManualResize() {
@@ -95,6 +121,25 @@ export function areWindowSizesEqual(
 
   return Math.abs(left.width - right.width) <= WINDOW_SIZE_EPSILON
     && Math.abs(left.height - right.height) <= WINDOW_SIZE_EPSILON;
+}
+
+export function wasLikelyResizedBySystemSnap(
+  start: LogicalWindowSize | null | undefined,
+  current: LogicalWindowSize | null | undefined,
+) {
+  if (!start || !current) {
+    return false;
+  }
+
+  const widthDelta = Math.abs(current.width - start.width);
+  const heightDelta = Math.abs(current.height - start.height);
+  const widthRatio = start.width <= 0 ? 0 : widthDelta / start.width;
+  const heightRatio = start.height <= 0 ? 0 : heightDelta / start.height;
+
+  return widthDelta >= EDGE_DOCK_RESIZE_ESCAPE_PX
+    || heightDelta >= EDGE_DOCK_RESIZE_ESCAPE_PX
+    || widthRatio >= EDGE_DOCK_RESIZE_ESCAPE_RATIO
+    || heightRatio >= EDGE_DOCK_RESIZE_ESCAPE_RATIO;
 }
 
 export function areWindowPositionsEqual(
@@ -161,4 +206,176 @@ export async function fitCurrentWindowHeight(targetHeight: number) {
   markProgrammaticWindowResize();
   await appWindow.setSize(new LogicalSize(currentLogicalSize.width, clampedHeight));
   return true;
+}
+
+function clamp(value: number, min: number, max: number) {
+  if (max < min) {
+    return min;
+  }
+
+  return Math.min(max, Math.max(min, value));
+}
+
+function getLogicalMonitorWorkArea(monitor: Monitor) {
+  const position = monitor.workArea.position.toLogical(monitor.scaleFactor);
+  const size = monitor.workArea.size.toLogical(monitor.scaleFactor);
+
+  return {
+    x: roundWindowValue(position.x),
+    y: roundWindowValue(position.y),
+    width: Math.max(MIN_WINDOW_WIDTH, roundWindowValue(size.width)),
+    height: Math.max(MIN_WINDOW_HEIGHT, roundWindowValue(size.height)),
+  };
+}
+
+export async function resolveWindowDockBounds(
+  position: LogicalWindowPosition,
+  size: LogicalWindowSize,
+  options?: ResolveWindowDockBoundsOptions,
+): Promise<WindowDockBounds | null> {
+  const monitor = await currentMonitor();
+  if (!monitor) {
+    return null;
+  }
+
+  return resolveWindowDockBoundsForMonitor(position, size, monitor, options);
+}
+
+export function resolveWindowDockBoundsForMonitor(
+  position: LogicalWindowPosition,
+  size: LogicalWindowSize,
+  monitor: Monitor,
+  options?: ResolveWindowDockBoundsOptions,
+): WindowDockBounds | null {
+  const workArea = getLogicalMonitorWorkArea(monitor);
+  const rawPosition = {
+    x: roundWindowValue(position.x),
+    y: roundWindowValue(position.y),
+  };
+  const expandedSize = {
+    width: clamp(roundWindowValue(size.width), MIN_WINDOW_WIDTH, workArea.width),
+    height: clamp(roundWindowValue(size.height), MIN_WINDOW_HEIGHT, workArea.height),
+  };
+  const maxX = workArea.x + workArea.width - expandedSize.width;
+  const maxY = workArea.y + workArea.height - expandedSize.height;
+  const clampedPosition = {
+    x: clamp(roundWindowValue(position.x), workArea.x, maxX),
+    y: clamp(roundWindowValue(position.y), workArea.y, maxY),
+  };
+  const exceededEdges = [
+    {
+      edge: "left" as WindowDockEdge,
+      overflow: workArea.x - rawPosition.x,
+    },
+    {
+      edge: "right" as WindowDockEdge,
+      overflow: rawPosition.x + expandedSize.width - (workArea.x + workArea.width),
+    },
+    {
+      edge: "top" as WindowDockEdge,
+      overflow: workArea.y - rawPosition.y,
+    },
+    {
+      edge: "bottom" as WindowDockEdge,
+      overflow: rawPosition.y + expandedSize.height - (workArea.y + workArea.height),
+    },
+  ]
+    .filter((item) => item.overflow > 0)
+    .sort((left, right) => right.overflow - left.overflow);
+  const nearbyEdges = [
+    {
+      edge: "left" as WindowDockEdge,
+      distance: Math.abs(clampedPosition.x - workArea.x),
+    },
+    {
+      edge: "right" as WindowDockEdge,
+      distance: Math.abs(clampedPosition.x + expandedSize.width - (workArea.x + workArea.width)),
+    },
+    {
+      edge: "top" as WindowDockEdge,
+      distance: Math.abs(clampedPosition.y - workArea.y),
+    },
+    {
+      edge: "bottom" as WindowDockEdge,
+      distance: Math.abs(clampedPosition.y + expandedSize.height - (workArea.y + workArea.height)),
+    },
+  ]
+    .filter((item) => item.distance <= EDGE_DOCK_TRIGGER_DISTANCE)
+    .sort((left, right) => left.distance - right.distance);
+
+  const winner = options?.requireExceeded ? exceededEdges[0] : nearbyEdges[0];
+  if (!winner) {
+    return null;
+  }
+
+  switch (winner.edge) {
+    case "left":
+      return {
+        edge: "left",
+        expandedPosition: {
+          x: workArea.x,
+          y: clampedPosition.y,
+        },
+        expandedSize,
+        collapsedPosition: {
+          x: workArea.x,
+          y: clampedPosition.y,
+        },
+        collapsedSize: {
+          width: EDGE_DOCK_COLLAPSED_THICKNESS,
+          height: expandedSize.height,
+        },
+      };
+    case "right":
+      return {
+        edge: "right",
+        expandedPosition: {
+          x: workArea.x + workArea.width - expandedSize.width,
+          y: clampedPosition.y,
+        },
+        expandedSize,
+        collapsedPosition: {
+          x: workArea.x + workArea.width - EDGE_DOCK_COLLAPSED_THICKNESS,
+          y: clampedPosition.y,
+        },
+        collapsedSize: {
+          width: EDGE_DOCK_COLLAPSED_THICKNESS,
+          height: expandedSize.height,
+        },
+      };
+    case "top":
+      return {
+        edge: "top",
+        expandedPosition: {
+          x: clampedPosition.x,
+          y: workArea.y,
+        },
+        expandedSize,
+        collapsedPosition: {
+          x: clampedPosition.x,
+          y: workArea.y,
+        },
+        collapsedSize: {
+          width: expandedSize.width,
+          height: EDGE_DOCK_COLLAPSED_THICKNESS,
+        },
+      };
+    case "bottom":
+      return {
+        edge: "bottom",
+        expandedPosition: {
+          x: clampedPosition.x,
+          y: workArea.y + workArea.height - expandedSize.height,
+        },
+        expandedSize,
+        collapsedPosition: {
+          x: clampedPosition.x,
+          y: workArea.y + workArea.height - EDGE_DOCK_COLLAPSED_THICKNESS,
+        },
+        collapsedSize: {
+          width: expandedSize.width,
+          height: EDGE_DOCK_COLLAPSED_THICKNESS,
+        },
+      };
+  }
 }

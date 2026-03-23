@@ -13,6 +13,7 @@ import ProviderCard from "./ProviderCard";
 
 type WidgetContainerProps = {
   onOpenSettings: () => void;
+  suppressWindowAutoFit?: boolean;
 };
 
 type DragSlot = {
@@ -44,7 +45,10 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number) {
   return next;
 }
 
-export default function WidgetContainer({ onOpenSettings }: WidgetContainerProps) {
+export default function WidgetContainer({
+  onOpenSettings,
+  suppressWindowAutoFit = false,
+}: WidgetContainerProps) {
   const { t } = useI18n();
   const settings = useSettingsStore((state) => state.settings);
   const saveSettings = useSettingsStore((state) => state.saveSettings);
@@ -429,6 +433,10 @@ export default function WidgetContainer({ onOpenSettings }: WidgetContainerProps
   }, [isThemeMenuOpen]);
 
   useEffect(() => {
+    if (suppressWindowAutoFit) {
+      return;
+    }
+
     if (!settings.autoExpandWindowToFitContent) {
       return;
     }
@@ -470,6 +478,7 @@ export default function WidgetContainer({ onOpenSettings }: WidgetContainerProps
       cancelAnimationFrame(frameId);
     };
   }, [
+    suppressWindowAutoFit,
     settings.autoExpandWindowToFitContent,
     contentLayoutKey,
   ]);

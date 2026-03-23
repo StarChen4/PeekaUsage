@@ -71,6 +71,10 @@ export const messages = {
         label: "自动调整窗口高度以适应内容",
         hint: "当主界面内容高度发生变化时自动调整窗口高度；内容变多时增高，内容变少时缩小，后续仍可手动调整。",
       },
+      edgeDockCollapse: {
+        label: "拖拽到边缘后自动收起",
+        hint: "只有把窗口从标题栏拖到屏幕边缘并越过该方向边界时才会收起；鼠标移入细条后会自动展开。",
+      },
       providersSection: {
         empty: "还没有添加供应商，点击右上角的 + 开始配置。",
       },
@@ -243,6 +247,10 @@ export const messages = {
         label: "自動調整視窗高度以適應內容",
         hint: "當主介面內容高度發生變化時自動調整視窗高度；內容變多時增高，內容變少時縮小，之後仍可手動調整。",
       },
+      edgeDockCollapse: {
+        label: "拖曳到邊緣後自動收起",
+        hint: "只有把視窗從標題列拖到螢幕邊緣並越過該方向邊界時才會收起；滑鼠移入細條後會自動展開。",
+      },
       providersSection: {
         empty: "還沒有新增供應商，點擊右上角的 + 開始配置。",
       },
@@ -414,6 +422,10 @@ export const messages = {
       autoExpandWindow: {
         label: "Auto-fit window height to content",
         hint: "Adjust the window height when the widget content changes. It grows when content needs more space and shrinks when content becomes smaller. You can still resize it manually afterwards.",
+      },
+      edgeDockCollapse: {
+        label: "Auto-collapse after dragging to an edge",
+        hint: "Collapse only when the title bar is dragged past the screen edge in that direction. Hovering the thin strip expands it again.",
       },
       providersSection: {
         empty: "No provider added yet. Click + in the top-right corner to start.",

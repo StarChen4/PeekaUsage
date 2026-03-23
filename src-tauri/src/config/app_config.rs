@@ -21,6 +21,8 @@ pub struct AppSettings {
     pub refresh_on_settings_close: bool,
     #[serde(default)]
     pub auto_expand_window_to_fit_content: bool,
+    #[serde(default = "default_edge_dock_collapse_enabled")]
+    pub edge_dock_collapse_enabled: bool,
     #[serde(default)]
     pub language: AppLanguage,
     #[serde(default)]
@@ -112,6 +114,7 @@ impl Default for AppSettings {
             provider_polling_overrides: HashMap::new(),
             refresh_on_settings_close: false,
             auto_expand_window_to_fit_content: false,
+            edge_dock_collapse_enabled: default_edge_dock_collapse_enabled(),
             language: AppLanguage::default(),
             widget_display_mode: WidgetDisplayMode::default(),
             always_on_top: true,
@@ -123,6 +126,10 @@ impl Default for AppSettings {
             provider_card_expanded: default_provider_card_expanded(),
         }
     }
+}
+
+fn default_edge_dock_collapse_enabled() -> bool {
+    true
 }
 
 impl AppSettings {

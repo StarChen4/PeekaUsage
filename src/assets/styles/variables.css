@@ -43,6 +43,9 @@
   --color-primary-soft-bg: rgba(59, 130, 246, 0.14);
   --color-primary-soft-border: rgba(59, 130, 246, 0.24);
   --color-primary-soft-text: #1d4ed8;
+  --color-dock-peek: rgba(37, 99, 235, 0.88);
+  --color-dock-peek-ring: rgba(96, 165, 250, 0.22);
+  --shadow-dock-peek: 0 0 0 1px rgba(255, 255, 255, 0.3);
   --color-success-soft-bg: rgba(16, 185, 129, 0.12);
   --color-success-soft-border: rgba(16, 185, 129, 0.24);
   --color-success-soft-text: #047857;
@@ -76,6 +79,9 @@
   --color-primary-soft-bg: rgba(59, 130, 246, 0.16);
   --color-primary-soft-border: rgba(59, 130, 246, 0.28);
   --color-primary-soft-text: #bfdbfe;
+  --color-dock-peek: rgba(103, 232, 249, 0.96);
+  --color-dock-peek-ring: rgba(34, 211, 238, 0.42);
+  --shadow-dock-peek: 0 0 0 1px rgba(186, 230, 253, 0.42), 0 0 14px rgba(34, 211, 238, 0.34);
   --color-success-soft-bg: rgba(16, 185, 129, 0.12);
   --color-success-soft-border: rgba(16, 185, 129, 0.25);
   --color-success-soft-text: #7cf2c0;
@@ -110,6 +116,9 @@
     --color-primary-soft-bg: rgba(59, 130, 246, 0.16);
     --color-primary-soft-border: rgba(59, 130, 246, 0.28);
     --color-primary-soft-text: #bfdbfe;
+    --color-dock-peek: rgba(103, 232, 249, 0.96);
+    --color-dock-peek-ring: rgba(34, 211, 238, 0.42);
+    --shadow-dock-peek: 0 0 0 1px rgba(186, 230, 253, 0.42), 0 0 14px rgba(34, 211, 238, 0.34);
     --color-success-soft-bg: rgba(16, 185, 129, 0.12);
     --color-success-soft-border: rgba(16, 185, 129, 0.25);
     --color-success-soft-text: #7cf2c0;

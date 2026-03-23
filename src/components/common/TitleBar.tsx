@@ -1,12 +1,30 @@
+import type { MouseEvent } from "react";
 import { useI18n } from "../../i18n";
 import { useWindowControls } from "../../composables/useWindowControls";
 
-export default function TitleBar() {
+type TitleBarProps = {
+  onDragIntentStart?: () => void;
+};
+
+export default function TitleBar({ onDragIntentStart }: TitleBarProps) {
   const { minimizeWindow, closeToTray } = useWindowControls();
   const { t } = useI18n();
 
+  function handleMouseDown(event: MouseEvent<HTMLDivElement>) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const target = event.target;
+    if (target instanceof Element && target.closest("button")) {
+      return;
+    }
+
+    onDragIntentStart?.();
+  }
+
   return (
-    <div className="titlebar" data-tauri-drag-region>
+    <div className="titlebar" data-tauri-drag-region onMouseDown={handleMouseDown}>
       <div className="titlebar-left" data-tauri-drag-region>
         <span className="titlebar-dot" />
         <span className="titlebar-title" data-tauri-drag-region>

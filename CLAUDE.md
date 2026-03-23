@@ -12,6 +12,11 @@
 - 设置页“通用”里新增了“自动调整窗口高度以适应内容”开关，持久化字段是 `autoExpandWindowToFitContent`
 - 主界面内容高度变化时可按该设置自动调整窗口高度；内容变多时增高，内容变少时缩小，用户后续仍可手动调整
 - 窗口大小和位置会持久化到 `windowSize`、`windowPosition`，启动后恢复
+- 主窗口现在支持“拖拽到屏幕边缘后自动吸附收起”；只有拖拽到边缘后才会触发，不能因为启动恢复或程序化移动自动收起
+- 贴边收起要求窗口在被拖拽方向上真正越过屏幕工作区边界；仅仅贴住边缘不会触发
+- 收起态会缩成边缘细条，鼠标移入时自动展开，鼠标移出时再次收起
+- 边缘收起不会覆盖正常窗口边界持久化；配置里继续保存展开态的 `windowSize`、`windowPosition`
+- 收起态会暂停按内容自动调整窗口高度，避免和边缘细条状态互相打架
 - Windows 在窗口隐藏或最小化时可能上报离屏哨兵坐标（例如 `-21845`）；这类位置不能继续写回配置，也不能在启动时照单恢复
 - 设置页“通用”里已新增语言选择，顺序固定为“简体中文”“繁體中文”“English”，持久化字段是 `language`
 - 当前前端文案统一收敛到 `src/i18n/messages.ts`，默认支持 `zh-Hans`、`zh-Hant`、`en`
@@ -192,7 +197,28 @@
 - Rust 侧已注册 `tauri-plugin-autostart`
 - capability 已放行 `autostart:default`
 
-### 11. 后续功能开发默认按跨平台一致性设计
+### 11. 主窗口已支持拖拽到边缘后自动吸附收起
+
+文件：
+
+- `src/App.tsx`
+- `src/components/common/TitleBar.tsx`
+- `src/components/widget/WidgetContainer.tsx`
+- `src/utils/windowBounds.ts`
+- `src/assets/styles/main.css`
+
+当前行为：
+
+- 只有在标题栏拖拽结束并贴近屏幕工作区边缘时，才会触发吸附和收起
+- 必须是对应方向的窗口边缘真正越过工作区边界后才会收起；仅贴边不触发
+- 收起后窗口会变成边缘细条，鼠标移入自动展开，鼠标移出后再次收起
+- 普通贴边、启动恢复窗口位置、托盘恢复和代码里的程序化移动都不会直接触发收起
+- 如果操作系统原生贴边分屏在拖拽结束时明显改写了窗口尺寸，则视为系统接管，不继续执行应用内收起
+- 配置持久化仍记录展开态窗口边界，不会把细条态写进 `windowSize` / `windowPosition`
+- 收起态会暂停 `WidgetContainer.tsx` 的自动高度适配
+- 设置页“通用”区提供开关，持久化字段是 `edgeDockCollapseEnabled`，位置固定在“自动调整窗口高度以适应内容”后面
+
+### 12. 后续功能开发默认按跨平台一致性设计
 
 当前要求：
 
@@ -201,7 +227,7 @@
 - 避免优先依赖单平台系统控件外观或平台特有行为
 - 如果必须做平台分支，需要在文档里补充原因和影响范围
 
-### 11. Linux Release 已接入 `x86_64`
+### 13. Linux Release 已接入 `x86_64`
 
 文件：
 
@@ -219,7 +245,7 @@
 - Linux `arm64` 发布当前暂时关闭，不要在 release workflow 里默认恢复
 - Linux CI / Release 的依赖安装要与 Tauri 官方 ARM 打包示例保持一致，至少包含 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
 
-### 12. macOS Release 已接入 `x86_64` / `arm64`
+### 14. macOS Release 已接入 `x86_64` / `arm64`
 
 文件：
 
@@ -237,7 +263,7 @@
 - 当前 macOS 产物未签名、未 notarize
 - 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/PeekaUsage.app` 作为手动放行方案
 
-### 13. 应用标识已切到 `PeekaUsage`
+### 15. 应用标识已切到 `PeekaUsage`
 
 文件：
 
@@ -252,7 +278,7 @@
 - 只有新目录里对应文件不存在时才会复制，避免覆盖已经迁移或新生成的数据
 - 如果后续继续改 `identifier`，必须同步维护迁移逻辑
 
-### 14. 设置页 OAuth Token 区域已新增官方获取入口
+### 16. 设置页 OAuth Token 区域已新增官方获取入口
 
 文件：
 

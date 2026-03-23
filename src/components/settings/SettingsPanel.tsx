@@ -364,6 +364,22 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
               <span className="switch-track" />
             </span>
           </label>
+
+          <label className="setting-row setting-row-toggle">
+            <span className="setting-copy">
+              <span className="setting-label">{t("settings.edgeDockCollapse.label")}</span>
+              <span className="setting-hint">{t("settings.edgeDockCollapse.hint")}</span>
+            </span>
+            <span className="switch">
+              <input
+                className="switch-input"
+                type="checkbox"
+                checked={settings.edgeDockCollapseEnabled}
+                onChange={(event) => void saveSettings({ edgeDockCollapseEnabled: event.target.checked })}
+              />
+              <span className="switch-track" />
+            </span>
+          </label>
         </section>
 
         <section className="settings-section">
