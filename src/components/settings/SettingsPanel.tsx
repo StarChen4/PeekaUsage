@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "../../i18n";
 import type { ProviderConfigItem, ProviderId } from "../../types/provider";
 import {
@@ -25,6 +25,34 @@ type SettingsPanelProps = {
   onBack: () => void;
 };
 
+type SettingsSectionId = "general" | "providers" | "advanced";
+
+type SettingsMenuItem =
+  {
+    id: SettingsSectionId;
+    label: string;
+  };
+
+function BackIcon() {
+  return (
+    <svg
+      className="back-icon"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M9.5 3.5L5 8l4.5 4.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function SettingsPanel({ onBack }: SettingsPanelProps) {
   const settings = useSettingsStore((state) => state.settings);
   const saveSettings = useSettingsStore((state) => state.saveSettings);
@@ -37,6 +65,7 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
   const [launchAtStartupPending, setLaunchAtStartupPending] = useState(false);
   const [pollingIntervalDraft, setPollingIntervalDraft] = useState(String(settings.pollingInterval));
   const [providerPollingIntervalDrafts, setProviderPollingIntervalDrafts] = useState<Partial<Record<ProviderId, string>>>({});
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>("general");
 
   const languageOptions: Array<SelectOption<AppLanguage>> = LANGUAGE_OPTIONS.map((item) => ({
     value: item.value,
@@ -52,6 +81,15 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
     { value: "seconds", label: t("common.secondsShort") },
     { value: "minutes", label: t("common.minutesShort") },
   ];
+
+  const sectionItems: SettingsMenuItem[] = useMemo(() => ([
+    { id: "general", label: t("settings.sections.general") },
+    { id: "providers", label: t("settings.sections.providers") },
+    { id: "advanced", label: t("settings.sections.advanced") },
+  ]), [t]);
+
+  const activeSectionLabel = sectionItems.find((item) => item.id === activeSection)?.label
+    ?? t("settings.sections.general");
 
   const configuredProviderIds = new Set(providerConfigs.map((item) => item.providerId));
   const availableProviders = supportedProviders.filter((item) => !configuredProviderIds.has(item.providerId));
@@ -162,6 +200,10 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
     }
   }
 
+  function handleSectionSelect(sectionId: SettingsSectionId) {
+    setActiveSection(sectionId);
+  }
+
   useEffect(() => {
     void loadProviderData();
   }, []);
@@ -185,6 +227,357 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
     settings.pollingUnit,
   ]);
 
+  const sectionContent: Record<SettingsSectionId, ReactNode> = {
+    general: (
+      <section className="settings-section settings-section-page">
+        <h3 className="section-title">{t("settings.sections.general")}</h3>
+        <div className="setting-row">
+          <label>{t("settings.language.label")}</label>
+          <div className="setting-select-wrap">
+            <AppSelect
+              modelValue={settings.language}
+              options={languageOptions}
+              ariaLabel={t("settings.language.ariaLabel")}
+              onChange={(value) => void saveSettings({ language: value })}
+            />
+          </div>
+        </div>
+
+        <div className="setting-row setting-row-polling">
+          <label>{t("settings.polling.label")}</label>
+          <div className="polling-control">
+            <div className="polling-segment" role="group" aria-label={t("settings.polling.modeAriaLabel")}>
+              {pollingModeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  className={`polling-segment-button${settings.pollingMode === option.value ? " is-active" : ""}`}
+                  type="button"
+                  aria-pressed={settings.pollingMode === option.value}
+                  onClick={() => void saveSettings({ pollingMode: option.value })}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {!isManualPolling && (
+              <div className="polling-auto-inline">
+                <input
+                  className="polling-interval-input"
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_POLLING_INTERVAL}
+                  max={MAX_POLLING_INTERVAL}
+                  value={pollingIntervalDraft}
+                  aria-label={t("settings.polling.intervalAriaLabel")}
+                  onChange={(event) => setPollingIntervalDraft(event.target.value)}
+                  onBlur={() => {
+                    const parsed = Number.parseInt(pollingIntervalDraft, 10);
+                    const nextValue = normalizePollingInterval(
+                      Number.isNaN(parsed) ? settings.pollingInterval : parsed,
+                    );
+                    setPollingIntervalDraft(String(nextValue));
+
+                    if (nextValue !== settings.pollingInterval) {
+                      void saveSettings({ pollingInterval: nextValue });
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      (event.target as HTMLInputElement).blur();
+                    }
+                  }}
+                />
+                <div className="polling-segment polling-unit-segment" role="group" aria-label={t("settings.polling.unitAriaLabel")}>
+                  {pollingUnitOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      className={`polling-segment-button${settings.pollingUnit === option.value ? " is-active" : ""}`}
+                      type="button"
+                      aria-pressed={settings.pollingUnit === option.value}
+                      onClick={() => void saveSettings({ pollingUnit: option.value })}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="setting-row setting-row-slider">
+          <label htmlFor="window-opacity-range">{t("settings.opacity.label")}</label>
+          <div className="opacity-control">
+            <input
+              id="window-opacity-range"
+              className="opacity-range"
+              type="range"
+              min="10"
+              max="100"
+              step="1"
+              value={opacityDraft}
+              onInput={(event) => {
+                const value = Number.parseInt((event.target as HTMLInputElement).value, 10);
+                setOpacityDraft(value);
+                void updateOpacity(value, false);
+              }}
+              onChange={(event) => {
+                const value = Number.parseInt((event.target as HTMLInputElement).value, 10);
+                setOpacityDraft(value);
+                void updateOpacity(value, true);
+              }}
+            />
+            <span className="opacity-value">{opacityDraft}%</span>
+          </div>
+        </div>
+
+        <label className="setting-row setting-row-toggle">
+          <span className="setting-copy">
+            <span className="setting-label">{t("settings.launchAtStartup.label")}</span>
+            <span className="setting-hint">{t("settings.launchAtStartup.hint")}</span>
+          </span>
+          <span className="switch">
+            <input
+              className="switch-input"
+              type="checkbox"
+              checked={settings.launchAtStartup}
+              disabled={launchAtStartupPending}
+              onChange={(event) => void handleLaunchAtStartupChange(event.target.checked)}
+            />
+            <span className="switch-track" />
+          </span>
+        </label>
+
+        <label className="setting-row setting-row-toggle">
+          <span className="setting-copy">
+            <span className="setting-label">{t("settings.refreshOnBack.label")}</span>
+            <span className="setting-hint">{t("settings.refreshOnBack.hint")}</span>
+          </span>
+          <span className="switch">
+            <input
+              className="switch-input"
+              type="checkbox"
+              checked={settings.refreshOnSettingsClose}
+              onChange={(event) => void saveSettings({ refreshOnSettingsClose: event.target.checked })}
+            />
+            <span className="switch-track" />
+          </span>
+        </label>
+
+        <label className="setting-row setting-row-toggle">
+          <span className="setting-copy">
+            <span className="setting-label">{t("settings.autoExpandWindow.label")}</span>
+            <span className="setting-hint">{t("settings.autoExpandWindow.hint")}</span>
+          </span>
+          <span className="switch">
+            <input
+              className="switch-input"
+              type="checkbox"
+              checked={settings.autoExpandWindowToFitContent}
+              onChange={(event) => void saveSettings({ autoExpandWindowToFitContent: event.target.checked })}
+            />
+            <span className="switch-track" />
+          </span>
+        </label>
+
+        <label className="setting-row setting-row-toggle">
+          <span className="setting-copy">
+            <span className="setting-label">{t("settings.edgeDockCollapse.label")}</span>
+            <span className="setting-hint">{t("settings.edgeDockCollapse.hint")}</span>
+          </span>
+          <span className="switch">
+            <input
+              className="switch-input"
+              type="checkbox"
+              checked={settings.edgeDockCollapseEnabled}
+              onChange={(event) => void saveSettings({ edgeDockCollapseEnabled: event.target.checked })}
+            />
+            <span className="switch-track" />
+          </span>
+        </label>
+      </section>
+    ),
+    providers: (
+      <section className="settings-section settings-section-page">
+        <div className="section-header">
+          <h3 className="section-title">{t("settings.sections.providers")}</h3>
+          {!creatingProviderId && availableProviders.length > 0 && (
+            <button
+              className="add-provider-btn"
+              type="button"
+              onClick={() => setCreatingProviderId(availableProviders[0]?.providerId ?? null)}
+            >
+              +
+            </button>
+          )}
+        </div>
+
+        {draftProviderConfig && (
+          <ProviderConfig
+            config={draftProviderConfig}
+            expanded
+            mode="create"
+            selectableProviders={availableProviders}
+            onProviderChange={(providerId) => setCreatingProviderId(providerId)}
+            onCanceled={() => setCreatingProviderId(null)}
+            onSaved={() => void (async () => {
+              setCreatingProviderId(null);
+              await reloadProviders();
+            })()}
+          />
+        )}
+
+        {providerConfigs.length === 0 && !draftProviderConfig && (
+          <div className="provider-empty-state">
+            <span>{t("settings.providersSection.empty")}</span>
+          </div>
+        )}
+
+        {providerConfigs.map((config) => (
+          <ProviderConfig
+            key={config.providerId}
+            config={config}
+            expanded={settings.providerCardExpanded[config.providerId] ?? true}
+            onExpandedChange={(expanded) => void saveSettings({
+              providerCardExpanded: {
+                ...settings.providerCardExpanded,
+                [config.providerId]: expanded,
+              },
+            })}
+            onSaved={() => void (async () => {
+              setCreatingProviderId(null);
+              await reloadProviders();
+            })()}
+            onRemoved={() => void reloadProviders()}
+            onEnvironmentChanged={() => loadProviderData()}
+          />
+        ))}
+      </section>
+    ),
+    advanced: (
+      <section className="settings-section settings-section-page">
+        <div className="section-header">
+          <h3 className="section-title">{t("settings.sections.advanced")}</h3>
+        </div>
+
+        <label className="advanced-toggle">
+          <span className="advanced-toggle-copy">
+            <span className="advanced-toggle-title">{t("settings.advancedSection.title")}</span>
+            <span className="advanced-toggle-hint">{t("settings.advancedSection.hint")}</span>
+          </span>
+          <span className="switch">
+            <input
+              className="switch-input"
+              type="checkbox"
+              checked={settings.providerPollingOverridesEnabled}
+              onChange={(event) => void saveSettings({ providerPollingOverridesEnabled: event.target.checked })}
+            />
+            <span className="switch-track" />
+          </span>
+        </label>
+
+        {settings.providerPollingOverridesEnabled && configuredPollingProviders.length === 0 && (
+          <div className="provider-empty-state">
+            <span>{t("settings.advancedSection.empty")}</span>
+          </div>
+        )}
+
+        {settings.providerPollingOverridesEnabled && configuredPollingProviders.length > 0 && (
+          <div className="provider-polling-list">
+            {configuredPollingProviders.map((config) => {
+              const providerPollingSettings = getProviderPollingSettings(config.providerId);
+
+              return (
+                <div key={config.providerId} className="provider-polling-item">
+                  <div className="provider-polling-meta">
+                    <ProviderIcon providerId={config.providerId} size={16} />
+                    <span className="provider-polling-name">{config.displayName}</span>
+                  </div>
+
+                  <div className="polling-control polling-control-compact">
+                    <div
+                      className="polling-segment polling-segment-compact"
+                      role="group"
+                      aria-label={`${config.displayName} ${t("settings.polling.modeAriaLabel")}`}
+                    >
+                      {pollingModeOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          className={`polling-segment-button polling-segment-button-compact${providerPollingSettings.pollingMode === option.value ? " is-active" : ""}`}
+                          type="button"
+                          aria-pressed={providerPollingSettings.pollingMode === option.value}
+                          onClick={() => void saveProviderPollingSettings(config.providerId, { pollingMode: option.value })}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {providerPollingSettings.pollingMode !== "manual" && (
+                      <div className="polling-auto-inline polling-auto-inline-compact">
+                        <input
+                          className="polling-interval-input polling-interval-input-compact"
+                          type="number"
+                          inputMode="numeric"
+                          min={MIN_POLLING_INTERVAL}
+                          max={MAX_POLLING_INTERVAL}
+                          value={providerPollingIntervalDrafts[config.providerId] ?? String(providerPollingSettings.pollingInterval)}
+                          aria-label={`${config.displayName} ${t("settings.polling.intervalAriaLabel")}`}
+                          onChange={(event) => setProviderPollingIntervalDrafts((current) => ({
+                            ...current,
+                            [config.providerId]: event.target.value,
+                          }))}
+                          onBlur={() => {
+                            const rawValue = providerPollingIntervalDrafts[config.providerId] ?? "";
+                            const parsed = Number.parseInt(rawValue, 10);
+                            const nextValue = normalizePollingInterval(
+                              Number.isNaN(parsed) ? providerPollingSettings.pollingInterval : parsed,
+                            );
+
+                            setProviderPollingIntervalDrafts((current) => ({
+                              ...current,
+                              [config.providerId]: String(nextValue),
+                            }));
+
+                            if (nextValue !== providerPollingSettings.pollingInterval) {
+                              void saveProviderPollingSettings(config.providerId, { pollingInterval: nextValue });
+                            }
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              (event.target as HTMLInputElement).blur();
+                            }
+                          }}
+                        />
+                        <div
+                          className="polling-segment polling-unit-segment polling-segment-compact"
+                          role="group"
+                          aria-label={`${config.displayName} ${t("settings.polling.unitAriaLabel")}`}
+                        >
+                          {pollingUnitOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              className={`polling-segment-button polling-segment-button-compact${providerPollingSettings.pollingUnit === option.value ? " is-active" : ""}`}
+                              type="button"
+                              aria-pressed={providerPollingSettings.pollingUnit === option.value}
+                              onClick={() => void saveProviderPollingSettings(config.providerId, { pollingUnit: option.value })}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    ),
+  };
+
   return (
     <div className="settings-panel">
       <div className="settings-header">
@@ -194,370 +587,36 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
           aria-label={t("common.back")}
           onClick={onBack}
         >
-          <svg
-            className="back-icon"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M9.5 3.5L5 8l4.5 4.5"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <BackIcon />
         </button>
-        <span className="settings-title">{t("settings.title")}</span>
+
+        <div className="settings-title-group">
+          <span className="settings-title">{t("settings.title")}</span>
+          <span className="settings-subtitle">{activeSectionLabel}</span>
+        </div>
+      </div>
+
+      <div className="settings-subnav" role="tablist" aria-label={t("settings.navigationAriaLabel")}>
+        {sectionItems.map((item) => {
+          const isActive = item.id === activeSection;
+
+          return (
+            <button
+              key={item.id}
+              className={`settings-subnav-item${isActive ? " is-active" : ""}`}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => handleSectionSelect(item.id)}
+            >
+              {item.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="settings-body">
-        <section className="settings-section">
-          <h3 className="section-title">{t("settings.sections.general")}</h3>
-          <div className="setting-row">
-            <label>{t("settings.language.label")}</label>
-            <div className="setting-select-wrap">
-              <AppSelect
-                modelValue={settings.language}
-                options={languageOptions}
-                ariaLabel={t("settings.language.ariaLabel")}
-                onChange={(value) => void saveSettings({ language: value })}
-              />
-            </div>
-          </div>
-
-          <div className="setting-row setting-row-polling">
-            <label>{t("settings.polling.label")}</label>
-            <div className="polling-control">
-              <div className="polling-segment" role="group" aria-label={t("settings.polling.modeAriaLabel")}>
-                {pollingModeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    className={`polling-segment-button${settings.pollingMode === option.value ? " is-active" : ""}`}
-                    type="button"
-                    aria-pressed={settings.pollingMode === option.value}
-                    onClick={() => void saveSettings({ pollingMode: option.value })}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              {!isManualPolling && (
-                <div className="polling-auto-inline">
-                  <input
-                    className="polling-interval-input"
-                    type="number"
-                    inputMode="numeric"
-                    min={MIN_POLLING_INTERVAL}
-                    max={MAX_POLLING_INTERVAL}
-                    value={pollingIntervalDraft}
-                    aria-label={t("settings.polling.intervalAriaLabel")}
-                    onChange={(event) => setPollingIntervalDraft(event.target.value)}
-                    onBlur={() => {
-                      const parsed = Number.parseInt(pollingIntervalDraft, 10);
-                      const nextValue = normalizePollingInterval(
-                        Number.isNaN(parsed) ? settings.pollingInterval : parsed,
-                      );
-                      setPollingIntervalDraft(String(nextValue));
-
-                      if (nextValue !== settings.pollingInterval) {
-                        void saveSettings({ pollingInterval: nextValue });
-                      }
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        (event.target as HTMLInputElement).blur();
-                      }
-                    }}
-                  />
-                  <div className="polling-segment polling-unit-segment" role="group" aria-label={t("settings.polling.unitAriaLabel")}>
-                    {pollingUnitOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        className={`polling-segment-button${settings.pollingUnit === option.value ? " is-active" : ""}`}
-                        type="button"
-                        aria-pressed={settings.pollingUnit === option.value}
-                        onClick={() => void saveSettings({ pollingUnit: option.value })}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="setting-row setting-row-slider">
-            <label htmlFor="window-opacity-range">{t("settings.opacity.label")}</label>
-            <div className="opacity-control">
-              <input
-                id="window-opacity-range"
-                className="opacity-range"
-                type="range"
-                min="10"
-                max="100"
-                step="1"
-                value={opacityDraft}
-                onInput={(event) => {
-                  const value = Number.parseInt((event.target as HTMLInputElement).value, 10);
-                  setOpacityDraft(value);
-                  void updateOpacity(value, false);
-                }}
-                onChange={(event) => {
-                  const value = Number.parseInt((event.target as HTMLInputElement).value, 10);
-                  setOpacityDraft(value);
-                  void updateOpacity(value, true);
-                }}
-              />
-              <span className="opacity-value">{opacityDraft}%</span>
-            </div>
-          </div>
-
-          <label className="setting-row setting-row-toggle">
-            <span className="setting-copy">
-              <span className="setting-label">{t("settings.launchAtStartup.label")}</span>
-              <span className="setting-hint">{t("settings.launchAtStartup.hint")}</span>
-            </span>
-            <span className="switch">
-              <input
-                className="switch-input"
-                type="checkbox"
-                checked={settings.launchAtStartup}
-                disabled={launchAtStartupPending}
-                onChange={(event) => void handleLaunchAtStartupChange(event.target.checked)}
-              />
-              <span className="switch-track" />
-            </span>
-          </label>
-
-          <label className="setting-row setting-row-toggle">
-            <span className="setting-copy">
-              <span className="setting-label">{t("settings.refreshOnBack.label")}</span>
-              <span className="setting-hint">{t("settings.refreshOnBack.hint")}</span>
-            </span>
-            <span className="switch">
-              <input
-                className="switch-input"
-                type="checkbox"
-                checked={settings.refreshOnSettingsClose}
-                onChange={(event) => void saveSettings({ refreshOnSettingsClose: event.target.checked })}
-              />
-              <span className="switch-track" />
-            </span>
-          </label>
-
-          <label className="setting-row setting-row-toggle">
-            <span className="setting-copy">
-              <span className="setting-label">{t("settings.autoExpandWindow.label")}</span>
-              <span className="setting-hint">{t("settings.autoExpandWindow.hint")}</span>
-            </span>
-            <span className="switch">
-              <input
-                className="switch-input"
-                type="checkbox"
-                checked={settings.autoExpandWindowToFitContent}
-                onChange={(event) => void saveSettings({ autoExpandWindowToFitContent: event.target.checked })}
-              />
-              <span className="switch-track" />
-            </span>
-          </label>
-
-          <label className="setting-row setting-row-toggle">
-            <span className="setting-copy">
-              <span className="setting-label">{t("settings.edgeDockCollapse.label")}</span>
-              <span className="setting-hint">{t("settings.edgeDockCollapse.hint")}</span>
-            </span>
-            <span className="switch">
-              <input
-                className="switch-input"
-                type="checkbox"
-                checked={settings.edgeDockCollapseEnabled}
-                onChange={(event) => void saveSettings({ edgeDockCollapseEnabled: event.target.checked })}
-              />
-              <span className="switch-track" />
-            </span>
-          </label>
-        </section>
-
-        <section className="settings-section">
-          <div className="section-header">
-            <h3 className="section-title">{t("settings.sections.providers")}</h3>
-            {!creatingProviderId && availableProviders.length > 0 && (
-              <button
-                className="add-provider-btn"
-                type="button"
-                onClick={() => setCreatingProviderId(availableProviders[0]?.providerId ?? null)}
-              >
-                +
-              </button>
-            )}
-          </div>
-
-          {draftProviderConfig && (
-            <ProviderConfig
-              config={draftProviderConfig}
-              expanded
-              mode="create"
-              selectableProviders={availableProviders}
-              onProviderChange={(providerId) => setCreatingProviderId(providerId)}
-              onCanceled={() => setCreatingProviderId(null)}
-              onSaved={() => void (async () => {
-                setCreatingProviderId(null);
-                await reloadProviders();
-              })()}
-            />
-          )}
-
-          {providerConfigs.length === 0 && !draftProviderConfig && (
-            <div className="provider-empty-state">
-              <span>{t("settings.providersSection.empty")}</span>
-            </div>
-          )}
-
-          {providerConfigs.map((config) => (
-            <ProviderConfig
-              key={config.providerId}
-              config={config}
-              expanded={settings.providerCardExpanded[config.providerId] ?? true}
-              onExpandedChange={(expanded) => void saveSettings({
-                providerCardExpanded: {
-                  ...settings.providerCardExpanded,
-                  [config.providerId]: expanded,
-                },
-              })}
-              onSaved={() => void (async () => {
-                setCreatingProviderId(null);
-                await reloadProviders();
-              })()}
-              onRemoved={() => void reloadProviders()}
-              onEnvironmentChanged={() => loadProviderData()}
-            />
-          ))}
-        </section>
-
-        <section className="settings-section">
-          <div className="section-header">
-            <h3 className="section-title">{t("settings.sections.advanced")}</h3>
-          </div>
-
-          <label className="advanced-toggle">
-            <span className="advanced-toggle-copy">
-              <span className="advanced-toggle-title">{t("settings.advancedSection.title")}</span>
-              <span className="advanced-toggle-hint">{t("settings.advancedSection.hint")}</span>
-            </span>
-            <span className="switch">
-              <input
-                className="switch-input"
-                type="checkbox"
-                checked={settings.providerPollingOverridesEnabled}
-                onChange={(event) => void saveSettings({ providerPollingOverridesEnabled: event.target.checked })}
-              />
-              <span className="switch-track" />
-            </span>
-          </label>
-
-          {settings.providerPollingOverridesEnabled && configuredPollingProviders.length === 0 && (
-            <div className="provider-empty-state">
-              <span>{t("settings.advancedSection.empty")}</span>
-            </div>
-          )}
-
-          {settings.providerPollingOverridesEnabled && configuredPollingProviders.length > 0 && (
-            <div className="provider-polling-list">
-              {configuredPollingProviders.map((config) => {
-                const providerPollingSettings = getProviderPollingSettings(config.providerId);
-
-                return (
-                  <div key={config.providerId} className="provider-polling-item">
-                    <div className="provider-polling-meta">
-                      <ProviderIcon providerId={config.providerId} size={16} />
-                      <span className="provider-polling-name">{config.displayName}</span>
-                    </div>
-
-                    <div className="polling-control polling-control-compact">
-                      <div
-                        className="polling-segment polling-segment-compact"
-                        role="group"
-                        aria-label={`${config.displayName} ${t("settings.polling.modeAriaLabel")}`}
-                      >
-                        {pollingModeOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            className={`polling-segment-button polling-segment-button-compact${providerPollingSettings.pollingMode === option.value ? " is-active" : ""}`}
-                            type="button"
-                            aria-pressed={providerPollingSettings.pollingMode === option.value}
-                            onClick={() => void saveProviderPollingSettings(config.providerId, { pollingMode: option.value })}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      {providerPollingSettings.pollingMode !== "manual" && (
-                        <div className="polling-auto-inline polling-auto-inline-compact">
-                          <input
-                            className="polling-interval-input polling-interval-input-compact"
-                            type="number"
-                            inputMode="numeric"
-                            min={MIN_POLLING_INTERVAL}
-                            max={MAX_POLLING_INTERVAL}
-                            value={providerPollingIntervalDrafts[config.providerId] ?? String(providerPollingSettings.pollingInterval)}
-                            aria-label={`${config.displayName} ${t("settings.polling.intervalAriaLabel")}`}
-                            onChange={(event) => setProviderPollingIntervalDrafts((current) => ({
-                              ...current,
-                              [config.providerId]: event.target.value,
-                            }))}
-                            onBlur={() => {
-                              const rawValue = providerPollingIntervalDrafts[config.providerId] ?? "";
-                              const parsed = Number.parseInt(rawValue, 10);
-                              const nextValue = normalizePollingInterval(
-                                Number.isNaN(parsed) ? providerPollingSettings.pollingInterval : parsed,
-                              );
-
-                              setProviderPollingIntervalDrafts((current) => ({
-                                ...current,
-                                [config.providerId]: String(nextValue),
-                              }));
-
-                              if (nextValue !== providerPollingSettings.pollingInterval) {
-                                void saveProviderPollingSettings(config.providerId, { pollingInterval: nextValue });
-                              }
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                (event.target as HTMLInputElement).blur();
-                              }
-                            }}
-                          />
-                          <div
-                            className="polling-segment polling-unit-segment polling-segment-compact"
-                            role="group"
-                            aria-label={`${config.displayName} ${t("settings.polling.unitAriaLabel")}`}
-                          >
-                            {pollingUnitOptions.map((option) => (
-                              <button
-                                key={option.value}
-                                className={`polling-segment-button polling-segment-button-compact${providerPollingSettings.pollingUnit === option.value ? " is-active" : ""}`}
-                                type="button"
-                                aria-pressed={providerPollingSettings.pollingUnit === option.value}
-                                onClick={() => void saveProviderPollingSettings(config.providerId, { pollingUnit: option.value })}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+        {sectionContent[activeSection]}
       </div>
     </div>
   );

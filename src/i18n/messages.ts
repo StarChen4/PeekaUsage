@@ -39,6 +39,7 @@ export const messages = {
     },
     settings: {
       title: "设置",
+      navigationAriaLabel: "设置子选项",
       sections: {
         general: "通用",
         providers: "供应商",
@@ -215,6 +216,7 @@ export const messages = {
     },
     settings: {
       title: "設定",
+      navigationAriaLabel: "設定子選項",
       sections: {
         general: "通用",
         providers: "供應商",
@@ -391,6 +393,7 @@ export const messages = {
     },
     settings: {
       title: "Settings",
+      navigationAriaLabel: "Settings sections",
       sections: {
         general: "General",
         providers: "Providers",
