@@ -380,11 +380,20 @@
   padding: var(--spacing-sm);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
 }
 
 .card-list.is-dragging {
   user-select: none;
+}
+
+.card-list-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.card-list-content.is-empty {
+  min-height: 100%;
 }
 
 .card-shell {

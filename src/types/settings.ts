@@ -22,6 +22,7 @@ export interface AppSettings extends PollingSettings {
   providerPollingOverridesEnabled: boolean;
   providerPollingOverrides: Partial<Record<ProviderId, PollingSettings>>;
   refreshOnSettingsClose: boolean;
+  autoExpandWindowToFitContent: boolean;
   language: AppLanguage;
   widgetDisplayMode: WidgetDisplayMode;
   alwaysOnTop: boolean;
@@ -41,6 +42,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   providerPollingOverridesEnabled: false,
   providerPollingOverrides: {},
   refreshOnSettingsClose: false,
+  autoExpandWindowToFitContent: false,
   language: "zh-Hans",
   widgetDisplayMode: "detailed",
   alwaysOnTop: true,
@@ -102,6 +104,7 @@ export function normalizeAppSettings(settings: AppSettings): AppSettings {
     providerPollingOverridesEnabled: !!settings.providerPollingOverridesEnabled,
     providerPollingOverrides: normalizeProviderPollingOverrides(settings.providerPollingOverrides),
     refreshOnSettingsClose: !!settings.refreshOnSettingsClose,
+    autoExpandWindowToFitContent: !!settings.autoExpandWindowToFitContent,
     language: normalizeAppLanguage(settings.language),
     widgetDisplayMode: normalizeWidgetDisplayMode(settings.widgetDisplayMode),
   };

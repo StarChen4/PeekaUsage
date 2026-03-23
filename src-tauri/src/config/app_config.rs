@@ -20,6 +20,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub refresh_on_settings_close: bool,
     #[serde(default)]
+    pub auto_expand_window_to_fit_content: bool,
+    #[serde(default)]
     pub language: AppLanguage,
     #[serde(default)]
     pub widget_display_mode: WidgetDisplayMode,
@@ -109,6 +111,7 @@ impl Default for AppSettings {
             provider_polling_overrides_enabled: false,
             provider_polling_overrides: HashMap::new(),
             refresh_on_settings_close: false,
+            auto_expand_window_to_fit_content: false,
             language: AppLanguage::default(),
             widget_display_mode: WidgetDisplayMode::default(),
             always_on_top: true,

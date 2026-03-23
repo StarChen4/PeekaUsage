@@ -306,6 +306,22 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
               <span className="switch-track" />
             </span>
           </label>
+
+          <label className="setting-row setting-row-toggle">
+            <span className="setting-copy">
+              <span className="setting-label">{t("settings.autoExpandWindow.label")}</span>
+              <span className="setting-hint">{t("settings.autoExpandWindow.hint")}</span>
+            </span>
+            <span className="switch">
+              <input
+                className="switch-input"
+                type="checkbox"
+                checked={settings.autoExpandWindowToFitContent}
+                onChange={(event) => void saveSettings({ autoExpandWindowToFitContent: event.target.checked })}
+              />
+              <span className="switch-track" />
+            </span>
+          </label>
         </section>
 
         <section className="settings-section">

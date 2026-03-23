@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useI18n } from "../../i18n";
 import { THEME_OPTION_ORDER } from "../../i18n/messages";
 import { useProviders } from "../../composables/useProviders";
@@ -7,6 +7,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import type { ProviderId, UsageSummary } from "../../types/provider";
 import type { ThemeMode } from "../../types/settings";
 import { saveProviderOrder } from "../../utils/ipc";
+import { fitCurrentWindowHeight, shouldSuppressAutoFit } from "../../utils/windowBounds";
 import OpacityHandle from "./OpacityHandle";
 import ProviderCard from "./ProviderCard";
 
@@ -53,6 +54,8 @@ export default function WidgetContainer({ onOpenSettings }: WidgetContainerProps
   const [layoutSaveState, setLayoutSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const cardListRef = useRef<HTMLDivElement | null>(null);
+  const cardListContentRef = useRef<HTMLDivElement | null>(null);
+  const footerRef = useRef<HTMLDivElement | null>(null);
   const themeMenuRef = useRef<HTMLDivElement | null>(null);
   const themeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const cardRefs = useRef(new Map<ProviderId, HTMLDivElement>());
@@ -60,12 +63,39 @@ export default function WidgetContainer({ onOpenSettings }: WidgetContainerProps
   const dragStateRef = useRef<DragState | null>(null);
   const saveFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const enabledProviders = providers.filter((provider) => provider.enabled);
+  const enabledProviders = useMemo(
+    () => providers.filter((provider) => provider.enabled),
+    [providers],
+  );
   const isDragging = !!dragState && !dragState.releasing;
   const themeOptions = THEME_OPTION_ORDER.map((value) => ({
     value,
     label: t(`widget.theme.${value}`),
   }));
+  const contentLayoutKey = useMemo(
+    () => JSON.stringify({
+      displayMode: settings.widgetDisplayMode,
+      language: settings.language,
+      providers: orderedProviders.map((provider) => ({
+        providerId: provider.providerId,
+        status: provider.status,
+        errorMessage: provider.errorMessage ?? "",
+        subscriptionStatus: provider.subscription?.status ?? "none",
+        subscriptionWindows: provider.subscription?.windows.map((window) => ({
+          label: window.label,
+          utilization: Math.round(window.utilization),
+        })) ?? [],
+        apiKeys: provider.apiKeyUsages.map((item) => ({
+          keyId: item.keyId,
+          keyName: item.keyName,
+          status: item.status,
+          hasUsage: !!item.usage,
+          hasError: !!item.errorMessage,
+        })),
+      })),
+    }),
+    [orderedProviders, settings.language, settings.widgetDisplayMode],
+  );
   const layoutStatusText = layoutSaveState === "saving"
     ? t("widget.layout.saving")
     : layoutSaveState === "saved"
@@ -398,41 +428,92 @@ export default function WidgetContainer({ onOpenSettings }: WidgetContainerProps
     };
   }, [isThemeMenuOpen]);
 
+  useEffect(() => {
+    if (!settings.autoExpandWindowToFitContent) {
+      return;
+    }
+
+    if (shouldSuppressAutoFit()) {
+      return;
+    }
+
+    let frameId = 0;
+
+    frameId = window.requestAnimationFrame(() => {
+      frameId = window.requestAnimationFrame(() => {
+        const cardListEl = cardListRef.current;
+        const cardListContentEl = cardListContentRef.current;
+        if (!cardListEl || !cardListContentEl) {
+          return;
+        }
+
+        const titleBarHeight = document.querySelector<HTMLElement>(".titlebar")?.offsetHeight ?? 0;
+        const footerHeight = footerRef.current?.offsetHeight ?? 0;
+        const appChromeHeight = (() => {
+          const appEl = document.getElementById("app");
+          return appEl ? appEl.offsetHeight - appEl.clientHeight : 0;
+        })();
+        const cardListStyle = window.getComputedStyle(cardListEl);
+        const cardListPaddingY = Number.parseFloat(cardListStyle.paddingTop || "0")
+          + Number.parseFloat(cardListStyle.paddingBottom || "0");
+        const desiredHeight = titleBarHeight
+          + footerHeight
+          + appChromeHeight
+          + cardListPaddingY
+          + cardListContentEl.offsetHeight;
+
+        void fitCurrentWindowHeight(desiredHeight);
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(frameId);
+    };
+  }, [
+    settings.autoExpandWindowToFitContent,
+    contentLayoutKey,
+  ]);
+
   return (
     <div className="widget-container">
       <div ref={cardListRef} className={`card-list${isDragging ? " is-dragging" : ""}`}>
-        {orderedProviders.length > 0 ? (
-          orderedProviders.map((provider) => (
-            <div
-              key={provider.providerId}
-              ref={(element) => {
-                if (element) {
-                  cardRefs.current.set(provider.providerId, element);
-                } else {
-                  cardRefs.current.delete(provider.providerId);
-                }
-              }}
-              className={getCardClass(provider.providerId)}
-              style={getCardStyle(provider.providerId)}
-              onPointerDown={(event) => startDrag(provider.providerId, event)}
-            >
-              <ProviderCard
-                provider={provider}
-                displayMode={settings.widgetDisplayMode}
-                isRefreshing={useProviderStore.getState().isProviderRefreshing(provider.providerId)}
-                onRefresh={() => void manualRefreshProvider(provider.providerId)}
-              />
+        <div
+          ref={cardListContentRef}
+          className={`card-list-content${orderedProviders.length === 0 ? " is-empty" : ""}`}
+        >
+          {orderedProviders.length > 0 ? (
+            orderedProviders.map((provider) => (
+              <div
+                key={provider.providerId}
+                ref={(element) => {
+                  if (element) {
+                    cardRefs.current.set(provider.providerId, element);
+                  } else {
+                    cardRefs.current.delete(provider.providerId);
+                  }
+                }}
+                className={getCardClass(provider.providerId)}
+                style={getCardStyle(provider.providerId)}
+                onPointerDown={(event) => startDrag(provider.providerId, event)}
+              >
+                <ProviderCard
+                  provider={provider}
+                  displayMode={settings.widgetDisplayMode}
+                  isRefreshing={useProviderStore.getState().isProviderRefreshing(provider.providerId)}
+                  onRefresh={() => void manualRefreshProvider(provider.providerId)}
+                />
+              </div>
+            ))
+          ) : (
+            <div className="empty-state">
+              <p>{t("widget.emptyState.title")}</p>
+              <button className="btn-link" onClick={onOpenSettings}>{t("widget.emptyState.action")}</button>
             </div>
-          ))
-        ) : (
-          <div className="empty-state">
-            <p>{t("widget.emptyState.title")}</p>
-            <button className="btn-link" onClick={onOpenSettings}>{t("widget.emptyState.action")}</button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      <div className="widget-footer">
+      <div ref={footerRef} className="widget-footer">
         {layoutStatusText && (
           <span className={`layout-status is-${layoutSaveState}`}>
             {layoutStatusText}
