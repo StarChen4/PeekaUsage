@@ -391,6 +391,7 @@ npm install
 npm run dev
 npm run tauri dev
 npx tsc --noEmit
+cargo fmt --all --check
 cargo check
 npm run tauri:build:linux
 npm run tauri:build:macos
@@ -703,6 +704,7 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 
 ```bash
 npx tsc --noEmit
+cargo fmt --all --check
 cargo check
 ```
 

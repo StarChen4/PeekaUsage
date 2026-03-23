@@ -141,6 +141,7 @@ npm run tauri dev
 
 ```bash
 npm run typecheck
+cargo fmt --all --check
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 

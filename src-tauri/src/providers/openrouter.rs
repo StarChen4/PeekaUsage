@@ -118,14 +118,20 @@ impl UsageProvider for OpenRouterProvider {
         Ok(UsageData {
             total_used: key_info.data.usage,
             total_budget: key_info.data.limit,
-            remaining: key_info.data.limit.map(|l| (l - key_info.data.usage).max(0.0)),
+            remaining: key_info
+                .data
+                .limit
+                .map(|l| (l - key_info.data.usage).max(0.0)),
             currency: "USD".to_string(),
             period_start: None,
             period_end: None,
         })
     }
 
-    async fn fetch_rate_limits(&self, api_key: &str) -> Result<Option<RateLimitData>, ProviderError> {
+    async fn fetch_rate_limits(
+        &self,
+        api_key: &str,
+    ) -> Result<Option<RateLimitData>, ProviderError> {
         let resp = self
             .client
             .get("https://openrouter.ai/api/v1/key")

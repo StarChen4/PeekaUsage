@@ -84,9 +84,11 @@ impl UsageProvider for OpenAIProvider {
         if let Ok(resp) = credits_result {
             if resp.status().is_success() {
                 if let Ok(credits) = resp.json::<CreditGrantsResponse>().await {
-                    if let (Some(granted), Some(used), Some(available)) =
-                        (credits.total_granted, credits.total_used, credits.total_available)
-                    {
+                    if let (Some(granted), Some(used), Some(available)) = (
+                        credits.total_granted,
+                        credits.total_used,
+                        credits.total_available,
+                    ) {
                         if granted > 0.0 {
                             return Ok(UsageData {
                                 total_used: used,
@@ -171,7 +173,10 @@ impl UsageProvider for OpenAIProvider {
         })
     }
 
-    async fn fetch_rate_limits(&self, _api_key: &str) -> Result<Option<RateLimitData>, ProviderError> {
+    async fn fetch_rate_limits(
+        &self,
+        _api_key: &str,
+    ) -> Result<Option<RateLimitData>, ProviderError> {
         // OpenAI 速率限制在响应 header 中返回，需要实际请求才能获取
         Ok(None)
     }

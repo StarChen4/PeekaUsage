@@ -191,14 +191,12 @@ impl SubscriptionFetcher {
             }
         };
 
-        let plan_name = data.plan_type.map(|p| {
-            match p.as_str() {
-                "plus" => "ChatGPT Plus".into(),
-                "pro" => "ChatGPT Pro".into(),
-                "team" => "ChatGPT Team".into(),
-                "enterprise" => "ChatGPT Enterprise".into(),
-                other => other.to_string(),
-            }
+        let plan_name = data.plan_type.map(|p| match p.as_str() {
+            "plus" => "ChatGPT Plus".into(),
+            "pro" => "ChatGPT Pro".into(),
+            "team" => "ChatGPT Team".into(),
+            "enterprise" => "ChatGPT Enterprise".into(),
+            other => other.to_string(),
         });
 
         let mut windows = Vec::new();

@@ -17,6 +17,7 @@
 - 当前前端文案统一收敛到 `src/i18n/messages.ts`，默认支持 `zh-Hans`、`zh-Hant`、`en`
 - GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
 - 发版前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 三处版本号一致
+- CI 现在会额外在 `ubuntu-latest` 上单独执行一次 `cargo fmt --all --check`，用于拦截 Rust 格式漂移
 
 ## 项目概览
 
@@ -325,6 +326,7 @@ npm install
 npm run dev
 npm run tauri dev
 npx tsc --noEmit
+cargo fmt --all --check
 cargo check
 npm run tauri build
 npm run tauri:build:linux

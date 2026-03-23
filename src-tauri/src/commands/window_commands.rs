@@ -1,14 +1,12 @@
-use std::collections::BTreeMap;
 use serde_json::Value;
+use std::collections::BTreeMap;
 use tauri::{AppHandle, Manager};
 
 /// 设置窗口透明度
 #[tauri::command]
 pub async fn set_window_opacity(opacity: f64, app: AppHandle) -> Result<(), String> {
     let _clamped = opacity.max(0.1).min(1.0);
-    let _window = app
-        .get_webview_window("main")
-        .ok_or("找不到主窗口")?;
+    let _window = app.get_webview_window("main").ok_or("找不到主窗口")?;
     Ok(())
 }
 
@@ -17,8 +15,7 @@ pub async fn set_window_opacity(opacity: f64, app: AppHandle) -> Result<(), Stri
 /// 搜索 Claude Code 和 Codex CLI 的凭据文件，返回找到的 token。
 #[tauri::command]
 pub async fn detect_oauth_tokens() -> Result<DetectedTokens, String> {
-    let home = dirs_next()
-        .ok_or_else(|| "无法获取用户目录".to_string())?;
+    let home = dirs_next().ok_or_else(|| "无法获取用户目录".to_string())?;
 
     let mut result = DetectedTokens {
         anthropic: None,
@@ -87,8 +84,10 @@ fn parse_codex_access_token(value: &Value) -> Option<String> {
     match value {
         Value::String(token) if !token.is_empty() => Some(token.clone()),
         Value::Object(map) => {
-            let ordered: BTreeMap<String, Value> =
-                map.iter().map(|(key, value)| (key.clone(), value.clone())).collect();
+            let ordered: BTreeMap<String, Value> = map
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect();
             let token = indexed_object_to_string(&ordered);
             if token.is_empty() {
                 None

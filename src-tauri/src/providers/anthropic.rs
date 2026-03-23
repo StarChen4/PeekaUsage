@@ -96,7 +96,10 @@ impl UsageProvider for AnthropicProvider {
         })
     }
 
-    async fn fetch_rate_limits(&self, api_key: &str) -> Result<Option<RateLimitData>, ProviderError> {
+    async fn fetch_rate_limits(
+        &self,
+        api_key: &str,
+    ) -> Result<Option<RateLimitData>, ProviderError> {
         // 发一个轻量请求以获取响应头中的速率限制
         let resp = self
             .client

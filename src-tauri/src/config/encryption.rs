@@ -50,12 +50,10 @@ impl KeyStore {
         let encoded = Self::encode_keys(&*keys);
 
         if let Some(parent) = self.store_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("创建密钥目录失败: {}", e))?;
+            std::fs::create_dir_all(parent).map_err(|e| format!("创建密钥目录失败: {}", e))?;
         }
 
-        std::fs::write(&self.store_path, encoded)
-            .map_err(|e| format!("保存密钥失败: {}", e))?;
+        std::fs::write(&self.store_path, encoded).map_err(|e| format!("保存密钥失败: {}", e))?;
 
         Ok(())
     }

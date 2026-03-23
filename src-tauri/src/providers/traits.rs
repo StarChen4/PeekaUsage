@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use crate::providers::types::*;
+use async_trait::async_trait;
 
 /// 用量供应商核心抽象
 ///
@@ -19,7 +19,10 @@ pub trait UsageProvider: Send + Sync {
     async fn fetch_usage(&self, api_key: &str) -> Result<UsageData, ProviderError>;
 
     /// 获取速率限制数据
-    async fn fetch_rate_limits(&self, api_key: &str) -> Result<Option<RateLimitData>, ProviderError>;
+    async fn fetch_rate_limits(
+        &self,
+        api_key: &str,
+    ) -> Result<Option<RateLimitData>, ProviderError>;
 
     /// 验证 API Key 是否有效
     async fn validate_key(&self, api_key: &str) -> Result<bool, ProviderError>;
