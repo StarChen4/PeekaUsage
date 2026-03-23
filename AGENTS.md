@@ -163,7 +163,29 @@
 - 应用启动后要按保存的透明度恢复
 - 当前数值语义是“不透明度/可见度”：`100%` 表示完全不透明
 
-### 10. 设置页顶部返回入口已改为图标按钮
+### 10. 设置页已支持开机自动启动
+
+文件：
+
+- `src/components/settings/SettingsPanel.tsx`
+- `src/utils/autostart.ts`
+- `src/i18n/messages.ts`
+- `src-tauri/src/lib.rs`
+- `src-tauri/capabilities/default.json`
+- `src-tauri/Cargo.toml`
+- `package.json`
+
+当前要求：
+
+- 设置页“通用”里提供“开机自动启动”开关
+- 位置固定在“透明度”后，“返回时刷新主界面”前
+- 持久化字段是 `launchAtStartup`
+- 点击开关时不能只改本地配置，必须同步调用 Tauri autostart 插件更新系统开机自启状态
+- Rust 侧必须注册 `tauri-plugin-autostart`
+- `src-tauri/capabilities/default.json` 必须保留 `autostart:default` 权限
+- 失败时不能把系统状态和已保存配置长期留在相反状态
+
+### 11. 设置页顶部返回入口已改为图标按钮
 
 文件：
 
@@ -183,7 +205,7 @@
 - 持久化字段是 `autoExpandWindowToFitContent`
 - 开启后会按主界面内容变化自动调整窗口高度；内容变多时增高，内容变少时缩小；用户后续仍可手动调整
 
-### 11. GitHub 已接入 Windows Release 自动发布
+### 12. GitHub 已接入 Windows Release 自动发布
 
 文件：
 
@@ -198,7 +220,7 @@
 - 发布前必须校验 `package.json`、`tauri.conf.json`、`Cargo.toml` 三处版本号一致
 - 标签名必须与应用版本匹配，例如 `v0.1.0`
 
-### 12. Linux 已接入 x86_64 构建与发布
+### 13. Linux 已接入 x86_64 构建与发布
 
 文件：
 
@@ -216,7 +238,7 @@
 - Linux CI / Release 的依赖安装要按 Tauri 官方 ARM 打包要求补齐，至少包含 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
 - 不要把 Linux 的 `deb` / `appimage` 目标混回主 `tauri.conf.json`
 
-### 13. macOS 已接入 x86_64 / arm64 构建与发布
+### 14. macOS 已接入 x86_64 / arm64 构建与发布
 
 文件：
 
@@ -234,7 +256,7 @@
 - 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/PeekaUsage.app` 作为手动放行方案
 - 不要把 macOS 的 `app` / `dmg` 目标混回主 `tauri.conf.json`
 
-### 14. 应用标识已改为 PeekaUsage 并保留旧数据迁移
+### 15. 应用标识已改为 PeekaUsage 并保留旧数据迁移
 
 文件：
 
@@ -249,7 +271,7 @@
 - 迁移只在新目录缺少对应文件时执行，不能覆盖新标识下已经存在的数据
 - 如果后续继续改 `identifier`，必须同步更新迁移逻辑，不能只改配置不处理老用户数据
 
-### 15. 多语言支持已接入
+### 16. 多语言支持已接入
 
 文件：
 
@@ -268,7 +290,7 @@
 - 新增文案不要再直接散落在组件里，优先收敛到 `src/i18n/messages.ts`
 - 旧配置缺少 `language` 时要继续兼容，默认按简体中文处理
 
-### 16. 设置页 OAuth Token 区域已新增官方获取入口
+### 17. 设置页 OAuth Token 区域已新增官方获取入口
 
 文件：
 
@@ -284,7 +306,7 @@
 - 下方提示文案要区分“自动检测读取位置”和“官方获取方式”，不要再暗示本地文件是默认必然存在
 - OpenAI 文案要兼容官方当前“可能写入 `~/.codex/auth.json`，也可能使用系统凭据库”的现状
 
-### 17. 主界面底部已支持精简 / 详细显示模式
+### 18. 主界面底部已支持精简 / 详细显示模式
 
 文件：
 
@@ -314,7 +336,7 @@
 - 切换模式后刷新和重启都要保持所选显示方式
 - 旧配置缺少 `widgetDisplayMode` 时要继续兼容，默认详细模式
 
-### 18. 设置页已支持一键切换 API Key 到系统环境变量
+### 19. 设置页已支持一键切换 API Key 到系统环境变量
 
 文件：
 
@@ -500,11 +522,20 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 拖动预览和最终保存要区分，避免每一帧都写配置
 - 文案如果使用“透明度”，要注意当前实际语义更接近“不透明度”
 
+### 开机自启约束
+
+- 开机自启持久化字段是 `launchAtStartup`
+- 设置页中的“开机自动启动”开关固定放在“透明度”后、“返回时刷新主界面”前
+- 开机自启不是纯前端显示状态；切换时必须同步调用 `@tauri-apps/plugin-autostart`
+- Rust 侧必须注册 `tauri-plugin-autostart`，并在 capability 中保留 `autostart:default`
+- 如果系统开机自启同步失败，不能只把配置写成新值而把系统状态留在旧值
+
 ### 窗口尺寸约束
 
 - 窗口大小与位置持久化字段是 `windowSize`、`windowPosition`
 - 应用启动后要优先恢复已保存的窗口大小与位置
 - 用户手动拖动或缩放窗口后，要把最新结果持久化
+- Windows 在窗口隐藏或最小化时可能上报离屏哨兵坐标（例如 `-21845`）；这类位置不能继续写回配置，也不能在启动时照单恢复
 - `autoExpandWindowToFitContent = true` 时，要按内容变化自动调整高度，支持增高和缩小
 - 自动调整窗口时优先保持当前宽度不变，只调整高度
 - 用户手动拖拽窗口大小时，要暂时抑制自动调整，避免出现窗口抖动或反向拉扯
@@ -615,6 +646,24 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - 设置页滑杆和 `useWindowControls.ts` 是否使用同一套状态
 - 主界面透明度把手调整后是否同步写回设置
 
+### 窗口离屏异常
+
+检查：
+
+- `config.json` 中的 `windowPosition` 是否被写成了类似 `-21845` 的离屏哨兵值
+- `src/utils/windowBounds.ts` 是否仍在过滤隐藏/最小化时的异常坐标
+- `src/App.tsx` 在保存窗口位置前是否跳过了无效坐标
+
+### 开机自启异常
+
+检查：
+
+- `src/components/settings/SettingsPanel.tsx` 里的开关位置是否仍在“透明度”后、“返回时刷新主界面”前
+- `src/utils/autostart.ts` 是否仍然调用了 `enable()` / `disable()` / `isEnabled()`
+- `src-tauri/src/lib.rs` 是否仍注册了 `tauri-plugin-autostart`
+- `src-tauri/capabilities/default.json` 是否仍保留 `autostart:default`
+- `launchAtStartup` 是否被正确写回配置
+
 ### Release 发布异常
 
 检查：
@@ -669,6 +718,7 @@ cargo check
 - 主界面卡片右上角单独刷新按钮是否只刷新当前供应商
 - 设置页自定义下拉在浅色/暗黑模式下的展开和关闭
 - 设置页透明度滑杆和主界面透明度把手是否同步
+- 设置页“开机自动启动”开关启用和关闭后，系统登录项是否随之变化，刷新或重启后是否保持
 - 设置页切换简体中文、繁体中文、English 后，设置页和主界面文案是否即时同步
 - 主界面底部精简 / 详细切换后，卡片内容和高度是否按预期变化，刷新或重启后是否保持
 - 手动拖动窗口位置、缩放窗口高度后，刷新或重启是否恢复到最新状态

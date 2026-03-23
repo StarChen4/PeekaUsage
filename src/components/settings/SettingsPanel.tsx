@@ -15,6 +15,7 @@ import { useWindowControls } from "../../composables/useWindowControls";
 import { LANGUAGE_OPTIONS } from "../../i18n/messages";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { syncLaunchAtStartup } from "../../utils/autostart";
 import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
 import AppSelect, { type SelectOption } from "../common/AppSelect";
 import ProviderIcon from "../common/ProviderIcon";
@@ -33,6 +34,7 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
   const [supportedProviders, setSupportedProviders] = useState<ProviderConfigItem[]>([]);
   const [creatingProviderId, setCreatingProviderId] = useState<ProviderId | null>(null);
   const [opacityDraft, setOpacityDraft] = useState(settings.windowOpacity);
+  const [launchAtStartupPending, setLaunchAtStartupPending] = useState(false);
   const [pollingIntervalDraft, setPollingIntervalDraft] = useState(String(settings.pollingInterval));
   const [providerPollingIntervalDrafts, setProviderPollingIntervalDrafts] = useState<Partial<Record<ProviderId, string>>>({});
 
@@ -135,6 +137,29 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
   async function reloadProviders() {
     await loadProviderData();
     await useProviderStore.getState().refreshAll();
+  }
+
+  async function handleLaunchAtStartupChange(enabled: boolean) {
+    if (launchAtStartupPending || enabled === settings.launchAtStartup) {
+      return;
+    }
+
+    setLaunchAtStartupPending(true);
+
+    try {
+      await syncLaunchAtStartup(enabled);
+      await saveSettings({ launchAtStartup: enabled });
+    } catch (error) {
+      try {
+        await syncLaunchAtStartup(settings.launchAtStartup);
+      } catch (rollbackError) {
+        console.error("回滚开机自动启动状态失败：", rollbackError);
+      }
+
+      console.error("同步开机自动启动失败：", error);
+    } finally {
+      setLaunchAtStartupPending(false);
+    }
   }
 
   useEffect(() => {
@@ -290,6 +315,23 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
               <span className="opacity-value">{opacityDraft}%</span>
             </div>
           </div>
+
+          <label className="setting-row setting-row-toggle">
+            <span className="setting-copy">
+              <span className="setting-label">{t("settings.launchAtStartup.label")}</span>
+              <span className="setting-hint">{t("settings.launchAtStartup.hint")}</span>
+            </span>
+            <span className="switch">
+              <input
+                className="switch-input"
+                type="checkbox"
+                checked={settings.launchAtStartup}
+                disabled={launchAtStartupPending}
+                onChange={(event) => void handleLaunchAtStartupChange(event.target.checked)}
+              />
+              <span className="switch-track" />
+            </span>
+          </label>
 
           <label className="setting-row setting-row-toggle">
             <span className="setting-copy">

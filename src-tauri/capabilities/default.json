@@ -5,6 +5,7 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "autostart:default",
     "opener:default",
     "store:default",
     "core:window:default",

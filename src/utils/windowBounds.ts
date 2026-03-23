@@ -16,6 +16,7 @@ export const MIN_WINDOW_HEIGHT = 200;
 
 const WINDOW_SIZE_EPSILON = 1;
 const WINDOW_SCREEN_MARGIN = 16;
+const WINDOW_POSITION_SENTINEL_THRESHOLD = 10000;
 const PROGRAMMATIC_RESIZE_HOLD_MS = 400;
 const MANUAL_RESIZE_SUPPRESSION_MS = 600;
 
@@ -63,6 +64,14 @@ export function normalizeWindowPosition(
   position: LogicalWindowPosition | null | undefined,
 ): LogicalWindowPosition | null {
   if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+    return null;
+  }
+
+  // Windows 在窗口隐藏或最小化时可能上报离屏哨兵值，例如 -21845。
+  if (
+    Math.abs(position.x) >= WINDOW_POSITION_SENTINEL_THRESHOLD
+    || Math.abs(position.y) >= WINDOW_POSITION_SENTINEL_THRESHOLD
+  ) {
     return null;
   }
 
@@ -115,9 +124,9 @@ export function toLogicalWindowSize(size: PhysicalSize, scaleFactor: number): Lo
 export function toLogicalWindowPosition(
   position: PhysicalPosition,
   scaleFactor: number,
-): LogicalWindowPosition {
+): LogicalWindowPosition | null {
   const logical = position.toLogical(scaleFactor);
-  return normalizeWindowPosition(logical) ?? { x: 0, y: 0 };
+  return normalizeWindowPosition(logical);
 }
 
 function getMaxWindowHeight(monitor: Monitor | null) {

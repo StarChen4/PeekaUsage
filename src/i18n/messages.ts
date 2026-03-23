@@ -59,6 +59,10 @@ export const messages = {
       opacity: {
         label: "透明度",
       },
+      launchAtStartup: {
+        label: "开机自动启动",
+        hint: "登录系统后自动启动 PeekaUsage。",
+      },
       refreshOnBack: {
         label: "返回时刷新主界面",
         hint: "从设置页返回主界面后，立即刷新所有供应商数据。",
@@ -227,6 +231,10 @@ export const messages = {
       opacity: {
         label: "透明度",
       },
+      launchAtStartup: {
+        label: "開機自動啟動",
+        hint: "登入系統後自動啟動 PeekaUsage。",
+      },
       refreshOnBack: {
         label: "返回時刷新主介面",
         hint: "從設定頁返回主介面後，立即刷新所有供應商資料。",
@@ -394,6 +402,10 @@ export const messages = {
       },
       opacity: {
         label: "Opacity",
+      },
+      launchAtStartup: {
+        label: "Launch at startup",
+        hint: "Start PeekaUsage automatically after you sign in.",
       },
       refreshOnBack: {
         label: "Refresh widget when leaving settings",

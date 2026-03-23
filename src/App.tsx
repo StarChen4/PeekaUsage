@@ -162,8 +162,13 @@ export default function App() {
         }
 
         const scaleFactor = await currentWindow.scaleFactor();
+        const nextPosition = toLogicalWindowPosition(payload, scaleFactor);
+        if (!nextPosition) {
+          return;
+        }
+
         scheduleWindowBoundsSave({
-          windowPosition: toLogicalWindowPosition(payload, scaleFactor),
+          windowPosition: nextPosition,
         });
       });
 

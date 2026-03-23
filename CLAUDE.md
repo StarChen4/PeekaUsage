@@ -12,6 +12,7 @@
 - 设置页“通用”里新增了“自动调整窗口高度以适应内容”开关，持久化字段是 `autoExpandWindowToFitContent`
 - 主界面内容高度变化时可按该设置自动调整窗口高度；内容变多时增高，内容变少时缩小，用户后续仍可手动调整
 - 窗口大小和位置会持久化到 `windowSize`、`windowPosition`，启动后恢复
+- Windows 在窗口隐藏或最小化时可能上报离屏哨兵坐标（例如 `-21845`）；这类位置不能继续写回配置，也不能在启动时照单恢复
 - 设置页“通用”里已新增语言选择，顺序固定为“简体中文”“繁體中文”“English”，持久化字段是 `language`
 - 当前前端文案统一收敛到 `src/i18n/messages.ts`，默认支持 `zh-Hans`、`zh-Hant`、`en`
 - GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
@@ -169,7 +170,28 @@
 - 应用启动时会恢复到已保存的透明度
 - 当前数值语义是“不透明度”：`100%` 表示完全不透明
 
-### 10. 后续功能开发默认按跨平台一致性设计
+### 10. 设置页已支持开机自动启动
+
+文件：
+
+- `src/components/settings/SettingsPanel.tsx`
+- `src/utils/autostart.ts`
+- `src/i18n/messages.ts`
+- `src-tauri/src/lib.rs`
+- `src-tauri/capabilities/default.json`
+- `src-tauri/Cargo.toml`
+- `package.json`
+
+当前行为：
+
+- 设置页“通用”中提供“开机自动启动”开关
+- 开关位置固定在“透明度”后、“返回时刷新主界面”前
+- 开关切换时会同步调用 Tauri autostart 插件更新系统登录自启状态
+- 开关结果通过 `launchAtStartup` 持久化
+- Rust 侧已注册 `tauri-plugin-autostart`
+- capability 已放行 `autostart:default`
+
+### 11. 后续功能开发默认按跨平台一致性设计
 
 当前要求：
 
@@ -534,6 +556,7 @@ WidgetContainer 拖拽结束
 - 不要把新文案继续直接写死在组件里，优先统一到 `src/i18n/messages.ts`
 - 不要改动设置页语言选项的顺序；当前固定为“简体中文”“繁體中文”“English”
 - 透明度现在由前端视觉层控制并通过 IPC 同步，Tauri v2 本身没有直接可用的 `WebviewWindow.set_opacity()`
+- 开机自启不是纯配置项；切换时必须同步系统登录项，且不要漏掉 `autostart:default` capability
 - 后续交互实现优先保证 Windows、Linux、macOS 的一致性，其次再考虑单平台捷径
 - `identifier` 会影响应用数据目录，品牌改名时不能只改显示名，必须处理旧数据迁移
 - 不要只改一个版本号文件就直接发版，`package.json`、`tauri.conf.json`、`Cargo.toml` 必须同步
@@ -652,6 +675,37 @@ WidgetContainer 拖拽结束
 - 启动后是否恢复保存值
 - 主界面把手与设置页滑杆是否同步
 
+### 窗口离屏异常
+
+先看：
+
+- `src/utils/windowBounds.ts`
+- `src/App.tsx`
+- 应用数据目录下的 `config.json`
+
+重点查：
+
+- `windowPosition` 是否被写成了类似 `-21845` 的离屏哨兵值
+- 是否在保存窗口位置前过滤了隐藏/最小化产生的异常坐标
+- 启动恢复窗口时是否已忽略这类无效位置
+
+### 开机自启异常
+
+先看：
+
+- `src/components/settings/SettingsPanel.tsx`
+- `src/utils/autostart.ts`
+- `src-tauri/src/lib.rs`
+- `src-tauri/capabilities/default.json`
+
+重点查：
+
+- 开关是否仍在“透明度”后、“返回时刷新主界面”前
+- 是否实际调用了 `@tauri-apps/plugin-autostart`
+- Rust 侧是否注册了 `tauri-plugin-autostart`
+- capability 是否包含 `autostart:default`
+- `launchAtStartup` 是否正确写回配置
+
 ## 建议验证
 
 涉及逻辑改动时至少执行：
@@ -680,6 +734,7 @@ cargo check
 - 主界面底部精简 / 详细切换后卡片内容和高度是否符合预期，刷新或重启后是否保持
 - 自定义下拉在浅色/暗黑模式下的打开、关闭、键盘导航
 - 设置页透明度滑杆与主界面透明度把手的同步
+- 设置页“开机自动启动”开关启用和关闭后，系统登录自启状态是否随之变化，刷新或重启后是否保持
 - 设置页切换简体中文、繁體中文、English 后，设置页与主界面文案是否即时同步
 - 设置页 API Key “切换环境”后，对应环境变量是否更新，新开终端读取是否符合预期
 ## 补充说明
