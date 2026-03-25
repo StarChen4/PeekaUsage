@@ -1,6 +1,6 @@
 [package]
 name = "peeka-usage"
-version = "0.1.4"
+version = "0.1.5"
 description = "Desktop widget for tracking OpenAI, Anthropic, and OpenRouter usage."
 authors = ["Star Chen <cxsgdsg1@gmail.com>"]
 edition = "2021"
