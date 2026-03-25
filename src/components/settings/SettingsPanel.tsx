@@ -20,12 +20,14 @@ import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
 import AppSelect, { type SelectOption } from "../common/AppSelect";
 import ProviderIcon from "../common/ProviderIcon";
 import ProviderConfig from "./ProviderConfig";
+import UpdateSettings from "./UpdateSettings";
+import { useUpdateStore } from "../../stores/updateStore";
 
 type SettingsPanelProps = {
   onBack: () => void;
 };
 
-type SettingsSectionId = "general" | "providers" | "advanced";
+type SettingsSectionId = "general" | "providers" | "advanced" | "updates";
 
 type SettingsMenuItem =
   {
@@ -58,6 +60,7 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
   const saveSettings = useSettingsStore((state) => state.saveSettings);
   const { updateOpacity } = useWindowControls();
   const { t } = useI18n();
+  const hasUpdate = useUpdateStore((state) => state.hasUpdate);
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfigItem[]>([]);
   const [supportedProviders, setSupportedProviders] = useState<ProviderConfigItem[]>([]);
   const [creatingProviderId, setCreatingProviderId] = useState<ProviderId | null>(null);
@@ -86,6 +89,7 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
     { id: "general", label: t("settings.sections.general") },
     { id: "providers", label: t("settings.sections.providers") },
     { id: "advanced", label: t("settings.sections.advanced") },
+    { id: "updates", label: t("settings.sections.updates") },
   ]), [t]);
 
   const activeSectionLabel = sectionItems.find((item) => item.id === activeSection)?.label
@@ -576,6 +580,7 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
         )}
       </section>
     ),
+    updates: <UpdateSettings />,
   };
 
   return (
@@ -609,7 +614,10 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
               aria-selected={isActive}
               onClick={() => handleSectionSelect(item.id)}
             >
-              {item.label}
+              <span className="settings-subnav-label">{item.label}</span>
+              {item.id === "updates" && hasUpdate && (
+                <span className="settings-subnav-badge" aria-hidden="true" />
+              )}
             </button>
           );
         })}

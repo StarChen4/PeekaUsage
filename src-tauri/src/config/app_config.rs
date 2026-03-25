@@ -29,6 +29,12 @@ pub struct AppSettings {
     pub widget_display_mode: WidgetDisplayMode,
     pub always_on_top: bool,
     pub launch_at_startup: bool,
+    #[serde(default = "default_update_auto_check_enabled")]
+    pub update_auto_check_enabled: bool,
+    #[serde(default = "default_update_check_on_launch")]
+    pub update_check_on_launch: bool,
+    #[serde(default = "default_update_check_interval_hours")]
+    pub update_check_interval_hours: u32,
     pub window_opacity: f64,
     #[serde(default)]
     pub theme: ThemeMode,
@@ -36,6 +42,12 @@ pub struct AppSettings {
     pub window_size: Option<WindowSize>,
     #[serde(default = "default_provider_card_expanded")]
     pub provider_card_expanded: HashMap<String, bool>,
+    #[serde(default = "default_update_auto_check_enabled")]
+    pub update_auto_check_enabled: bool,
+    #[serde(default = "default_update_check_on_launch")]
+    pub update_check_on_launch: bool,
+    #[serde(default = "default_update_check_interval_hours")]
+    pub update_check_interval_hours: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -124,6 +136,9 @@ impl Default for AppSettings {
             window_position: None,
             window_size: None,
             provider_card_expanded: default_provider_card_expanded(),
+            update_auto_check_enabled: default_update_auto_check_enabled(),
+            update_check_on_launch: default_update_check_on_launch(),
+            update_check_interval_hours: default_update_check_interval_hours(),
         }
     }
 }
@@ -156,6 +171,30 @@ impl PollingSettings {
         self.polling_interval = self.polling_interval.clamp(1, 999);
         self
     }
+}
+
+fn default_update_auto_check_enabled() -> bool {
+    true
+}
+
+fn default_update_check_on_launch() -> bool {
+    true
+}
+
+fn default_update_check_interval_hours() -> u32 {
+    2
+}
+
+fn default_update_auto_check_enabled() -> bool {
+    true
+}
+
+fn default_update_check_on_launch() -> bool {
+    true
+}
+
+fn default_update_check_interval_hours() -> u32 {
+    2
 }
 
 fn default_provider_card_expanded() -> HashMap<String, bool> {

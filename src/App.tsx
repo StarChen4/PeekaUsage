@@ -7,6 +7,7 @@ import SettingsPanel from "./components/settings/SettingsPanel";
 import { useWindowControls } from "./composables/useWindowControls";
 import { useProviderStore } from "./stores/providerStore";
 import { useSettingsStore } from "./stores/settingsStore";
+import { useUpdateStore } from "./stores/updateStore";
 import { applyTheme, observeSystemTheme } from "./utils/theme";
 import {
   areWindowPositionsEqual,
@@ -578,6 +579,31 @@ export default function App() {
   useEffect(() => {
     void applyOpacity(settings.windowOpacity);
   }, [applyOpacity, settings.windowOpacity]);
+
+  // 应用内更新检查
+  useEffect(() => {
+    const { loadCurrentVersion, checkUpdate, lastCheckAt } = useUpdateStore.getState();
+    void loadCurrentVersion();
+
+    const currentSettings = useSettingsStore.getState().settings;
+    if (currentSettings.updateAutoCheckEnabled && currentSettings.updateCheckOnLaunch) {
+      const TEN_MINUTES = 10 * 60 * 1000;
+      if (lastCheckAt === null || Date.now() - lastCheckAt > TEN_MINUTES) {
+        void checkUpdate();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!settings.updateAutoCheckEnabled) return;
+
+    const intervalMs = settings.updateCheckIntervalHours * 60 * 60 * 1000;
+    const timer = setInterval(() => {
+      void useUpdateStore.getState().checkUpdate();
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [settings.updateAutoCheckEnabled, settings.updateCheckIntervalHours]);
 
   async function handleBackFromSettings() {
     setCurrentView("widget");

@@ -13,6 +13,10 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
@@ -66,6 +70,9 @@ pub fn run() {
             commands::settings_commands::save_settings,
             commands::window_commands::set_window_opacity,
             commands::window_commands::detect_oauth_tokens,
+            commands::update_commands::check_app_update,
+            commands::update_commands::install_app_update,
+            commands::update_commands::get_current_version,
         ])
         .run(tauri::generate_context!())
         .expect("启动应用失败");

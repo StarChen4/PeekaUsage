@@ -1,5 +1,25 @@
 import type { ProviderId } from "./provider";
 
+export type UpdateState =
+  | "idle"
+  | "checking"
+  | "up-to-date"
+  | "available"
+  | "downloading"
+  | "installing"
+  | "error";
+
+export interface UpdateStatus {
+  currentVersion: string;
+  state: UpdateState;
+  availableVersion: string | null;
+  releaseUrl: string | null;
+  notes: string | null;
+  pubDate: string | null;
+  errorMessage: string | null;
+  downloadProgress: number | null;
+}
+
 export type PollingMode = "auto" | "manual";
 export type PollingUnit = "seconds" | "minutes";
 export type ThemeMode = "system" | "light" | "dark";
@@ -28,6 +48,9 @@ export interface AppSettings extends PollingSettings {
   widgetDisplayMode: WidgetDisplayMode;
   alwaysOnTop: boolean;
   launchAtStartup: boolean;
+  updateAutoCheckEnabled: boolean;
+  updateCheckOnLaunch: boolean;
+  updateCheckIntervalHours: number;
   windowOpacity: number;
   theme: ThemeMode;
   windowPosition: { x: number; y: number } | null;
@@ -49,6 +72,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   widgetDisplayMode: "detailed",
   alwaysOnTop: true,
   launchAtStartup: false,
+  updateAutoCheckEnabled: true,
+  updateCheckOnLaunch: true,
+  updateCheckIntervalHours: 2,
   windowOpacity: 100,
   theme: "system",
   windowPosition: null,
@@ -110,6 +136,11 @@ export function normalizeAppSettings(settings: AppSettings): AppSettings {
     edgeDockCollapseEnabled: settings.edgeDockCollapseEnabled !== false,
     language: normalizeAppLanguage(settings.language),
     widgetDisplayMode: normalizeWidgetDisplayMode(settings.widgetDisplayMode),
+    updateAutoCheckEnabled: settings.updateAutoCheckEnabled !== false,
+    updateCheckOnLaunch: settings.updateCheckOnLaunch !== false,
+    updateCheckIntervalHours: Number.isFinite(settings.updateCheckIntervalHours) && settings.updateCheckIntervalHours >= 1
+      ? settings.updateCheckIntervalHours
+      : DEFAULT_SETTINGS.updateCheckIntervalHours,
   };
 }
 

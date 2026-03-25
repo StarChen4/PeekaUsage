@@ -577,3 +577,20 @@
     transform: rotate(360deg);
   }
 }
+
+/* 设置按钮相对定位，用于红点角标 */
+.icon-btn-relative {
+  position: relative;
+}
+
+/* 更新红点角标 */
+.update-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-danger, #ef4444);
+  pointer-events: none;
+}

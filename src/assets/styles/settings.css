@@ -761,3 +761,223 @@
   color: var(--color-text-secondary);
   background: var(--color-muted-surface);
 }
+
+/* 设置子导航红点 */
+.settings-subnav-item {
+  position: relative;
+}
+
+.settings-subnav-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-danger, #ef4444);
+  pointer-events: none;
+}
+
+/* 更新设置页样式 */
+.update-version-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.update-version-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.update-version-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.update-changelog-btn {
+  font-size: 12px;
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-xs, 3px);
+  flex-shrink: 0;
+}
+
+.update-changelog-btn:hover {
+  background: var(--color-primary-soft-bg);
+}
+
+.update-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.update-check-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-ghost-bg-hover);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.update-check-btn:hover:not(:disabled) {
+  background: var(--color-primary-soft-bg);
+  border-color: var(--color-primary-soft-border);
+  color: var(--color-primary-soft-text);
+}
+
+.update-check-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.update-check-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.update-last-check {
+  font-size: 11px;
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+}
+
+.update-status-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.update-status-label.is-available {
+  color: var(--color-success, #22c55e);
+  font-weight: 500;
+}
+
+.update-status-label.is-error {
+  color: var(--color-danger, #ef4444);
+}
+
+.update-notes {
+  margin: 8px 0;
+  padding: 8px 10px;
+  background: var(--color-ghost-bg-hover);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.update-notes-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.update-notes-body {
+  white-space: pre-line;
+  line-height: 1.5;
+  max-height: 100px;
+  overflow-y: auto;
+  margin-bottom: 6px;
+}
+
+.update-install-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.update-install-btn {
+  width: 100%;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-ghost-bg-hover);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.update-install-btn.is-available {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.update-install-btn.is-available:hover {
+  opacity: 0.9;
+}
+
+.update-install-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.settings-toggle-title {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.update-interval-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.update-interval-label {
+  font-size: 13px;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.update-interval-unit {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.settings-hint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  padding: 4px 0 8px;
+  display: block;
+  line-height: 1.4;
+}

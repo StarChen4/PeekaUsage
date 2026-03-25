@@ -31,6 +31,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": [
       "nsis"
     ],
@@ -44,6 +45,17 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY5QkVBMDQxNUJGQkREMkQKUldRdDNmdGJRYUMrYVpiNjF6U0F2MU1JRmV5YkZ1bWc3VzBhbmhlMUtEQ0YxcTFhMThzaW93V1UK",
+      "endpoints": [
+        "https://github.com/StarChen4/PeekaUsage/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

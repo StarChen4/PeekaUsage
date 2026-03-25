@@ -4,6 +4,7 @@ import { THEME_OPTION_ORDER } from "../../i18n/messages";
 import { useProviders } from "../../composables/useProviders";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { useUpdateStore } from "../../stores/updateStore";
 import type { ProviderId, UsageSummary } from "../../types/provider";
 import type { ThemeMode } from "../../types/settings";
 import { saveProviderOrder } from "../../utils/ipc";
@@ -51,6 +52,7 @@ export default function WidgetContainer({
 }: WidgetContainerProps) {
   const { t } = useI18n();
   const settings = useSettingsStore((state) => state.settings);
+  const hasUpdate = useUpdateStore((state) => state.hasUpdate);
   const saveSettings = useSettingsStore((state) => state.saveSettings);
   const { providers, isRefreshing, manualRefresh, manualRefreshProvider } = useProviders();
   const [orderedProviders, setOrderedProviders] = useState<UsageSummary[]>([]);
@@ -676,7 +678,8 @@ export default function WidgetContainer({
             </svg>
           </button>
 
-          <button className="icon-btn" title={t("widget.actions.settings")} onClick={onOpenSettings}>
+          <button className="icon-btn icon-btn-relative" title={t("widget.actions.settings")} onClick={onOpenSettings}>
+            {hasUpdate && <span className="update-badge" aria-hidden="true" />}
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 8.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 0 1 0-7Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
               <path
