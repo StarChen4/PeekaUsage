@@ -199,6 +199,15 @@ pub struct ProviderApiKeyEntry {
     pub name: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderSubscriptionEntry {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub source: Option<String>,
+}
+
 /// 供应商持久化配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -207,6 +216,8 @@ pub struct ProviderEntry {
     pub enabled: bool,
     #[serde(default)]
     pub api_keys: Vec<ProviderApiKeyEntry>,
+    #[serde(default)]
+    pub subscriptions: Vec<ProviderSubscriptionEntry>,
     #[serde(default)]
     pub active_api_key_id: Option<String>,
     #[serde(default)]

@@ -4,6 +4,7 @@ import type {
   ProviderConfigItem,
   ProviderId,
   ProviderApiKeyItem,
+  ProviderSubscriptionItem,
 } from "../types/provider";
 import type { AppSettings } from "../types/settings";
 
@@ -31,7 +32,7 @@ export async function getSupportedProviders(): Promise<ProviderConfigItem[]> {
 export async function saveProviderConfig(config: {
   providerId: ProviderId;
   apiKeys: Array<Pick<ProviderApiKeyItem, "id" | "name" | "value">>;
-  oauthToken: string;
+  subscriptions: Array<Pick<ProviderSubscriptionItem, "id" | "name" | "oauthToken" | "source">>;
   enabled: boolean;
 }): Promise<void> {
   return invoke("save_provider_config", { config });
@@ -76,12 +77,14 @@ export interface DetectedToken {
   token: string;
   source: string;
   subscriptionType: string | null;
+  environment: "windows" | "wsl" | "native";
+  displaySource: string;
 }
 
 /** 检测到的 Token 集合 */
 export interface DetectedTokens {
-  anthropic: DetectedToken | null;
-  openai: DetectedToken | null;
+  anthropic: DetectedToken[];
+  openai: DetectedToken[];
 }
 
 /** 自动检测本地 OAuth Token */

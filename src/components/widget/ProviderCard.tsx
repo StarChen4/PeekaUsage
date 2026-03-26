@@ -21,11 +21,12 @@ export default function ProviderCard({
   onRefresh,
 }: ProviderCardProps) {
   const { t } = useI18n();
-  const hasSubscription = !!provider.subscription;
+  const hasSubscription = provider.subscriptions.length > 0;
   const hasApiUsage = provider.apiKeyUsages.length > 0;
   const hasMultipleApiKeys = provider.apiKeyUsages.length > 1;
   const compactApiItems = provider.apiKeyUsages.filter((item) => item.usage);
   const compactApiErrors = provider.apiKeyUsages.filter((item) => item.errorMessage);
+  const compactSubscriptionErrors = provider.subscriptions.filter((item) => item.usage.status === "error" && item.usage.errorMessage);
 
   function usagePercent(item: ApiKeyUsageSummary) {
     if (!item.usage) {
@@ -76,33 +77,49 @@ export default function ProviderCard({
 
       {displayMode === "compact" ? (
         <>
-          {(provider.subscription?.status === "success" && provider.subscription.windows.length > 0) || compactApiItems.length > 0 ? (
+          {(provider.subscriptions.some((item) => item.usage.status === "success" && item.usage.windows.length > 0) || compactApiItems.length > 0) ? (
             <div className="compact-metrics">
-              {provider.subscription?.status === "success" && provider.subscription.windows.map((window, index) => (
-                <div key={`${window.label}-${index}`} className="compact-metric-row">
-                  <span className="compact-metric-label" title={window.label}>
-                    {formatCompactSubscriptionLabel(window.label, t("widget.providerCard.subscriptionShort"))}
-                  </span>
-                  <div className="compact-metric-bar">
-                    <UsageProgressBar percent={window.utilization} />
-                  </div>
-                </div>
-              ))}
-              {(() => {
-                const extra = provider.subscription?.extraUsage;
-                if (!extra?.isEnabled || extra.monthlyLimitUsd === null || extra.utilization == null) return null;
-                const label = t("widget.subscription.extraUsageLabel");
+              {provider.subscriptions.map((subscription) => {
+                if (subscription.usage.status !== "success") {
+                  return null;
+                }
+
+                const extra = subscription.usage.extraUsage;
+                const hasExtra = !!extra?.isEnabled && extra.monthlyLimitUsd !== null && extra.utilization != null;
+                const hasWindows = subscription.usage.windows.length > 0;
+
+                if (!hasWindows && !hasExtra) {
+                  return null;
+                }
+
                 return (
-                  <div className="compact-metric-row">
-                    <span className="compact-metric-label" title={label}>
-                      {formatCompactSubscriptionLabel(label, t("widget.providerCard.subscriptionShort"))}
-                    </span>
-                    <div className="compact-metric-bar">
-                      <UsageProgressBar percent={extra.utilization} />
+                  <div key={subscription.subscriptionId} className="compact-subscription-group">
+                    <div className="compact-subscription-title" title={subscription.subscriptionName}>
+                      {subscription.subscriptionName}
                     </div>
+                    {subscription.usage.windows.map((window, index) => (
+                      <div key={`${subscription.subscriptionId}-${window.label}-${index}`} className="compact-metric-row">
+                        <span className="compact-metric-label" title={window.label}>
+                          {formatCompactSubscriptionWindowLabel(window.label, t("widget.providerCard.subscriptionShort"))}
+                        </span>
+                        <div className="compact-metric-bar">
+                          <UsageProgressBar percent={window.utilization} />
+                        </div>
+                      </div>
+                    ))}
+                    {hasExtra && (
+                      <div className="compact-metric-row">
+                        <span className="compact-metric-label" title={t("widget.subscription.extraUsageLabel")}>
+                          {formatCompactSubscriptionWindowLabel(t("widget.subscription.extraUsageLabel"), t("widget.providerCard.subscriptionShort"))}
+                        </span>
+                        <div className="compact-metric-bar">
+                          <UsageProgressBar percent={extra!.utilization!} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
-              })()}
+              })}
 
               {compactApiItems.map((item) => (
                 <div key={item.keyId} className="compact-metric-row">
@@ -117,9 +134,11 @@ export default function ProviderCard({
             </div>
           ) : null}
 
-          {provider.subscription?.status === "error" && provider.subscription.errorMessage && (
-            <div className="compact-error-msg">{provider.subscription.errorMessage}</div>
-          )}
+          {compactSubscriptionErrors.map((item) => (
+            <div key={`${item.subscriptionId}-error`} className="compact-error-msg">
+              {item.subscriptionName}: {item.usage.errorMessage}
+            </div>
+          ))}
 
           {compactApiErrors.map((item) => (
             <div key={`${item.keyId}-error`} className="compact-error-msg">
@@ -133,9 +152,9 @@ export default function ProviderCard({
         </>
       ) : (
         <>
-          {hasSubscription && provider.subscription && (
-            <SubscriptionBadge subscription={provider.subscription} />
-          )}
+          {provider.subscriptions.map((subscription) => (
+            <SubscriptionBadge key={subscription.subscriptionId} subscription={subscription} />
+          ))}
 
           {hasApiUsage && (
             <div className="api-section">
@@ -207,13 +226,13 @@ export default function ProviderCard({
   );
 }
 
-function formatCompactSubscriptionLabel(label: string, subscriptionShort: string): string {
-  const trimmed = label.trim();
-  if (!trimmed) {
-    return subscriptionShort;
+function formatCompactSubscriptionWindowLabel(label: string, fallback: string): string {
+  const trimmedLabel = label.trim();
+  if (!trimmedLabel) {
+    return fallback;
   }
 
-  return `${subscriptionShort} ${trimmed}`;
+  return trimmedLabel;
 }
 
 function formatCompactApiLabel(keyName: string, apiShort: string): string {

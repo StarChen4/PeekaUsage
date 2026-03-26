@@ -1,5 +1,7 @@
 use serde_json::Value;
 use std::collections::BTreeMap;
+#[cfg(windows)]
+use std::process::Command;
 use tauri::{AppHandle, Manager};
 
 /// 设置窗口透明度
@@ -11,59 +13,142 @@ pub async fn set_window_opacity(opacity: f64, app: AppHandle) -> Result<(), Stri
 }
 
 /// 自动检测本地 OAuth Token
-///
-/// 搜索 Claude Code 和 Codex CLI 的凭据文件，返回找到的 token。
 #[tauri::command]
 pub async fn detect_oauth_tokens() -> Result<DetectedTokens, String> {
     let home = dirs_next().ok_or_else(|| "无法获取用户目录".to_string())?;
 
     let mut result = DetectedTokens {
-        anthropic: None,
-        openai: None,
+        anthropic: Vec::new(),
+        openai: Vec::new(),
     };
 
-    // 检测 Claude Code: ~/.claude/.credentials.json
-    let claude_creds = home.join(".claude").join(".credentials.json");
-    if claude_creds.exists() {
-        if let Ok(content) = std::fs::read_to_string(&claude_creds) {
-            if let Ok(creds) = serde_json::from_str::<ClaudeCredentials>(&content) {
-                if let Some(oauth) = creds.claude_ai_oauth {
-                    if !oauth.access_token.is_empty() {
-                        result.anthropic = Some(DetectedToken {
-                            token: oauth.access_token,
-                            source: "Claude Code (~/.claude/.credentials.json)".into(),
-                            subscription_type: oauth.subscription_type,
-                        });
-                    }
-                }
-            }
-        }
+    if let Some(token) = read_claude_token_from_home(&home, "native") {
+        result.anthropic.push(token);
     }
 
-    // 检测 Codex CLI: ~/.codex/auth.json
-    let codex_auth = home.join(".codex").join("auth.json");
-    if codex_auth.exists() {
-        if let Ok(content) = std::fs::read_to_string(&codex_auth) {
-            if let Ok(auth) = serde_json::from_str::<CodexAuth>(&content) {
-                if let Some(tokens) = auth.tokens {
-                    // access_token 是 { "0": "e", "1": "y", ... } 格式
-                    if let Some(token) = tokens
-                        .access_token
-                        .as_ref()
-                        .and_then(parse_codex_access_token)
-                    {
-                        result.openai = Some(DetectedToken {
-                            token,
-                            source: "Codex CLI (~/.codex/auth.json)".into(),
-                            subscription_type: None,
-                        });
-                    }
-                }
+    if let Some(token) = read_codex_token_from_home(&home, "native") {
+        result.openai.push(token);
+    }
+
+    #[cfg(windows)]
+    {
+        if let Some(token) = read_wsl_claude_token() {
+            result.anthropic.push(token);
+        }
+
+        if let Some(token) = read_wsl_codex_token() {
+            result.openai.push(token);
+        }
+
+        for token in &mut result.anthropic {
+            if token.environment == "native" {
+                token.environment = "windows".to_string();
+                token.display_source = format!("Windows {}", token.source);
+            }
+        }
+
+        for token in &mut result.openai {
+            if token.environment == "native" {
+                token.environment = "windows".to_string();
+                token.display_source = format!("Windows {}", token.source);
             }
         }
     }
 
     Ok(result)
+}
+
+fn read_claude_token_from_home(home: &std::path::Path, environment: &str) -> Option<DetectedToken> {
+    let credentials_path = home.join(".claude").join(".credentials.json");
+    let content = std::fs::read_to_string(&credentials_path).ok()?;
+    let creds = serde_json::from_str::<ClaudeCredentials>(&content).ok()?;
+    let oauth = creds.claude_ai_oauth?;
+    if oauth.access_token.is_empty() {
+        return None;
+    }
+
+    let source = "Claude Code (~/.claude/.credentials.json)".to_string();
+    Some(DetectedToken {
+        token: oauth.access_token,
+        source: source.clone(),
+        subscription_type: oauth.subscription_type,
+        environment: environment.to_string(),
+        display_source: source,
+    })
+}
+
+fn read_codex_token_from_home(home: &std::path::Path, environment: &str) -> Option<DetectedToken> {
+    let auth_path = home.join(".codex").join("auth.json");
+    let content = std::fs::read_to_string(&auth_path).ok()?;
+    let auth = serde_json::from_str::<CodexAuth>(&content).ok()?;
+    let tokens = auth.tokens?;
+    let token = tokens.access_token.as_ref().and_then(parse_codex_access_token)?;
+    let source = "Codex CLI (~/.codex/auth.json)".to_string();
+
+    Some(DetectedToken {
+        token,
+        source: source.clone(),
+        subscription_type: None,
+        environment: environment.to_string(),
+        display_source: source,
+    })
+}
+
+#[cfg(windows)]
+fn read_wsl_claude_token() -> Option<DetectedToken> {
+    let content = run_wsl_file_read("~/.claude/.credentials.json")?;
+    let creds = serde_json::from_str::<ClaudeCredentials>(&content).ok()?;
+    let oauth = creds.claude_ai_oauth?;
+    if oauth.access_token.is_empty() {
+        return None;
+    }
+
+    let source = "Claude Code (~/.claude/.credentials.json)".to_string();
+    Some(DetectedToken {
+        token: oauth.access_token,
+        source: source.clone(),
+        subscription_type: oauth.subscription_type,
+        environment: "wsl".to_string(),
+        display_source: format!("WSL {}", source),
+    })
+}
+
+#[cfg(windows)]
+fn read_wsl_codex_token() -> Option<DetectedToken> {
+    let content = run_wsl_file_read("~/.codex/auth.json")?;
+    let auth = serde_json::from_str::<CodexAuth>(&content).ok()?;
+    let tokens = auth.tokens?;
+    let token = tokens.access_token.as_ref().and_then(parse_codex_access_token)?;
+    let source = "Codex CLI (~/.codex/auth.json)".to_string();
+
+    Some(DetectedToken {
+        token,
+        source: source.clone(),
+        subscription_type: None,
+        environment: "wsl".to_string(),
+        display_source: format!("WSL {}", source),
+    })
+}
+
+#[cfg(windows)]
+fn run_wsl_file_read(path: &str) -> Option<String> {
+    let script = format!("test -f {path} && cat {path}");
+    let output = Command::new("wsl.exe")
+        .args(["-e", "sh", "-lc", &script])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let content = String::from_utf8(output.stdout).ok()?;
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }
 
 /// 把 { "0": "a", "1": "b", ... } 格式的对象转为字符串
@@ -106,13 +191,11 @@ fn dirs_next() -> Option<std::path::PathBuf> {
         .map(std::path::PathBuf::from)
 }
 
-// ===== 数据结构 =====
-
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DetectedTokens {
-    pub anthropic: Option<DetectedToken>,
-    pub openai: Option<DetectedToken>,
+    pub anthropic: Vec<DetectedToken>,
+    pub openai: Vec<DetectedToken>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -121,9 +204,9 @@ pub struct DetectedToken {
     pub token: String,
     pub source: String,
     pub subscription_type: Option<String>,
+    pub environment: String,
+    pub display_source: String,
 }
-
-// ===== Claude Code 凭据结构 =====
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -137,8 +220,6 @@ struct ClaudeOAuth {
     access_token: String,
     subscription_type: Option<String>,
 }
-
-// ===== Codex CLI 凭据结构 =====
 
 #[derive(Debug, serde::Deserialize)]
 struct CodexAuth {

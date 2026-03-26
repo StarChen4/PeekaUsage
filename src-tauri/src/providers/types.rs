@@ -118,6 +118,16 @@ pub struct SubscriptionUsage {
     pub error_message: Option<String>,
 }
 
+/// 单个命名订阅的用量摘要
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionUsageSummary {
+    pub subscription_id: String,
+    pub subscription_name: String,
+    pub source: Option<String>,
+    pub usage: SubscriptionUsage,
+}
+
 /// 速率限制数据
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -153,7 +163,8 @@ pub struct UsageSummary {
     #[serde(default)]
     pub api_key_usages: Vec<ApiKeyUsageSummary>,
     pub usage: Option<UsageData>,
-    pub subscription: Option<SubscriptionUsage>,
+    #[serde(default)]
+    pub subscriptions: Vec<SubscriptionUsageSummary>,
     pub rate_limit: Option<RateLimitData>,
     pub last_updated: Option<String>,
     pub error_message: Option<String>,
@@ -177,7 +188,7 @@ pub struct ProviderConfig {
     #[serde(default)]
     pub api_keys: Vec<ProviderApiKeyInput>,
     #[serde(default)]
-    pub oauth_token: String,
+    pub subscriptions: Vec<ProviderSubscriptionInput>,
 }
 
 /// 返回前端的 API Key 配置项
@@ -191,6 +202,28 @@ pub struct ProviderApiKeyItem {
     pub is_active_in_environment: bool,
 }
 
+/// 命名订阅配置项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderSubscriptionInput {
+    pub id: String,
+    pub name: String,
+    pub oauth_token: String,
+    #[serde(default)]
+    pub source: Option<String>,
+}
+
+/// 返回前端的订阅配置项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderSubscriptionItem {
+    pub id: String,
+    pub name: String,
+    pub oauth_token: String,
+    #[serde(default)]
+    pub source: Option<String>,
+}
+
 /// 供应商配置项（返回给前端，不含完整 Key）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -200,7 +233,8 @@ pub struct ProviderConfigItem {
     pub enabled: bool,
     #[serde(default)]
     pub api_keys: Vec<ProviderApiKeyItem>,
-    pub oauth_token: String,
+    #[serde(default)]
+    pub subscriptions: Vec<ProviderSubscriptionItem>,
     pub capabilities: ProviderCapabilities,
     #[serde(default)]
     pub environment_variable_name: String,

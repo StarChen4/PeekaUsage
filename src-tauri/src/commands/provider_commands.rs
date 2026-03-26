@@ -1,17 +1,27 @@
 use tauri::State;
 
-use crate::config::app_config::{AppConfig, ProviderApiKeyEntry, ProviderEntry};
+use crate::config::app_config::{
+    AppConfig, ProviderApiKeyEntry, ProviderEntry, ProviderSubscriptionEntry,
+};
 use crate::config::encryption::KeyStore;
 use crate::config::system_env::sync_active_api_key_envs;
 use crate::providers::types::*;
 use crate::providers::ProviderManager;
 
 const LEGACY_API_KEY_ID: &str = "legacy-default";
+const LEGACY_SUBSCRIPTION_ID: &str = "legacy-subscription";
 
 struct ResolvedApiKey {
     id: String,
     name: String,
     value: String,
+}
+
+struct ResolvedSubscription {
+    id: String,
+    name: String,
+    value: String,
+    source: Option<String>,
 }
 
 /// 获取所有已启用供应商的用量
@@ -99,9 +109,22 @@ pub async fn get_provider_configs(
         item.active_api_key_id = active_api_key_id;
 
         if let Some(env_name) = item.provider_id.env_oauth_token_name() {
-            item.oauth_token = key_store
-                .get_masked_key(&oauth_storage_key(&provider_id), Some(env_name))
-                .await;
+            item.subscriptions = load_provider_subscriptions(
+                &provider_id,
+                &item.provider_id,
+                entry.as_ref(),
+                key_store.inner(),
+                Some(env_name),
+            )
+            .await
+            .into_iter()
+            .map(|subscription| ProviderSubscriptionItem {
+                id: subscription.id,
+                name: subscription.name,
+                oauth_token: mask_value(&subscription.value),
+                source: subscription.source,
+            })
+            .collect();
         }
 
         items.push(item);
@@ -129,7 +152,7 @@ pub async fn save_provider_config(
         provider_id: provider_enum,
         enabled,
         api_keys,
-        oauth_token,
+        subscriptions,
     } = config;
 
     let provider_id = provider_enum.as_str().to_string();
@@ -158,6 +181,30 @@ pub async fn save_provider_config(
         })
         .collect();
 
+    let sanitized_subscriptions: Vec<ProviderSubscriptionInput> = subscriptions
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, subscription)| {
+            let oauth_token = subscription.oauth_token.trim().to_string();
+            if oauth_token.is_empty() {
+                return None;
+            }
+
+            let id = if subscription.id.trim().is_empty() {
+                format!("subscription-{}", index + 1)
+            } else {
+                subscription.id.trim().to_string()
+            };
+
+            Some(ProviderSubscriptionInput {
+                id,
+                name: normalize_subscription_name(&subscription.name, index),
+                oauth_token,
+                source: subscription.source.and_then(normalize_optional_string),
+            })
+        })
+        .collect();
+
     let provider_entry = ProviderEntry {
         provider_id: provider_id.clone(),
         enabled,
@@ -166,6 +213,14 @@ pub async fn save_provider_config(
             .map(|key| ProviderApiKeyEntry {
                 id: key.id.clone(),
                 name: key.name.clone(),
+            })
+            .collect(),
+        subscriptions: sanitized_subscriptions
+            .iter()
+            .map(|subscription| ProviderSubscriptionEntry {
+                id: subscription.id.clone(),
+                name: subscription.name.clone(),
+                source: subscription.source.clone(),
             })
             .collect(),
         active_api_key_id: existing_entry
@@ -218,11 +273,32 @@ pub async fn save_provider_config(
 
     key_store.set_key(&provider_id, "").await?;
 
-    if !oauth_token.contains("...") {
-        key_store
-            .set_key(&oauth_storage_key(&provider_id), oauth_token.trim())
-            .await?;
+    if let Some(entry) = existing_entry.as_ref() {
+        for old_subscription in &entry.subscriptions {
+            if sanitized_subscriptions
+                .iter()
+                .any(|subscription| subscription.id == old_subscription.id)
+            {
+                continue;
+            }
+
+            key_store
+                .set_key(&subscription_storage_key(&provider_id, &old_subscription.id), "")
+                .await?;
+        }
     }
+
+    for subscription in &sanitized_subscriptions {
+        let storage_key = subscription_storage_key(&provider_id, &subscription.id);
+
+        if subscription.oauth_token.contains("...") {
+            continue;
+        }
+
+        key_store.set_key(&storage_key, &subscription.oauth_token).await?;
+    }
+
+    key_store.set_key(&oauth_storage_key(&provider_id), "").await?;
 
     sync_active_api_key_envs(app_config.inner(), key_store.inner()).await?;
 
@@ -244,6 +320,12 @@ pub async fn remove_provider_config(
                 .set_key(&api_key_storage_key(&provider_id, &key.id), "")
                 .await?;
         }
+
+        for subscription in &entry.subscriptions {
+            key_store
+                .set_key(&subscription_storage_key(&provider_id, &subscription.id), "")
+                .await?;
+        }
     }
 
     key_store.set_key(&provider_id, "").await?;
@@ -258,6 +340,7 @@ pub async fn remove_provider_config(
                 provider_id: provider_id.clone(),
                 enabled: false,
                 api_keys: Vec::new(),
+                subscriptions: Vec::new(),
                 active_api_key_id: None,
                 manage_api_key_environment: existing_entry
                     .as_ref()
@@ -344,17 +427,23 @@ async fn build_usage_summary(
         .ok_or_else(|| format!("未知供应商: {}", provider_id))?;
 
     let api_keys = load_provider_api_keys(provider_id, &pid, entry.as_ref(), key_store).await;
-    let oauth_token = if let Some(env_name) = pid.env_oauth_token_name() {
-        key_store
-            .get_key(&oauth_storage_key(provider_id), env_name)
-            .await
+    let subscriptions = if let Some(env_name) = pid.env_oauth_token_name() {
+        load_provider_subscriptions(
+            provider_id,
+            &pid,
+            entry.as_ref(),
+            key_store,
+            Some(env_name),
+        )
+        .await
     } else {
-        None
+        Vec::new()
     };
 
     let mut api_key_usages = Vec::new();
     let mut successful_usages = Vec::new();
     let mut api_errors = Vec::new();
+    let mut subscription_errors = Vec::new();
     let mut rate_limit = None;
 
     for api_key in &api_keys {
@@ -392,20 +481,28 @@ async fn build_usage_summary(
     }
 
     let usage = aggregate_usage_data(&successful_usages);
-    let subscription = if let Some(token) = oauth_token.as_ref().filter(|token| !token.is_empty()) {
-        Some(
-            provider_manager
-                .fetch_subscription_usage(provider_id, token)
-                .await,
-        )
-    } else {
-        None
-    };
+    let mut subscription_summaries = Vec::new();
 
-    let has_subscription_data = subscription
-        .as_ref()
-        .map(|item| matches!(item.status, ProviderStatus::Success))
-        .unwrap_or(false);
+    for subscription in subscriptions {
+        let usage = provider_manager
+            .fetch_subscription_usage(provider_id, &subscription.value)
+            .await;
+        if matches!(usage.status, ProviderStatus::Error) {
+            if let Some(error_message) = usage.error_message.clone() {
+                subscription_errors.push(format!("{}: {}", subscription.name, error_message));
+            }
+        }
+        subscription_summaries.push(SubscriptionUsageSummary {
+            subscription_id: subscription.id,
+            subscription_name: subscription.name,
+            source: subscription.source,
+            usage,
+        });
+    }
+
+    let has_subscription_data = subscription_summaries
+        .iter()
+        .any(|item| matches!(item.usage.status, ProviderStatus::Success));
 
     let has_usage_data = usage.is_some();
     let status = if has_usage_data || has_subscription_data {
@@ -429,7 +526,7 @@ async fn build_usage_summary(
         status,
         api_key_usages,
         usage,
-        subscription,
+        subscriptions: subscription_summaries,
         rate_limit,
         last_updated: Some(chrono::Utc::now().to_rfc3339()),
         error_message,
@@ -484,6 +581,54 @@ async fn load_provider_api_keys(
     }
 
     api_keys
+}
+
+async fn load_provider_subscriptions(
+    provider_id: &str,
+    provider: &ProviderId,
+    entry: Option<&ProviderEntry>,
+    key_store: &KeyStore,
+    env_var_name: Option<&str>,
+) -> Vec<ResolvedSubscription> {
+    let mut subscriptions = Vec::new();
+
+    if let Some(entry) = entry {
+        for (index, subscription) in entry.subscriptions.iter().enumerate() {
+            if let Some(value) = key_store
+                .get_stored_key(&subscription_storage_key(provider_id, &subscription.id))
+                .await
+                .filter(|value| !value.is_empty())
+            {
+                subscriptions.push(ResolvedSubscription {
+                    id: subscription.id.clone(),
+                    name: normalize_subscription_name(&subscription.name, index),
+                    value,
+                    source: subscription.source.clone(),
+                });
+            }
+        }
+    }
+
+    if !subscriptions.is_empty() {
+        return subscriptions;
+    }
+
+    if let Some(env_var_name) = env_var_name {
+        if let Some(legacy_value) = key_store
+            .get_key(&oauth_storage_key(provider_id), env_var_name)
+            .await
+            .filter(|value| !value.is_empty())
+        {
+            subscriptions.push(ResolvedSubscription {
+                id: LEGACY_SUBSCRIPTION_ID.to_string(),
+                name: default_subscription_name(provider),
+                value: legacy_value,
+                source: None,
+            });
+        }
+    }
+
+    subscriptions
 }
 
 fn aggregate_usage_data(items: &[UsageData]) -> Option<UsageData> {
@@ -557,12 +702,42 @@ fn oauth_storage_key(provider_id: &str) -> String {
     format!("{}_oauth", provider_id)
 }
 
+fn subscription_storage_key(provider_id: &str, subscription_id: &str) -> String {
+    format!("{}::subscription::{}", provider_id, subscription_id)
+}
+
 fn normalize_key_name(name: &str, index: usize) -> String {
     let trimmed = name.trim();
     if trimmed.is_empty() {
         format!("密钥 {}", index + 1)
     } else {
         trimmed.to_string()
+    }
+}
+
+fn normalize_subscription_name(name: &str, index: usize) -> String {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        format!("订阅 {}", index + 1)
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn normalize_optional_string(value: String) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn default_subscription_name(provider: &ProviderId) -> String {
+    match provider {
+        ProviderId::OpenAI => "OpenAI 订阅".to_string(),
+        ProviderId::Anthropic => "Anthropic 订阅".to_string(),
+        ProviderId::OpenRouter => "OpenRouter 订阅".to_string(),
     }
 }
 

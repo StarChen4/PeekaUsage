@@ -86,11 +86,14 @@ export default function WidgetContainer({
         providerId: provider.providerId,
         status: provider.status,
         errorMessage: provider.errorMessage ?? "",
-        subscriptionStatus: provider.subscription?.status ?? "none",
-        subscriptionWindows: provider.subscription?.windows.map((window) => ({
-          label: window.label,
-          utilization: Math.round(window.utilization),
-        })) ?? [],
+        subscriptions: provider.subscriptions.map((subscription) => ({
+          subscriptionId: subscription.subscriptionId,
+          status: subscription.usage.status,
+          windows: subscription.usage.windows.map((window) => ({
+            label: window.label,
+            utilization: Math.round(window.utilization),
+          })),
+        })),
         apiKeys: provider.apiKeyUsages.map((item) => ({
           keyId: item.keyId,
           keyName: item.keyName,

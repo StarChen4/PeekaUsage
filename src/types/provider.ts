@@ -45,6 +45,13 @@ export interface SubscriptionUsage {
   errorMessage: string | null;
 }
 
+export interface SubscriptionUsageSummary {
+  subscriptionId: string;
+  subscriptionName: string;
+  source: string | null;
+  usage: SubscriptionUsage;
+}
+
 /** 速率限制数据 */
 export interface RateLimitData {
   requestsPerMinute: number | null;
@@ -74,7 +81,7 @@ export interface UsageSummary {
   status: ProviderStatus;
   apiKeyUsages: ApiKeyUsageSummary[];
   usage: UsageData | null;
-  subscription: SubscriptionUsage | null;
+  subscriptions: SubscriptionUsageSummary[];
   rateLimit: RateLimitData | null;
   lastUpdated: string | null;
   errorMessage: string | null;
@@ -88,13 +95,20 @@ export interface ProviderApiKeyItem {
   isActiveInEnvironment: boolean;
 }
 
+export interface ProviderSubscriptionItem {
+  id: string;
+  name: string;
+  oauthToken: string;
+  source: string | null;
+}
+
 /** 供应商配置（前端用） */
 export interface ProviderConfigItem {
   providerId: ProviderId;
   displayName: string;
   enabled: boolean;
   apiKeys: ProviderApiKeyItem[];
-  oauthToken: string;
+  subscriptions: ProviderSubscriptionItem[];
   capabilities: ProviderCapabilities;
   environmentVariableName: string;
   activeApiKeyId: string | null;

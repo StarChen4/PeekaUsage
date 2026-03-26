@@ -114,7 +114,16 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
             isActiveInEnvironment: false,
           },
         ],
-        oauthToken: "",
+        subscriptions: selectedDraftProvider.capabilities.hasSubscription
+          ? [
+              {
+                id: `${selectedDraftProvider.providerId}-draft-subscription`,
+                name: t("settings.providerConfig.subscriptionName", { index: 1 }),
+                oauthToken: "",
+                source: null,
+              },
+            ]
+          : [],
         environmentVariableName: selectedDraftProvider.environmentVariableName,
         activeApiKeyId: null,
       }

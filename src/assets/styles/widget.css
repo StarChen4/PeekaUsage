@@ -44,8 +44,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
-  padding-top: var(--spacing-xs);
-  border-top: 1px dashed var(--color-border);
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-muted-surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-muted-surface);
 }
 
 .sub-header {
@@ -60,6 +62,11 @@
   color: var(--color-info);
   text-transform: uppercase;
   letter-spacing: 0.3px;
+}
+
+.sub-plan-label {
+  font-size: 10px;
+  color: var(--color-text-secondary);
 }
 
 .sub-error {
@@ -107,6 +114,23 @@
 .sub-error-msg {
   font-size: 9px;
   color: var(--color-danger);
+}
+
+.compact-subscription-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-muted-surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-muted-surface);
+}
+
+.compact-subscription-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  line-height: 1.2;
 }
 
 .provider-card {
