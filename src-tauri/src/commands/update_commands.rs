@@ -27,6 +27,14 @@ pub struct UpdateStatus {
     pub download_progress: Option<f64>,
 }
 
+fn normalize_updater_error(message: &str) -> String {
+    if message.contains("valid release JSON") || message.contains("latest.json") {
+        return "远端未提供有效的更新元数据（latest.json）。当前 GitHub Release 可能缺少 Tauri updater 产物，请先检查 release 流程是否已上传 latest.json 和签名文件。".to_string();
+    }
+
+    message.to_string()
+}
+
 #[tauri::command]
 pub async fn check_app_update(app: AppHandle) -> Result<UpdateStatus, String> {
     let current_version = app.package_info().version.to_string();
@@ -69,7 +77,7 @@ pub async fn check_app_update(app: AppHandle) -> Result<UpdateStatus, String> {
             release_url: None,
             notes: None,
             pub_date: None,
-            error_message: Some(e.to_string()),
+            error_message: Some(normalize_updater_error(&e.to_string())),
             download_progress: None,
         }),
     }
@@ -79,11 +87,15 @@ pub async fn check_app_update(app: AppHandle) -> Result<UpdateStatus, String> {
 pub async fn install_app_update(app: AppHandle) -> Result<(), String> {
     let updater = app.updater().map_err(|e| e.to_string())?;
 
-    if let Some(update) = updater.check().await.map_err(|e| e.to_string())? {
+    if let Some(update) = updater
+        .check()
+        .await
+        .map_err(|e| normalize_updater_error(&e.to_string()))?
+    {
         update
             .download_and_install(|_chunk, _total| {}, || {})
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| normalize_updater_error(&e.to_string()))?;
     }
     Ok(())
 }

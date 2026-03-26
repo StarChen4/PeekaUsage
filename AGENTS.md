@@ -217,12 +217,33 @@
 
 - 进入设置页时默认打开“通用”
 - 左上角图标按钮恢复为直接返回主界面
-- 标题下方提供固定可见的子导航，当前使用“通用 / 供应商 / 高级”三个子项
-- 点击子选项后只显示对应子页内容，不再把“通用 / 供应商 / 高级”一次性全部渲染
+- 标题下方提供固定可见的子导航，当前使用“通用 / 供应商 / 高级 / 更新”四个子项
+- 点击子选项后只显示对应子页内容，不再把“通用 / 供应商 / 高级 / 更新”一次性全部渲染
 - 子导航要保持紧凑、稳定，不要再回退成悬浮弹出菜单
 - 子选项结构要可扩展，优先使用配置驱动的导航项和子页渲染映射，不要把切页逻辑写成到处散落的条件判断
 
-### 12. GitHub 已接入 Windows Release 自动发布
+### 12. 设置页已支持应用内更新
+
+文件：
+
+- `src/components/settings/SettingsPanel.tsx`
+- `src/components/settings/UpdateSettings.tsx`
+- `src/stores/updateStore.ts`
+- `src/types/settings.ts`
+- `src-tauri/src/commands/update_commands.rs`
+- `src-tauri/src/lib.rs`
+- `src-tauri/Cargo.toml`
+
+当前要求：
+
+- 设置页子导航固定包含“更新”分区
+- 更新分区支持手动检查更新、查看当前版本、查看 Release 说明
+- 检测到新版本后支持直接触发应用内更新安装
+- 自动更新检查配置通过 `updateAutoCheckEnabled`、`updateCheckOnLaunch`、`updateCheckIntervalHours` 持久化
+- 启动时仅在开启自动检查且允许启动检查时触发自动检测
+- 不要重复注册 `tauri-plugin-updater` 或 `tauri-plugin-process`
+
+### 13. GitHub 已接入 Windows Release 自动发布
 
 文件：
 
@@ -237,7 +258,7 @@
 - 发布前必须校验 `package.json`、`tauri.conf.json`、`Cargo.toml` 三处版本号一致
 - 标签名必须与应用版本匹配，例如 `v0.1.0`
 
-### 13. Linux 已接入 x86_64 构建与发布
+### 14. Linux 已接入 x86_64 构建与发布
 
 文件：
 
@@ -255,7 +276,7 @@
 - Linux CI / Release 的依赖安装要按 Tauri 官方 ARM 打包要求补齐，至少包含 `build-essential`、`curl`、`file`、`libfuse2`、`libgtk-3-dev`、`libssl-dev`、`libwebkit2gtk-4.1-dev`、`libayatana-appindicator3-dev`、`librsvg2-dev`、`patchelf`
 - 不要把 Linux 的 `deb` / `appimage` 目标混回主 `tauri.conf.json`
 
-### 14. macOS 已接入 x86_64 / arm64 构建与发布
+### 15. macOS 已接入 x86_64 / arm64 构建与发布
 
 文件：
 
@@ -273,7 +294,7 @@
 - 如果安装后被提示“文件已损坏，无法打开”，文档里要明确提供 `xattr -dr com.apple.quarantine /Applications/PeekaUsage.app` 作为手动放行方案
 - 不要把 macOS 的 `app` / `dmg` 目标混回主 `tauri.conf.json`
 
-### 15. 应用标识已改为 PeekaUsage 并保留旧数据迁移
+### 16. 应用标识已改为 PeekaUsage 并保留旧数据迁移
 
 文件：
 
@@ -288,7 +309,7 @@
 - 迁移只在新目录缺少对应文件时执行，不能覆盖新标识下已经存在的数据
 - 如果后续继续改 `identifier`，必须同步更新迁移逻辑，不能只改配置不处理老用户数据
 
-### 16. 多语言支持已接入
+### 17. 多语言支持已接入
 
 文件：
 
@@ -307,7 +328,7 @@
 - 新增文案不要再直接散落在组件里，优先收敛到 `src/i18n/messages.ts`
 - 旧配置缺少 `language` 时要继续兼容，默认按简体中文处理
 
-### 17. 设置页 OAuth Token 区域已新增官方获取入口
+### 18. 设置页 OAuth Token 区域已新增官方获取入口
 
 文件：
 
@@ -323,7 +344,7 @@
 - 下方提示文案要区分“自动检测读取位置”和“官方获取方式”，不要再暗示本地文件是默认必然存在
 - OpenAI 文案要兼容官方当前“可能写入 `~/.codex/auth.json`，也可能使用系统凭据库”的现状
 
-### 18. 主界面底部已支持精简 / 详细显示模式
+### 19. 主界面底部已支持精简 / 详细显示模式
 
 文件：
 
@@ -353,7 +374,7 @@
 - 切换模式后刷新和重启都要保持所选显示方式
 - 旧配置缺少 `widgetDisplayMode` 时要继续兼容，默认详细模式
 
-### 19. 设置页已支持一键切换 API Key 到系统环境变量
+### 20. 设置页已支持一键切换 API Key 到系统环境变量
 
 文件：
 
@@ -376,7 +397,7 @@
 - Linux / macOS 需要同步当前进程，并写入应用托管的 Shell 环境脚本；新开的终端会读取新值
 - macOS 额外同步 `launchctl` 会话环境，Linux 当前以 Shell 启动链路为主，不要假设所有图形界面进程都能立即感知
 
-### 20. 主窗口已支持拖拽到屏幕边缘后自动吸附收起
+### 21. 主窗口已支持拖拽到屏幕边缘后自动吸附收起
 
 文件：
 
@@ -398,6 +419,23 @@
 - 设置页“通用”里提供该功能开关，持久化字段是 `edgeDockCollapseEnabled`
 - 该开关固定放在“自动调整窗口高度以适应内容”后，作为通用配置的最后一个条目
 
+### 22. Anthropic 已支持更多订阅窗口与 Extra Usage 展示
+
+文件：
+
+- `src-tauri/src/providers/subscription.rs`
+- `src-tauri/src/providers/types.rs`
+- `src/types/provider.ts`
+- `src/components/widget/ProviderCard.tsx`
+- `src/i18n/messages.ts`
+
+当前要求：
+
+- Anthropic 订阅展示不再只看单一窗口
+- 要兼容 `5 小时`、`7 天`、`7 天 Sonnet` 等多个订阅窗口
+- 如果 OAuth 返回 `extra_usage`，主界面也要展示 Extra Usage 的利用率
+- 精简模式下也要保留这些额外窗口和 Extra Usage 的进度条
+
 ## 先读哪些文件
 
 如果你是新的 coding agent，按这个顺序进入代码：
@@ -413,15 +451,18 @@
 9. `src/i18n/index.ts`
 10. `src/i18n/messages.ts`
 11. `src/composables/useWindowControls.ts`
-12. `src/components/common/AppSelect.tsx`
-13. `src/components/common/ConfirmDialog.tsx`
-14. `src/components/widget/WidgetContainer.tsx`
-15. `src/components/settings/ProviderConfig.tsx`
-16. `src/components/settings/SettingsPanel.tsx`
-17. `src-tauri/tauri.linux.conf.json`
-18. `.github/workflows/ci.yml`
-19. `.github/workflows/release.yml`
-20. `src-tauri/tauri.macos.conf.json`
+12. `src/stores/updateStore.ts`
+13. `src-tauri/src/commands/update_commands.rs`
+14. `src/components/settings/UpdateSettings.tsx`
+15. `src/components/common/AppSelect.tsx`
+16. `src/components/common/ConfirmDialog.tsx`
+17. `src/components/widget/WidgetContainer.tsx`
+18. `src/components/settings/ProviderConfig.tsx`
+19. `src/components/settings/SettingsPanel.tsx`
+20. `src-tauri/tauri.linux.conf.json`
+21. `.github/workflows/ci.yml`
+22. `.github/workflows/release.yml`
+23. `src-tauri/tauri.macos.conf.json`
 
 ## 快速开发命令
 
@@ -439,6 +480,7 @@ npm run tauri:build:macos
 发 Release 时使用：
 
 ```bash
+# 先补齐 .github/release-notes/v0.1.0.md，再打标签
 git tag v0.1.0
 git push origin v0.1.0
 ```
@@ -458,17 +500,19 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `providers/subscription.rs`：OAuth 订阅查询
 - `commands/provider_commands.rs`：配置、用量、顺序保存
 - `commands/window_commands.rs`：OAuth 自动检测、窗口透明度命令
+- `commands/update_commands.rs`：应用内更新检查、安装和版本查询
 - `config/app_config.rs`：设置、供应商启停、`provider_order`
 - `config/system_env.rs`：当前激活 API Key 到系统环境变量的同步
 - `tray/mod.rs`：托盘
 
-### Vue
+### React
 
 - `App.tsx`：widget/settings 视图切换、启动时同步主题与透明度
 - `useProviders.ts`：拉取和刷新编排
 - `useWindowControls.ts`：窗口隐藏、最小化、透明度同步
 - `providerStore`：主数据
 - `settingsStore`：设置数据
+- `updateStore`：更新状态、手动检查和安装流程
 - `i18n`：语言包和运行时语言切换
 - `ProviderIcon.tsx`：供应商图标共享组件
 - `AppSelect.tsx`：跨平台自定义下拉组件
@@ -476,7 +520,8 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `WidgetContainer.tsx`：主界面卡片和拖拽排序
 - `ProviderCard.tsx`：供应商卡片、单卡片刷新和精简/详细两套展示
 - `ProviderConfig.tsx`：供应商设置卡片
-- `SettingsPanel.tsx`：设置页容器、语言选择、全局刷新、高级分供应商刷新和透明度控件
+- `SettingsPanel.tsx`：设置页容器、固定子导航、语言选择、全局刷新和高级分供应商刷新
+- `UpdateSettings.tsx`：当前版本、检查更新、更新说明和应用内安装入口
 
 ## 核心约束
 
@@ -597,6 +642,9 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 
 - 改版本号时，必须同步修改 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`
 - GitHub Release 的标签名必须使用 `v` 前缀并与应用版本完全一致
+- 每次发版必须同步提交对应的发版说明文件 `.github/release-notes/vX.Y.Z.md`
+- 发版说明必须覆盖本次功能更新和修复内容，不能只发空 Release 或只上传安装包
+- Release 流水线结束前还必须校验对应 tag 下的 `latest.json` 可访问且内容合法，避免应用内更新读取失败
 - Windows 产物是 `nsis`
 - Linux 产物当前是 `x86_64` 的 `deb` 和 `appimage`
 - macOS 产物是 `x86_64` / `arm64` 的 `app` 和 `dmg`
@@ -728,11 +776,23 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - `src-tauri/capabilities/default.json` 是否仍保留 `autostart:default`
 - `launchAtStartup` 是否被正确写回配置
 
+### 应用内更新异常
+
+检查：
+
+- `src-tauri/src/lib.rs` 是否只注册了一次 `tauri-plugin-updater` 和 `tauri-plugin-process`
+- `src-tauri/src/commands/update_commands.rs` 是否仍暴露 `check_app_update`、`install_app_update`、`get_current_version`
+- `src/stores/updateStore.ts` 是否正确同步 `hasUpdate`、`lastCheckAt` 和安装状态
+- `src/components/settings/SettingsPanel.tsx` 的子导航里是否仍包含“更新”
+- `src/components/settings/UpdateSettings.tsx` 是否还能打开 Release 页面并触发安装
+
 ### Release 发布异常
 
 检查：
 
 - `.github/workflows/release.yml` 是否仍然只在 `v*` 标签下触发
+- `.github/release-notes/vX.Y.Z.md` 是否已存在且内容非空
+- `https://github.com/StarChen4/PeekaUsage/releases/download/vX.Y.Z/latest.json` 是否可访问且包含合法 JSON
 - `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 版本号是否一致
 - 推送的标签是否与版本完全匹配，例如 `v0.1.0`
 - GitHub Actions 是否具有 `contents: write` 权限
@@ -781,6 +841,7 @@ cargo check
 - 设置页“返回时刷新主界面”开关在勾选和未勾选两种情况下是否都符合预期
 - 设置页“自动调整窗口高度以适应内容”开关在勾选和未勾选两种情况下是否都符合预期
 - 设置页“拖拽到边缘后自动收起”开关在启用和关闭两种情况下是否都符合预期，且位置仍在“通用”区域最后一个
+- 设置页“更新”分区里手动检查、自动检查开关、启动时检查和间隔设置是否按预期工作
 - 主界面卡片右上角单独刷新按钮是否只刷新当前供应商
 - 设置页自定义下拉在浅色/暗黑模式下的展开和关闭
 - 设置页透明度滑杆和主界面透明度把手是否同步

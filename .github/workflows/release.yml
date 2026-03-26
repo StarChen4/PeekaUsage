@@ -7,19 +7,20 @@ on:
 
 jobs:
   validate-version:
-    name: 校验标签与版本号
+    name: Validate version and release notes
     runs-on: ubuntu-latest
     permissions:
       contents: write
     outputs:
       tag_name: ${{ steps.validate.outputs.tag_name }}
       release_name: ${{ steps.validate.outputs.release_name }}
+      release_notes_path: ${{ steps.validate.outputs.release_notes_path }}
 
     steps:
-      - name: 拉取代码
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 校验标签与版本号
+      - name: Validate tag, versions, and release notes
         id: validate
         shell: bash
         run: |
@@ -29,6 +30,8 @@ jobs:
           import tomllib
 
           tag = os.environ["GITHUB_REF_NAME"]
+          release_notes_path = f".github/release-notes/{tag}.md"
+
           with open("package.json", "r", encoding="utf-8") as fh:
               package_version = json.load(fh)["version"]
           with open("src-tauri/tauri.conf.json", "r", encoding="utf-8") as fh:
@@ -39,23 +42,37 @@ jobs:
           expected_tag = f"v{tauri_version}"
           if package_version != tauri_version or cargo_version != tauri_version:
               raise SystemExit(
-                  f"版本号不同步。package.json={package_version}, "
+                  f"Version mismatch: package.json={package_version}, "
                   f"tauri.conf.json={tauri_version}, Cargo.toml={cargo_version}"
               )
 
           if tag != expected_tag:
               raise SystemExit(
-                  f"标签与应用版本号不匹配。当前标签={tag}，期望标签={expected_tag}"
+                  f"Tag does not match version. Current tag: {tag}, expected: {expected_tag}"
+              )
+
+          if not os.path.exists(release_notes_path):
+              raise SystemExit(
+                  f"Missing release notes file: {release_notes_path}"
+              )
+
+          with open(release_notes_path, "r", encoding="utf-8") as fh:
+              release_notes = fh.read().strip()
+
+          if not release_notes:
+              raise SystemExit(
+                  f"Release notes file is empty: {release_notes_path}"
               )
 
           output_path = os.environ["GITHUB_OUTPUT"]
           with open(output_path, "a", encoding="utf-8") as output:
               output.write(f"tag_name={tag}\n")
               output.write(f"release_name=PeekaUsage {tag}\n")
+              output.write(f"release_notes_path={release_notes_path}\n")
           PY
 
   prepare-release:
-    name: 准备 GitHub Release
+    name: Prepare GitHub Release
     runs-on: ubuntu-latest
     needs: validate-version
     permissions:
@@ -64,17 +81,23 @@ jobs:
       release_id: ${{ steps.release.outputs.release_id }}
 
     steps:
-      - name: 创建或复用 GitHub Release
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create or update GitHub Release
         id: release
         uses: actions/github-script@v7
         env:
           TAG_NAME: ${{ needs.validate-version.outputs.tag_name }}
           RELEASE_NAME: ${{ needs.validate-version.outputs.release_name }}
+          RELEASE_NOTES_PATH: ${{ needs.validate-version.outputs.release_notes_path }}
         with:
           script: |
+            const fs = require("fs");
             const tag = process.env.TAG_NAME;
             const releaseName = process.env.RELEASE_NAME;
-            const releaseBody = "Windows NSIS 安装包、Linux x86_64 的 DEB 与 AppImage 包，以及 macOS x86_64 / arm64 的 app 与 dmg 包。当前 macOS 产物未签名、未 notarize。";
+            const releaseNotes = fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8").trim();
+            const releaseBody = `${releaseNotes}\n\n---\n\n## Artifacts\n- Windows: NSIS installer\n- Linux x86_64: DEB / AppImage\n- macOS x86_64 / arm64: app / dmg\n\n## Notes\n- Current macOS artifacts are unsigned and not notarized`;
 
             try {
               const existing = await github.rest.repos.getReleaseByTag({
@@ -82,6 +105,18 @@ jobs:
                 repo: context.repo.repo,
                 tag,
               });
+
+              await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: existing.data.id,
+                tag_name: tag,
+                name: releaseName,
+                body: releaseBody,
+                draft: false,
+                prerelease: false,
+              });
+
               core.setOutput("release_id", String(existing.data.id));
             } catch (error) {
               if (error.status !== 404) {
@@ -97,6 +132,7 @@ jobs:
                 draft: false,
                 prerelease: false,
               });
+
               core.setOutput("release_id", String(created.data.id));
             }
 
@@ -109,22 +145,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: 发布 Windows 安装包
+          - name: Publish Windows bundle
             platform: windows-latest
             tauri_args: --bundles nsis
             install_linux_deps: false
             rust_targets: ""
-          - name: 发布 Linux x86_64 安装包
+          - name: Publish Linux x86_64 bundle
             platform: ubuntu-22.04
             tauri_args: --config src-tauri/tauri.linux.conf.json --verbose
             install_linux_deps: true
             rust_targets: ""
-          - name: 发布 macOS Apple Silicon 安装包
+          - name: Publish macOS Apple Silicon bundle
             platform: macos-latest
             tauri_args: --target aarch64-apple-darwin --config src-tauri/tauri.macos.conf.json
             install_linux_deps: false
             rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
-          - name: 发布 macOS Intel 安装包
+          - name: Publish macOS Intel bundle
             platform: macos-latest
             tauri_args: --target x86_64-apple-darwin --config src-tauri/tauri.macos.conf.json
             install_linux_deps: false
@@ -134,21 +170,21 @@ jobs:
       contents: write
 
     steps:
-      - name: 拉取代码
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 安装 Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: 安装 Rust
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust_targets }}
 
-      - name: 安装 Linux 构建依赖
+      - name: Install Linux build dependencies
         if: matrix.install_linux_deps
         run: |
           sudo apt-get update
@@ -164,10 +200,10 @@ jobs:
             librsvg2-dev \
             patchelf
 
-      - name: 安装前端依赖
+      - name: Install frontend dependencies
         run: npm ci
 
-      - name: 构建并上传安装包
+      - name: Build and upload bundles
         uses: tauri-apps/tauri-action@v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -177,4 +213,28 @@ jobs:
           releaseId: ${{ needs.prepare-release.outputs.release_id }}
           tagName: ${{ needs.validate-version.outputs.tag_name }}
           args: ${{ matrix.tauri_args }}
-          assetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
+          releaseAssetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
+
+  verify-updater-manifest:
+    name: Verify updater manifest
+    runs-on: ubuntu-latest
+    needs:
+      - validate-version
+      - publish-bundles
+    steps:
+      - name: Check latest.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/StarChen4/PeekaUsage/releases/download/${{ needs.validate-version.outputs.tag_name }}/latest.json"
+          status_code="$(curl -L -s -o /tmp/latest.json -w '%{http_code}' "$url")"
+          if [ "$status_code" != "200" ]; then
+            echo "latest.json check failed, status: $status_code"
+            exit 1
+          fi
+
+          if ! grep -q '"version"' /tmp/latest.json; then
+            echo "latest.json is missing the version field"
+            cat /tmp/latest.json
+            exit 1
+          fi

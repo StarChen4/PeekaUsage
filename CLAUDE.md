@@ -20,6 +20,10 @@
 - Windows 在窗口隐藏或最小化时可能上报离屏哨兵坐标（例如 `-21845`）；这类位置不能继续写回配置，也不能在启动时照单恢复
 - 设置页“通用”里已新增语言选择，顺序固定为“简体中文”“繁體中文”“English”，持久化字段是 `language`
 - 当前前端文案统一收敛到 `src/i18n/messages.ts`，默认支持 `zh-Hans`、`zh-Hant`、`en`
+- 设置页子导航现在包含“更新”分区，支持查看当前版本、检查更新、查看 Release 说明和触发应用内更新安装
+- 自动更新检查配置字段现在是 `updateAutoCheckEnabled`、`updateCheckOnLaunch`、`updateCheckIntervalHours`
+- `src-tauri/src/lib.rs` 里 `tauri-plugin-updater` 和 `tauri-plugin-process` 只能注册一次，不能重复挂载
+- Anthropic 订阅展示已支持更多窗口和 Extra Usage，不要再假设只有单一订阅窗口
 - GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
 - 发版前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 三处版本号一致
 - CI 现在会额外在 `ubuntu-latest` 上单独执行一次 `cargo fmt --all --check`，用于拦截 Rust 格式漂移
@@ -230,12 +234,48 @@
 
 - 进入设置页时默认显示“通用”
 - 左上角返回图标恢复为直接返回主界面
-- 标题下方提供固定可见的子导航，当前使用“通用 / 供应商 / 高级”三个子项
-- “通用 / 供应商 / 高级”改为一次只显示一个子页内容，不再整页堆叠
+- 标题下方提供固定可见的子导航，当前使用“通用 / 供应商 / 高级 / 更新”四个子项
+- “通用 / 供应商 / 高级 / 更新”改为一次只显示一个子页内容，不再整页堆叠
 - 子导航使用固定布局，不再使用悬浮菜单
 - 子选项结构采用配置驱动，后续新增子页时应优先补导航项和渲染映射，而不是继续把条件判断散落到组件各处
 
-### 12. 后续功能开发默认按跨平台一致性设计
+### 13. 设置页已支持应用内更新
+
+文件：
+
+- `src/components/settings/SettingsPanel.tsx`
+- `src/components/settings/UpdateSettings.tsx`
+- `src/stores/updateStore.ts`
+- `src/types/settings.ts`
+- `src-tauri/src/commands/update_commands.rs`
+- `src-tauri/src/lib.rs`
+
+当前行为：
+
+- 设置页子导航固定包含“更新”分区
+- 更新分区支持查看当前版本、手动检查更新、查看 Release 说明
+- 检测到新版本后可直接触发应用内安装
+- 自动检查更新由 `updateAutoCheckEnabled`、`updateCheckOnLaunch`、`updateCheckIntervalHours` 控制
+- `tauri-plugin-updater` 和 `tauri-plugin-process` 在 Rust 启动链路中只能注册一次
+
+### 14. Anthropic 订阅展示已支持更多窗口与 Extra Usage
+
+文件：
+
+- `src-tauri/src/providers/subscription.rs`
+- `src-tauri/src/providers/types.rs`
+- `src/types/provider.ts`
+- `src/components/widget/ProviderCard.tsx`
+- `src/i18n/messages.ts`
+
+当前行为：
+
+- Anthropic 订阅展示不再只看单一窗口
+- 支持 `5小时`、`7天`、`7天 Sonnet` 等多个窗口
+- 如果返回 `extra_usage`，主界面会展示 Extra Usage 的利用率
+- 精简模式也会保留这些窗口和 Extra Usage 的进度条
+
+### 15. 后续功能开发默认按跨平台一致性设计
 
 当前要求：
 
@@ -403,6 +443,10 @@ export PATH="$PATH:$HOME/.cargo/bin"
 - `src-tauri/src/commands/window_commands.rs`
   - OAuth 自动检测
   - 窗口透明度命令
+- `src-tauri/src/commands/update_commands.rs`
+  - 检查应用更新
+  - 安装应用更新
+  - 获取当前版本
 
 #### 配置与密钥
 
@@ -469,10 +513,15 @@ export PATH="$PATH:$HOME/.cargo/bin"
   - 删除确认弹层入口
 - `src/components/settings/SettingsPanel.tsx`
   - 设置页容器
+  - 固定子导航
   - 全局刷新设置
   - 返回时刷新主界面开关
   - 高级分供应商刷新设置
   - 透明度调节条
+- `src/components/settings/UpdateSettings.tsx`
+  - 当前版本展示
+  - 检查更新与安装入口
+  - 自动检查相关设置
 
 #### 静态资源
 
@@ -559,6 +608,9 @@ WidgetContainer 拖拽结束
 - `refreshOnSettingsClose`
 - `language`
 - `widgetDisplayMode`
+- `updateAutoCheckEnabled`
+- `updateCheckOnLaunch`
+- `updateCheckIntervalHours`
 
 ### OAuth 凭据位置
 
@@ -608,6 +660,8 @@ WidgetContainer 拖拽结束
 - `identifier` 会影响应用数据目录，品牌改名时不能只改显示名，必须处理旧数据迁移
 - 不要只改一个版本号文件就直接发版，`package.json`、`tauri.conf.json`、`Cargo.toml` 必须同步
 - 不要推送和版本号不一致的标签，Release 流水线会直接失败
+- 每次发版都要同步提交 `.github/release-notes/vX.Y.Z.md`，并写清本次功能更新与修复内容
+- 发版结束前还要确认对应 tag 下的 `latest.json` 可访问且内容合法，否则应用内更新会直接失败
 - 不要把 Linux 的 `deb` / `appimage` 目标直接塞回主 `tauri.conf.json`，统一放在 `src-tauri/tauri.linux.conf.json`
 - 不要把 macOS 的 `app` / `dmg` 目标直接塞回主 `tauri.conf.json`，统一放在 `src-tauri/tauri.macos.conf.json`
 
@@ -753,6 +807,23 @@ WidgetContainer 拖拽结束
 - capability 是否包含 `autostart:default`
 - `launchAtStartup` 是否正确写回配置
 
+### 应用内更新异常
+
+先看：
+
+- `src-tauri/src/lib.rs`
+- `src-tauri/src/commands/update_commands.rs`
+- `src/components/settings/UpdateSettings.tsx`
+- `src/stores/updateStore.ts`
+
+重点查：
+
+- `tauri-plugin-updater` 和 `tauri-plugin-process` 是否只注册了一次
+- `check_app_update`、`install_app_update`、`get_current_version` 是否仍在 invoke handler 中
+- 更新状态是否正确同步到 `hasUpdate`、`lastCheckAt`、`isInstalling`
+- 设置页固定子导航里是否仍能进入“更新”分区
+- Release 链接打开和应用内安装是否正常
+
 ### 设置子导航异常
 
 先看：
@@ -781,6 +852,8 @@ cargo check
 涉及发版链路改动时，额外确认：
 
 - `.github/workflows/release.yml` 仍然只在 `v*` 标签触发
+- `.github/release-notes/vX.Y.Z.md` 是否已存在且内容非空
+- `https://github.com/StarChen4/PeekaUsage/releases/download/vX.Y.Z/latest.json` 是否可访问且内容合法
 - Windows runner 能成功构建 `nsis`
 - Linux `x86_64` runner 能成功构建 `deb` 和 `AppImage`
 - macOS runner 能成功构建 `x86_64` / `arm64` 的 `app` 和 `dmg`
@@ -794,6 +867,7 @@ cargo check
 - 设置页全局刷新、分供应商刷新、秒/分钟切换和“仅手动”是否按预期生效
 - 设置页“返回时刷新主界面”开关在默认关闭和开启后两种情况下是否都符合预期
 - 设置页默认是否先显示“通用”，左上角返回按钮和固定子导航切换是否都符合预期
+- 设置页“更新”分区里手动检查、自动检查、启动时检查和检查间隔设置是否都符合预期
 - 主界面卡片右上角单独刷新按钮是否只刷新当前供应商
 - 主界面底部精简 / 详细切换后卡片内容和高度是否符合预期，刷新或重启后是否保持
 - 自定义下拉在浅色/暗黑模式下的打开、关闭、键盘导航

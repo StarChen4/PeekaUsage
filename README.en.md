@@ -49,6 +49,7 @@ It is not a new model gateway or another chat wrapper. It is a lightweight deskt
 
 - Usage-based spend, budget, balance, and rate limits for OpenAI, Anthropic, and OpenRouter
 - Subscription usage windows for OpenAI and Anthropic
+- Anthropic also shows additional subscription windows and Extra Usage
 - A single desktop widget instead of multiple dashboards and CLI commands
 
 ### OAuth and API key workflows
@@ -66,6 +67,7 @@ It is not a new model gateway or another chat wrapper. It is a lightweight deskt
 - Provider-specific polling overrides
 - Drag-and-drop card ordering with persistence
 - Detailed and compact display modes
+- A dedicated updates section in settings for checking, reviewing release notes, and installing in-app updates
 - Light, dark, and system themes
 - Always-on-top mode and window opacity controls
 - Tray actions for show, hide, refresh, and settings
@@ -142,6 +144,14 @@ npm run typecheck
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
+Before pushing a release tag, add the matching release notes file:
+
+```bash
+# write .github/release-notes/v0.1.0.md first
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## Credentials
 
 ### API Keys
@@ -175,6 +185,7 @@ Subscription usage is auto-detected from local tool credentials when possible.
 Notes:
 
 - OpenAI `tokens.access_token` supports both string and indexed-object formats
+- OpenAI credentials may also live in the system credential store instead of `~/.codex/auth.json`
 - OpenRouter does not currently expose subscription OAuth usage here
 
 ## Supported Platforms
