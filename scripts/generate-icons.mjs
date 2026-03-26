@@ -17,10 +17,19 @@ const defaultSourceCandidates = [
   path.join(projectRoot, 'src-tauri', 'icons', 'icon-source.png'),
 ];
 
+const defaultSmallSourceCandidates = [
+  path.join(projectRoot, 'src-tauri', 'icons', 'icon-source-small.svg'),
+];
+
 const sourcePath = process.argv[2]
   ? path.resolve(process.argv[2])
   : defaultSourceCandidates.find((candidate) => existsSync(candidate))
     ?? defaultSourceCandidates.at(-1);
+
+const smallSourcePath = process.argv[3]
+  ? path.resolve(process.argv[3])
+  : defaultSmallSourceCandidates.find((candidate) => existsSync(candidate))
+    ?? sourcePath;
 
 const inkscapeCandidates = [
   process.env.INKSCAPE_BIN,
@@ -30,39 +39,39 @@ const inkscapeCandidates = [
 ].filter(Boolean);
 
 const standardPngOutputs = [
-  ['src-tauri/icons/32x32.png', 32],
-  ['src-tauri/icons/64x64.png', 64],
-  ['src-tauri/icons/128x128.png', 128],
-  ['src-tauri/icons/128x128@2x.png', 256],
-  ['src-tauri/icons/icon.png', 512],
-  ['src-tauri/icons/StoreLogo.png', 50],
-  ['src-tauri/icons/Square30x30Logo.png', 30],
-  ['src-tauri/icons/Square44x44Logo.png', 44],
-  ['src-tauri/icons/Square71x71Logo.png', 71],
-  ['src-tauri/icons/Square89x89Logo.png', 89],
-  ['src-tauri/icons/Square107x107Logo.png', 107],
-  ['src-tauri/icons/Square142x142Logo.png', 142],
-  ['src-tauri/icons/Square150x150Logo.png', 150],
-  ['src-tauri/icons/Square284x284Logo.png', 284],
-  ['src-tauri/icons/Square310x310Logo.png', 310],
-  ['public/favicon-16x16.png', 16],
-  ['public/favicon-32x32.png', 32],
-  ['public/apple-touch-icon.png', 180],
+  ['src-tauri/icons/32x32.png', 32, 'small'],
+  ['src-tauri/icons/64x64.png', 64, 'small'],
+  ['src-tauri/icons/128x128.png', 128, 'main'],
+  ['src-tauri/icons/128x128@2x.png', 256, 'main'],
+  ['src-tauri/icons/icon.png', 512, 'main'],
+  ['src-tauri/icons/StoreLogo.png', 50, 'small'],
+  ['src-tauri/icons/Square30x30Logo.png', 30, 'small'],
+  ['src-tauri/icons/Square44x44Logo.png', 44, 'small'],
+  ['src-tauri/icons/Square71x71Logo.png', 71, 'small'],
+  ['src-tauri/icons/Square89x89Logo.png', 89, 'small'],
+  ['src-tauri/icons/Square107x107Logo.png', 107, 'main'],
+  ['src-tauri/icons/Square142x142Logo.png', 142, 'main'],
+  ['src-tauri/icons/Square150x150Logo.png', 150, 'main'],
+  ['src-tauri/icons/Square284x284Logo.png', 284, 'main'],
+  ['src-tauri/icons/Square310x310Logo.png', 310, 'main'],
+  ['public/favicon-16x16.png', 16, 'small'],
+  ['public/favicon-32x32.png', 32, 'small'],
+  ['public/apple-touch-icon.png', 180, 'main'],
 ];
 
 const icoSizes = [16, 20, 24, 30, 32, 40, 48, 64, 72, 96, 128, 256];
 
 const macIconsetFiles = [
-  ['icon_16x16.png', 16],
-  ['icon_16x16@2x.png', 32],
-  ['icon_32x32.png', 32],
-  ['icon_32x32@2x.png', 64],
-  ['icon_128x128.png', 128],
-  ['icon_128x128@2x.png', 256],
-  ['icon_256x256.png', 256],
-  ['icon_256x256@2x.png', 512],
-  ['icon_512x512.png', 512],
-  ['icon_512x512@2x.png', 1024],
+  ['icon_16x16.png', 16, 'small'],
+  ['icon_16x16@2x.png', 32, 'small'],
+  ['icon_32x32.png', 32, 'small'],
+  ['icon_32x32@2x.png', 64, 'small'],
+  ['icon_128x128.png', 128, 'main'],
+  ['icon_128x128@2x.png', 256, 'main'],
+  ['icon_256x256.png', 256, 'main'],
+  ['icon_256x256@2x.png', 512, 'main'],
+  ['icon_512x512.png', 512, 'main'],
+  ['icon_512x512@2x.png', 1024, 'main'],
 ];
 
 const icnsTypes = [
@@ -87,15 +96,19 @@ function resolveInkscape() {
   return 'inkscape';
 }
 
+function resolveVariantSource(variant) {
+  return variant === 'small' ? smallSourcePath : sourcePath;
+}
+
 async function ensureDir(filePath) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
 }
 
-async function exportPng(inkscapePath, outputPath, size) {
+async function exportPng(inkscapePath, inputPath, outputPath, size) {
   await ensureDir(outputPath);
 
   const args = [
-    sourcePath,
+    inputPath,
     '--export-type=png',
     `--export-filename=${outputPath}`,
     '--export-area-page',
@@ -116,8 +129,7 @@ async function buildIco(tempDir) {
   const pngPaths = [];
 
   for (const size of icoSizes) {
-    const filePath = path.join(tempDir, `ico-${size}.png`);
-    pngPaths.push(filePath);
+    pngPaths.push(path.join(tempDir, `ico-${size}.png`));
   }
 
   const icoBuffer = await pngToIco(pngPaths);
@@ -144,6 +156,7 @@ async function cleanDir(dirPath) {
 
 async function main() {
   await fs.access(sourcePath);
+  await fs.access(smallSourcePath);
 
   const inkscapePath = resolveInkscape();
   const iconsetDir = path.join(projectRoot, 'src-tauri', 'icons', 'icon.iconset');
@@ -152,22 +165,38 @@ async function main() {
   try {
     await cleanDir(iconsetDir);
 
-    for (const [relativePath, size] of standardPngOutputs) {
-      await exportPng(inkscapePath, path.join(projectRoot, relativePath), size);
+    for (const [relativePath, size, variant] of standardPngOutputs) {
+      await exportPng(
+        inkscapePath,
+        resolveVariantSource(variant),
+        path.join(projectRoot, relativePath),
+        size,
+      );
     }
 
-    for (const [fileName, size] of macIconsetFiles) {
-      await exportPng(inkscapePath, path.join(iconsetDir, fileName), size);
+    for (const [fileName, size, variant] of macIconsetFiles) {
+      await exportPng(
+        inkscapePath,
+        resolveVariantSource(variant),
+        path.join(iconsetDir, fileName),
+        size,
+      );
     }
 
     for (const size of icoSizes) {
-      await exportPng(inkscapePath, path.join(tempDir, `ico-${size}.png`), size);
+      await exportPng(
+        inkscapePath,
+        size <= 89 ? smallSourcePath : sourcePath,
+        path.join(tempDir, `ico-${size}.png`),
+        size,
+      );
     }
 
     await buildIco(tempDir);
     await buildIcns(iconsetDir);
 
-    console.log(`已生成图标，源文件: ${sourcePath}`);
+    console.log(`已生成图标，大尺寸源文件: ${sourcePath}`);
+    console.log(`已生成图标，小尺寸源文件: ${smallSourcePath}`);
     console.log(`已使用 Inkscape: ${inkscapePath}`);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
