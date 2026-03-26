@@ -11,7 +11,7 @@ export type LogicalWindowPosition = {
   y: number;
 };
 
-export type WindowDockEdge = "left" | "right" | "top" | "bottom";
+export type WindowDockEdge = "left" | "right";
 
 export type WindowDockBounds = {
   edge: WindowDockEdge;
@@ -27,14 +27,16 @@ type ResolveWindowDockBoundsOptions = {
 
 export const MIN_WINDOW_WIDTH = 220;
 export const MIN_WINDOW_HEIGHT = 200;
-export const EDGE_DOCK_COLLAPSED_THICKNESS = 14;
+export const EDGE_DOCK_COLLAPSED_WIDTH = 16;
+export const EDGE_DOCK_COLLAPSED_HEIGHT_MIN = 96;
+export const EDGE_DOCK_COLLAPSED_HEIGHT_MAX = 136;
 
 const WINDOW_SIZE_EPSILON = 1;
 const WINDOW_SCREEN_MARGIN = 16;
 const WINDOW_POSITION_SENTINEL_THRESHOLD = 10000;
 const PROGRAMMATIC_RESIZE_HOLD_MS = 400;
 const MANUAL_RESIZE_SUPPRESSION_MS = 600;
-const EDGE_DOCK_TRIGGER_DISTANCE = 24;
+const EDGE_DOCK_TRIGGER_DISTANCE = 28;
 const EDGE_DOCK_RESIZE_ESCAPE_PX = 48;
 const EDGE_DOCK_RESIZE_ESCAPE_RATIO = 0.18;
 
@@ -228,6 +230,14 @@ function getLogicalMonitorWorkArea(monitor: Monitor) {
   };
 }
 
+function getCollapsedHeight(expandedHeight: number, workAreaHeight: number) {
+  return clamp(
+    Math.round(expandedHeight * 0.54),
+    EDGE_DOCK_COLLAPSED_HEIGHT_MIN,
+    Math.min(EDGE_DOCK_COLLAPSED_HEIGHT_MAX, workAreaHeight),
+  );
+}
+
 export async function resolveWindowDockBounds(
   position: LogicalWindowPosition,
   size: LogicalWindowSize,
@@ -271,14 +281,6 @@ export function resolveWindowDockBoundsForMonitor(
       edge: "right" as WindowDockEdge,
       overflow: rawPosition.x + expandedSize.width - (workArea.x + workArea.width),
     },
-    {
-      edge: "top" as WindowDockEdge,
-      overflow: workArea.y - rawPosition.y,
-    },
-    {
-      edge: "bottom" as WindowDockEdge,
-      overflow: rawPosition.y + expandedSize.height - (workArea.y + workArea.height),
-    },
   ]
     .filter((item) => item.overflow > 0)
     .sort((left, right) => right.overflow - left.overflow);
@@ -291,14 +293,6 @@ export function resolveWindowDockBoundsForMonitor(
       edge: "right" as WindowDockEdge,
       distance: Math.abs(clampedPosition.x + expandedSize.width - (workArea.x + workArea.width)),
     },
-    {
-      edge: "top" as WindowDockEdge,
-      distance: Math.abs(clampedPosition.y - workArea.y),
-    },
-    {
-      edge: "bottom" as WindowDockEdge,
-      distance: Math.abs(clampedPosition.y + expandedSize.height - (workArea.y + workArea.height)),
-    },
   ]
     .filter((item) => item.distance <= EDGE_DOCK_TRIGGER_DISTANCE)
     .sort((left, right) => left.distance - right.distance);
@@ -309,7 +303,15 @@ export function resolveWindowDockBoundsForMonitor(
   }
 
   switch (winner.edge) {
-    case "left":
+    case "left": {
+      const collapsedHeight = getCollapsedHeight(expandedSize.height, workArea.height);
+      const expandedCenterY = clampedPosition.y + expandedSize.height / 2;
+      const collapsedY = clamp(
+        roundWindowValue(expandedCenterY - collapsedHeight / 2),
+        workArea.y,
+        workArea.y + workArea.height - collapsedHeight,
+      );
+
       return {
         edge: "left",
         expandedPosition: {
@@ -319,14 +321,23 @@ export function resolveWindowDockBoundsForMonitor(
         expandedSize,
         collapsedPosition: {
           x: workArea.x,
-          y: clampedPosition.y,
+          y: collapsedY,
         },
         collapsedSize: {
-          width: EDGE_DOCK_COLLAPSED_THICKNESS,
-          height: expandedSize.height,
+          width: EDGE_DOCK_COLLAPSED_WIDTH,
+          height: collapsedHeight,
         },
       };
-    case "right":
+    }
+    case "right": {
+      const collapsedHeight = getCollapsedHeight(expandedSize.height, workArea.height);
+      const expandedCenterY = clampedPosition.y + expandedSize.height / 2;
+      const collapsedY = clamp(
+        roundWindowValue(expandedCenterY - collapsedHeight / 2),
+        workArea.y,
+        workArea.y + workArea.height - collapsedHeight,
+      );
+
       return {
         edge: "right",
         expandedPosition: {
@@ -335,47 +346,14 @@ export function resolveWindowDockBoundsForMonitor(
         },
         expandedSize,
         collapsedPosition: {
-          x: workArea.x + workArea.width - EDGE_DOCK_COLLAPSED_THICKNESS,
-          y: clampedPosition.y,
+          x: workArea.x + workArea.width - EDGE_DOCK_COLLAPSED_WIDTH,
+          y: collapsedY,
         },
         collapsedSize: {
-          width: EDGE_DOCK_COLLAPSED_THICKNESS,
-          height: expandedSize.height,
+          width: EDGE_DOCK_COLLAPSED_WIDTH,
+          height: collapsedHeight,
         },
       };
-    case "top":
-      return {
-        edge: "top",
-        expandedPosition: {
-          x: clampedPosition.x,
-          y: workArea.y,
-        },
-        expandedSize,
-        collapsedPosition: {
-          x: clampedPosition.x,
-          y: workArea.y,
-        },
-        collapsedSize: {
-          width: expandedSize.width,
-          height: EDGE_DOCK_COLLAPSED_THICKNESS,
-        },
-      };
-    case "bottom":
-      return {
-        edge: "bottom",
-        expandedPosition: {
-          x: clampedPosition.x,
-          y: workArea.y + workArea.height - expandedSize.height,
-        },
-        expandedSize,
-        collapsedPosition: {
-          x: clampedPosition.x,
-          y: workArea.y + workArea.height - EDGE_DOCK_COLLAPSED_THICKNESS,
-        },
-        collapsedSize: {
-          width: expandedSize.width,
-          height: EDGE_DOCK_COLLAPSED_THICKNESS,
-        },
-      };
+    }
   }
 }

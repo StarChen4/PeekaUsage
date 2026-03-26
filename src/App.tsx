@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LogicalPosition, LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
+import EdgeDockHandle from "./components/common/EdgeDockHandle";
 import TitleBar from "./components/common/TitleBar";
 import WidgetContainer from "./components/widget/WidgetContainer";
 import SettingsPanel from "./components/settings/SettingsPanel";
@@ -29,10 +30,16 @@ import {
   type WindowDockEdge,
 } from "./utils/windowBounds";
 
+type WindowDockPhase = "collapsed" | "preview";
+
 type WindowDockState = {
   edge: WindowDockEdge;
-  collapsed: boolean;
+  phase: WindowDockPhase;
   expandedBounds: {
+    windowPosition: LogicalWindowPosition;
+    windowSize: LogicalWindowSize;
+  };
+  collapsedBounds: {
     windowPosition: LogicalWindowPosition;
     windowSize: LogicalWindowSize;
   };
@@ -42,7 +49,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<"widget" | "settings">("widget");
   const [dockVisualState, setDockVisualState] = useState<{
     edge: WindowDockEdge;
-    collapsed: boolean;
+    phase: WindowDockPhase;
   } | null>(null);
   const settings = useSettingsStore((state) => state.settings);
   const loadSettings = useSettingsStore((state) => state.loadSettings);
@@ -125,7 +132,7 @@ export default function App() {
     setDockVisualState(nextState
       ? {
         edge: nextState.edge,
-        collapsed: nextState.collapsed,
+        phase: nextState.phase,
       }
       : null);
   }
@@ -154,7 +161,7 @@ export default function App() {
     }
 
     const dockState = dockStateRef.current;
-    if (!dockState || dockState.collapsed) {
+    if (!dockState || dockState.phase === "collapsed") {
       return;
     }
 
@@ -170,10 +177,14 @@ export default function App() {
 
     const nextState: WindowDockState = {
       edge: dockBounds.edge,
-      collapsed: true,
+      phase: "collapsed",
       expandedBounds: {
         windowPosition: dockBounds.expandedPosition,
         windowSize: dockBounds.expandedSize,
+      },
+      collapsedBounds: {
+        windowPosition: dockBounds.collapsedPosition,
+        windowSize: dockBounds.collapsedSize,
       },
     };
 
@@ -184,7 +195,7 @@ export default function App() {
 
   async function expandDockedWindow() {
     const dockState = dockStateRef.current;
-    if (!dockState || !dockState.collapsed) {
+    if (!dockState || dockState.phase !== "collapsed") {
       return;
     }
 
@@ -195,7 +206,7 @@ export default function App() {
 
     const nextState: WindowDockState = {
       ...dockState,
-      collapsed: false,
+      phase: "preview",
     };
     updateDockState(nextState);
     persistDockExpandedBounds(nextState);
@@ -210,10 +221,14 @@ export default function App() {
 
     const nextState: WindowDockState = {
       edge: dockBounds.edge,
-      collapsed: true,
+      phase: "collapsed",
       expandedBounds: {
         windowPosition: dockBounds.expandedPosition,
         windowSize: dockBounds.expandedSize,
+      },
+      collapsedBounds: {
+        windowPosition: dockBounds.collapsedPosition,
+        windowSize: dockBounds.collapsedSize,
       },
     };
 
@@ -345,7 +360,7 @@ export default function App() {
 
     clearEdgeDockCollapseTimer();
 
-    if (dockStateRef.current?.collapsed) {
+    if (dockStateRef.current?.phase === "collapsed") {
       void expandDockedWindow();
     }
   }
@@ -356,7 +371,7 @@ export default function App() {
     }
 
     const dockState = dockStateRef.current;
-    if (!dockState || dockState.collapsed || Date.now() < titlebarDragIntentUntilRef.current) {
+    if (!dockState || dockState.phase !== "preview" || Date.now() < titlebarDragIntentUntilRef.current) {
       return;
     }
 
@@ -385,7 +400,7 @@ export default function App() {
     }
 
     void (async () => {
-      if (dockState.collapsed) {
+      if (dockState.phase === "collapsed") {
         await setProgrammaticWindowBounds(
           dockState.expandedBounds.windowPosition,
           dockState.expandedBounds.windowSize,
@@ -399,6 +414,20 @@ export default function App() {
       });
     })();
   }, [settings.edgeDockCollapseEnabled]);
+
+  useEffect(() => {
+    const appElement = document.getElementById("app");
+    if (!appElement) {
+      return;
+    }
+
+    const isCollapsed = dockVisualState?.phase === "collapsed";
+    appElement.classList.toggle("app-edge-docked-collapsed", isCollapsed);
+
+    return () => {
+      appElement.classList.remove("app-edge-docked-collapsed");
+    };
+  }, [dockVisualState?.phase]);
 
   useEffect(() => {
     let active = true;
@@ -485,7 +514,7 @@ export default function App() {
         const dockState = dockStateRef.current;
 
         if (dockState) {
-          if (!dockState.collapsed) {
+          if (dockState.phase !== "collapsed") {
             dockStateRef.current = {
               ...dockState,
               expandedBounds: {
@@ -522,7 +551,7 @@ export default function App() {
             return;
           }
 
-          dockStateRef.current = dockState.collapsed
+          dockStateRef.current = dockState.phase === "collapsed"
             ? dockState
             : {
               ...dockState,
@@ -615,7 +644,7 @@ export default function App() {
 
   return (
     <div
-      className={`app-shell${dockVisualState ? " is-edge-docked" : ""}${dockVisualState?.collapsed ? " is-edge-docked-collapsed" : ""}${dockVisualState ? ` edge-${dockVisualState.edge}` : ""}`}
+      className={`app-shell${dockVisualState ? " is-edge-docked" : ""}${dockVisualState?.phase === "collapsed" ? " is-edge-docked-collapsed" : ""}${dockVisualState?.phase === "preview" ? " is-edge-docked-preview" : ""}${dockVisualState ? ` edge-${dockVisualState.edge}` : ""}`}
       onMouseEnter={handleAppMouseEnter}
       onMouseLeave={handleAppMouseLeave}
     >
@@ -623,12 +652,12 @@ export default function App() {
       {currentView === "widget" ? (
         <WidgetContainer
           onOpenSettings={() => setCurrentView("settings")}
-          suppressWindowAutoFit={!!dockVisualState?.collapsed}
+          suppressWindowAutoFit={dockVisualState?.phase === "collapsed"}
         />
       ) : (
         <SettingsPanel onBack={() => void handleBackFromSettings()} />
       )}
-      {dockVisualState?.collapsed ? <div className="dock-peek-indicator" aria-hidden="true" /> : null}
+      {dockVisualState?.phase === "collapsed" ? <EdgeDockHandle edge={dockVisualState.edge} /> : null}
     </div>
   );
 }
