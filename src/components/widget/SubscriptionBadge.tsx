@@ -1,5 +1,5 @@
 import { useI18n } from "../../i18n";
-import type { SubscriptionUsage } from "../../types/provider";
+import type { ExtraUsage, SubscriptionUsage } from "../../types/provider";
 import UsageProgressBar from "./UsageProgressBar";
 
 type SubscriptionBadgeProps = {
@@ -33,6 +33,45 @@ export default function SubscriptionBadge({ subscription }: SubscriptionBadgePro
     return t("widget.subscription.resetInDays", { count: diffDay });
   }
 
+  function renderExtraUsage(extra: ExtraUsage) {
+    if (!extra.isEnabled) return null;
+
+    const label = t("widget.subscription.extraUsageLabel");
+    const resetText = extra.resetsAt
+      ? formatResetTime(extra.resetsAt)
+      : t("widget.subscription.extraUsageResetsMonthly");
+
+    if (extra.monthlyLimitUsd === null) {
+      return (
+        <div className="sub-window sub-window--extra">
+          <div className="window-header">
+            <span className="window-label">{label}</span>
+            <span className="window-reset">{t("widget.subscription.extraUsageUnlimited")}</span>
+          </div>
+        </div>
+      );
+    }
+
+    const utilization = extra.utilization ?? 0;
+    const usedStr = extra.usedUsd != null ? extra.usedUsd.toFixed(2) : "0.00";
+    const limitStr = extra.monthlyLimitUsd.toFixed(2);
+
+    return (
+      <div className="sub-window sub-window--extra">
+        <div className="window-header">
+          <span className="window-label">{label}</span>
+          <span className="window-reset" title={extra.resetsAt ?? undefined}>
+            {resetText}
+          </span>
+        </div>
+        <UsageProgressBar percent={utilization} />
+        <div className="extra-usage-spent">
+          {t("widget.subscription.extraUsageSpent", { used: usedStr, limit: limitStr })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="subscription-section">
       <div className="sub-header">
@@ -59,6 +98,7 @@ export default function SubscriptionBadge({ subscription }: SubscriptionBadgePro
               <UsageProgressBar percent={win.utilization} />
             </div>
           ))}
+          {subscription.extraUsage && renderExtraUsage(subscription.extraUsage)}
         </div>
       )}
 

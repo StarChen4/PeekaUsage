@@ -107,6 +107,7 @@ impl ProviderManager {
             _ => SubscriptionUsage {
                 plan_name: None,
                 windows: vec![],
+                extra_usage: None,
                 status: ProviderStatus::Error,
                 error_message: Some("当前供应商不支持订阅查询".into()),
             },

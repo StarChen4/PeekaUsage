@@ -521,7 +521,7 @@ export default function ProviderConfig({
                 {config.providerId === "anthropic" ? (
                   <>
                     {t("settings.providerConfig.detectAnthropicHintAuto")} <code>~/.claude/.credentials.json</code><br />
-                    {t("settings.providerConfig.detectAnthropicHintManual")} <code>claude</code>
+                    {t("settings.providerConfig.detectAnthropicHintManual")} <code>claude setup-token</code>
                   </>
                 ) : (
                   <>

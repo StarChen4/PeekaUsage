@@ -26,10 +26,21 @@ export interface SubscriptionWindow {
   resetsAt: string | null;
 }
 
+/** 额外用量（Extra Usage，仅 Anthropic） */
+export interface ExtraUsage {
+  isEnabled: boolean;
+  monthlyLimitUsd: number | null;
+  usedUsd: number | null;
+  /** 利用率百分比 0-100 */
+  utilization: number | null;
+  resetsAt: string | null;
+}
+
 /** 订阅用量数据 */
 export interface SubscriptionUsage {
   planName: string | null;
   windows: SubscriptionWindow[];
+  extraUsage: ExtraUsage | null;
   status: ProviderStatus;
   errorMessage: string | null;
 }

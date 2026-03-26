@@ -42,12 +42,6 @@ pub struct AppSettings {
     pub window_size: Option<WindowSize>,
     #[serde(default = "default_provider_card_expanded")]
     pub provider_card_expanded: HashMap<String, bool>,
-    #[serde(default = "default_update_auto_check_enabled")]
-    pub update_auto_check_enabled: bool,
-    #[serde(default = "default_update_check_on_launch")]
-    pub update_check_on_launch: bool,
-    #[serde(default = "default_update_check_interval_hours")]
-    pub update_check_interval_hours: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -171,18 +165,6 @@ impl PollingSettings {
         self.polling_interval = self.polling_interval.clamp(1, 999);
         self
     }
-}
-
-fn default_update_auto_check_enabled() -> bool {
-    true
-}
-
-fn default_update_check_on_launch() -> bool {
-    true
-}
-
-fn default_update_check_interval_hours() -> u32 {
-    2
 }
 
 fn default_update_auto_check_enabled() -> bool {

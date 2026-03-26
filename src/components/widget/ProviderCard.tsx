@@ -88,6 +88,21 @@ export default function ProviderCard({
                   </div>
                 </div>
               ))}
+              {(() => {
+                const extra = provider.subscription?.extraUsage;
+                if (!extra?.isEnabled || extra.monthlyLimitUsd === null || extra.utilization == null) return null;
+                const label = t("widget.subscription.extraUsageLabel");
+                return (
+                  <div className="compact-metric-row">
+                    <span className="compact-metric-label" title={label}>
+                      {formatCompactSubscriptionLabel(label, t("widget.providerCard.subscriptionShort"))}
+                    </span>
+                    <div className="compact-metric-bar">
+                      <UsageProgressBar percent={extra.utilization} />
+                    </div>
+                  </div>
+                );
+              })()}
 
               {compactApiItems.map((item) => (
                 <div key={item.keyId} className="compact-metric-row">

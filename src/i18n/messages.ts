@@ -199,6 +199,10 @@ export const messages = {
         resetInMinutes: "{count}分钟后重置",
         resetInHours: "{count}小时后重置",
         resetInDays: "{count}天后重置",
+        extraUsageLabel: "额外用量",
+        extraUsageUnlimited: "无限额",
+        extraUsageSpent: "已用 ${used} / ${limit}",
+        extraUsageResetsMonthly: "每月重置",
       },
       opacityHandle: {
         title: "透明度 {opacity}%",
@@ -398,6 +402,10 @@ export const messages = {
         resetInMinutes: "{count}分鐘後重置",
         resetInHours: "{count}小時後重置",
         resetInDays: "{count}天後重置",
+        extraUsageLabel: "額外用量",
+        extraUsageUnlimited: "無限額",
+        extraUsageSpent: "已用 ${used} / ${limit}",
+        extraUsageResetsMonthly: "每月重置",
       },
       opacityHandle: {
         title: "透明度 {opacity}%",
@@ -597,6 +605,10 @@ export const messages = {
         resetInMinutes: "Resets in {count} min",
         resetInHours: "Resets in {count} hr",
         resetInDays: "Resets in {count} day(s)",
+        extraUsageLabel: "Extra usage",
+        extraUsageUnlimited: "Unlimited",
+        extraUsageSpent: "${used} / ${limit} spent",
+        extraUsageResetsMonthly: "Monthly reset",
       },
       opacityHandle: {
         title: "Opacity {opacity}%",

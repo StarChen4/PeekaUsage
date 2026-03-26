@@ -86,6 +86,22 @@ pub struct SubscriptionWindow {
     pub resets_at: Option<String>,
 }
 
+/// 额外用量（Extra Usage）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtraUsage {
+    /// 是否已启用
+    pub is_enabled: bool,
+    /// 月度上限（美元），None 表示无限额
+    pub monthly_limit_usd: Option<f64>,
+    /// 本月已用（美元）
+    pub used_usd: Option<f64>,
+    /// 利用率百分比 (0-100)
+    pub utilization: Option<f64>,
+    /// 重置时间（月初，ISO 8601）
+    pub resets_at: Option<String>,
+}
+
 /// 订阅用量数据
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -94,6 +110,8 @@ pub struct SubscriptionUsage {
     pub plan_name: Option<String>,
     /// 各个限制窗口
     pub windows: Vec<SubscriptionWindow>,
+    /// 额外用量（仅 Anthropic）
+    pub extra_usage: Option<ExtraUsage>,
     /// 状态
     pub status: ProviderStatus,
     /// 错误信息

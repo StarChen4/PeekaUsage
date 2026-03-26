@@ -98,6 +98,12 @@
   color: var(--color-text-muted);
 }
 
+.extra-usage-spent {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  margin-top: 1px;
+}
+
 .sub-error-msg {
   font-size: 9px;
   color: var(--color-danger);
