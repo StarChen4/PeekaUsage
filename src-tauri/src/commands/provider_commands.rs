@@ -14,12 +14,14 @@ const LEGACY_SUBSCRIPTION_ID: &str = "legacy-subscription";
 struct ResolvedApiKey {
     id: String,
     name: String,
+    color: String,
     value: String,
 }
 
 struct ResolvedSubscription {
     id: String,
     name: String,
+    color: String,
     value: String,
     source: Option<String>,
 }
@@ -102,6 +104,7 @@ pub async fn get_provider_configs(
                 is_active_in_environment: active_api_key_id.as_deref() == Some(key.id.as_str()),
                 id: key.id,
                 name: key.name,
+                color: key.color,
                 value: mask_value(&key.value),
             })
             .collect();
@@ -121,6 +124,7 @@ pub async fn get_provider_configs(
             .map(|subscription| ProviderSubscriptionItem {
                 id: subscription.id,
                 name: subscription.name,
+                color: subscription.color,
                 oauth_token: mask_value(&subscription.value),
                 source: subscription.source,
             })
@@ -176,6 +180,7 @@ pub async fn save_provider_config(
             Some(ProviderApiKeyInput {
                 id,
                 name: normalize_key_name(&key.name, index),
+                color: normalize_marker_color(&key.color, index),
                 value,
             })
         })
@@ -199,6 +204,7 @@ pub async fn save_provider_config(
             Some(ProviderSubscriptionInput {
                 id,
                 name: normalize_subscription_name(&subscription.name, index),
+                color: normalize_marker_color(&subscription.color, index),
                 oauth_token,
                 source: subscription.source.and_then(normalize_optional_string),
             })
@@ -213,6 +219,7 @@ pub async fn save_provider_config(
             .map(|key| ProviderApiKeyEntry {
                 id: key.id.clone(),
                 name: key.name.clone(),
+                color: key.color.clone(),
             })
             .collect(),
         subscriptions: sanitized_subscriptions
@@ -220,6 +227,7 @@ pub async fn save_provider_config(
             .map(|subscription| ProviderSubscriptionEntry {
                 id: subscription.id.clone(),
                 name: subscription.name.clone(),
+                color: subscription.color.clone(),
                 source: subscription.source.clone(),
             })
             .collect(),
@@ -464,6 +472,7 @@ async fn build_usage_summary(
                 api_key_usages.push(ApiKeyUsageSummary {
                     key_id: api_key.id.clone(),
                     key_name: api_key.name.clone(),
+                    color: api_key.color.clone(),
                     status: ProviderStatus::Success,
                     usage: Some(usage),
                     rate_limit: item_rate_limit,
@@ -475,6 +484,7 @@ async fn build_usage_summary(
                 api_key_usages.push(ApiKeyUsageSummary {
                     key_id: api_key.id.clone(),
                     key_name: api_key.name.clone(),
+                    color: api_key.color.clone(),
                     status: ProviderStatus::Error,
                     usage: None,
                     rate_limit: None,
@@ -499,6 +509,7 @@ async fn build_usage_summary(
         subscription_summaries.push(SubscriptionUsageSummary {
             subscription_id: subscription.id,
             subscription_name: subscription.name,
+            color: subscription.color,
             source: subscription.source,
             usage,
         });
@@ -561,6 +572,7 @@ async fn load_provider_api_keys(
                 api_keys.push(ResolvedApiKey {
                     id: key.id.clone(),
                     name: normalize_key_name(&key.name, index),
+                    color: normalize_marker_color(&key.color, index),
                     value,
                 });
             }
@@ -579,6 +591,7 @@ async fn load_provider_api_keys(
             api_keys.push(ResolvedApiKey {
                 id: LEGACY_API_KEY_ID.to_string(),
                 name: "默认 Key".to_string(),
+                color: normalize_marker_color("", 0),
                 value: legacy_value,
             });
         }
@@ -606,6 +619,7 @@ async fn load_provider_subscriptions(
                 subscriptions.push(ResolvedSubscription {
                     id: subscription.id.clone(),
                     name: normalize_subscription_name(&subscription.name, index),
+                    color: normalize_marker_color(&subscription.color, index),
                     value,
                     source: subscription.source.clone(),
                 });
@@ -626,6 +640,7 @@ async fn load_provider_subscriptions(
             subscriptions.push(ResolvedSubscription {
                 id: LEGACY_SUBSCRIPTION_ID.to_string(),
                 name: default_subscription_name(provider),
+                color: normalize_marker_color("", 0),
                 value: legacy_value,
                 source: None,
             });
@@ -725,6 +740,19 @@ fn normalize_subscription_name(name: &str, index: usize) -> String {
         format!("订阅 {}", index + 1)
     } else {
         trimmed.to_string()
+    }
+}
+
+fn normalize_marker_color(color: &str, index: usize) -> String {
+    const MARKER_COLORS: [&str; 8] = [
+        "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16",
+    ];
+
+    let trimmed = color.trim();
+    if MARKER_COLORS.contains(&trimmed) {
+        trimmed.to_string()
+    } else {
+        MARKER_COLORS[index % MARKER_COLORS.len()].to_string()
     }
 }
 

@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useI18n } from "../../i18n";
-import type { ProviderApiKeyItem, ProviderConfigItem, ProviderId, ProviderSubscriptionItem } from "../../types/provider";
+import {
+  PROVIDER_MARKER_COLORS,
+  normalizeProviderMarkerColor,
+  type ProviderApiKeyItem,
+  type ProviderConfigItem,
+  type ProviderId,
+  type ProviderSubscriptionItem,
+} from "../../types/provider";
 import { activateProviderApiKey, detectOAuthTokens, type DetectedToken, removeProviderConfig, saveProviderConfig, validateApiKey } from "../../utils/ipc";
 import AppSelect, { type SelectOption } from "../common/AppSelect";
 import ConfirmDialog from "../common/ConfirmDialog";
@@ -28,6 +35,7 @@ type ProviderConfigProps = {
 
 type ProviderConfigView = "apiKeys" | "subscriptions";
 type DetectChoiceState = { primary: DetectedToken; secondary: DetectedToken } | null;
+type ColorPickerTarget = `apiKey:${string}` | `subscription:${string}` | null;
 
 export default function ProviderConfig(props: ProviderConfigProps) {
   const { config, expanded, mode = "edit", selectableProviders = [], onSaved, onCanceled, onRemoved, onExpandedChange, onProviderChange, onEnvironmentChanged } = props;
@@ -44,6 +52,7 @@ export default function ProviderConfig(props: ProviderConfigProps) {
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [colorPickerTarget, setColorPickerTarget] = useState<ColorPickerTarget>(null);
   const [saveResult, setSaveResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const syncingFromPropsRef = useRef(false);
   const keepSaveResultOnNextSyncRef = useRef(false);
@@ -56,13 +65,13 @@ export default function ProviderConfig(props: ProviderConfigProps) {
   function defaultKeyName(index: number) { return t("settings.providerConfig.keyName", { index: index + 1 }); }
   function defaultSubscriptionName(index: number) { return t("settings.providerConfig.subscriptionName", { index: index + 1 }); }
   function createId(prefix: string) { return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`; }
-  function createEmptyApiKey(index: number): ProviderApiKeyItem { return { id: createId("key"), name: defaultKeyName(index), value: "", isActiveInEnvironment: false }; }
-  function createEmptySubscription(index: number): ProviderSubscriptionItem { return { id: createId("subscription"), name: defaultSubscriptionName(index), oauthToken: "", source: null }; }
-  function cloneApiKeys(source: ProviderApiKeyItem[]) { return source.length === 0 ? [createEmptyApiKey(0)] : source.map((item, index) => ({ id: item.id || createId("key"), name: item.name || defaultKeyName(index), value: item.value, isActiveInEnvironment: !!item.isActiveInEnvironment })); }
-  function cloneSubscriptions(source: ProviderSubscriptionItem[]) { if (!canDetectOAuth) return []; return source.length === 0 ? [createEmptySubscription(0)] : source.map((item, index) => ({ id: item.id || createId("subscription"), name: item.name || defaultSubscriptionName(index), oauthToken: item.oauthToken, source: item.source ?? null })); }
-  function sanitizedApiKeys(items: ProviderApiKeyItem[]) { return items.map((item, index) => ({ id: item.id, name: item.name.trim() || defaultKeyName(index), value: item.value.trim() })).filter((item) => item.value.length > 0); }
-  function sanitizedSubscriptions(items: ProviderSubscriptionItem[]) { return items.map((item, index) => ({ id: item.id, name: item.name.trim() || defaultSubscriptionName(index), oauthToken: item.oauthToken.trim(), source: item.source?.trim() || null })).filter((item) => item.oauthToken.length > 0); }
-  function clearTransientState() { setValidatingKeyId(null); setActivatingKeyId(null); setValidationResults({}); setDetecting(false); setDetectResult(null); setDetectChoice(null); setShowRemoveDialog(false); }
+  function createEmptyApiKey(index: number): ProviderApiKeyItem { return { id: createId("key"), name: defaultKeyName(index), color: normalizeProviderMarkerColor(null, index), value: "", isActiveInEnvironment: false }; }
+  function createEmptySubscription(index: number): ProviderSubscriptionItem { return { id: createId("subscription"), name: defaultSubscriptionName(index), color: normalizeProviderMarkerColor(null, index), oauthToken: "", source: null }; }
+  function cloneApiKeys(source: ProviderApiKeyItem[]) { return source.length === 0 ? [createEmptyApiKey(0)] : source.map((item, index) => ({ id: item.id || createId("key"), name: item.name || defaultKeyName(index), color: normalizeProviderMarkerColor(item.color, index), value: item.value, isActiveInEnvironment: !!item.isActiveInEnvironment })); }
+  function cloneSubscriptions(source: ProviderSubscriptionItem[]) { if (!canDetectOAuth) return []; return source.length === 0 ? [createEmptySubscription(0)] : source.map((item, index) => ({ id: item.id || createId("subscription"), name: item.name || defaultSubscriptionName(index), color: normalizeProviderMarkerColor(item.color, index), oauthToken: item.oauthToken, source: item.source ?? null })); }
+  function sanitizedApiKeys(items: ProviderApiKeyItem[]) { return items.map((item, index) => ({ id: item.id, name: item.name.trim() || defaultKeyName(index), color: normalizeProviderMarkerColor(item.color, index), value: item.value.trim() })).filter((item) => item.value.length > 0); }
+  function sanitizedSubscriptions(items: ProviderSubscriptionItem[]) { return items.map((item, index) => ({ id: item.id, name: item.name.trim() || defaultSubscriptionName(index), color: normalizeProviderMarkerColor(item.color, index), oauthToken: item.oauthToken.trim(), source: item.source?.trim() || null })).filter((item) => item.oauthToken.length > 0); }
+  function clearTransientState() { setValidatingKeyId(null); setActivatingKeyId(null); setValidationResults({}); setDetecting(false); setDetectResult(null); setDetectChoice(null); setShowRemoveDialog(false); setColorPickerTarget(null); }
 
   const hasAnyCredential = sanitizedApiKeys(apiKeys).length > 0 || sanitizedSubscriptions(subscriptions).length > 0;
   const hasChanges = JSON.stringify({ apiKeys: sanitizedApiKeys(apiKeys), subscriptions: sanitizedSubscriptions(subscriptions) }) !== JSON.stringify({ apiKeys: sanitizedApiKeys(config.apiKeys), subscriptions: sanitizedSubscriptions(config.subscriptions) });
@@ -71,6 +80,44 @@ export default function ProviderConfig(props: ProviderConfigProps) {
   useEffect(() => { if (!canDetectOAuth && activeView === "subscriptions") setActiveView("apiKeys"); }, [activeView, canDetectOAuth]);
   useEffect(() => { syncingFromPropsRef.current = true; setApiKeys(cloneApiKeys(config.apiKeys)); setSubscriptions(cloneSubscriptions(config.subscriptions)); syncingFromPropsRef.current = false; clearTransientState(); if (keepSaveResultOnNextSyncRef.current) { keepSaveResultOnNextSyncRef.current = false; return; } setSaveResult(null); }, [config, canDetectOAuth]);
   useEffect(() => { if (syncingFromPropsRef.current) return; clearTransientState(); setSaveResult(null); }, [apiKeys, subscriptions]);
+
+  function renderColorPicker(target: ColorPickerTarget, color: string, onSelect: (nextColor: string) => void) {
+    const isOpen = colorPickerTarget === target;
+
+    return (
+      <div className="color-picker">
+        <button
+          className={`color-swatch-trigger${isOpen ? " is-open" : ""}`}
+          type="button"
+          aria-label={t("settings.providerConfig.selectMarkerColor")}
+          aria-expanded={isOpen}
+          onClick={() => setColorPickerTarget((current) => current === target ? null : target)}
+        >
+          <span className="color-swatch-trigger-fill" style={{ backgroundColor: color }} />
+        </button>
+        {isOpen && (
+          <div className="color-palette" role="listbox" aria-label={t("settings.providerConfig.markerColorLabel")}>
+            {PROVIDER_MARKER_COLORS.map((optionColor) => (
+              <button
+                key={optionColor}
+                className={`color-palette-swatch${color === optionColor ? " is-selected" : ""}`}
+                type="button"
+                role="option"
+                aria-selected={color === optionColor}
+                title={optionColor}
+                onClick={() => {
+                  onSelect(optionColor);
+                  setColorPickerTarget(null);
+                }}
+              >
+                <span className="color-palette-swatch-fill" style={{ backgroundColor: optionColor }} />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   function sortDetectedTokens(tokens: DetectedToken[]) {
     const rank: Record<string, number> = { windows: 0, native: 0, wsl: 1 };
@@ -267,7 +314,10 @@ export default function ProviderConfig(props: ProviderConfigProps) {
               {apiKeys.map((item, index) => (
                 <div key={item.id} className="api-key-card">
                   <div className="api-key-header">
-                    <input value={item.name} onChange={(event) => { const nextValue = event.target.value; setApiKeys((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, name: nextValue } : currentItem)); }} className="key-name-input" type="text" placeholder={t("settings.providerConfig.keyName", { index: index + 1 })} />
+                    <div className="name-color-row">
+                      <input value={item.name} onChange={(event) => { const nextValue = event.target.value; setApiKeys((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, name: nextValue } : currentItem)); }} className="key-name-input" type="text" placeholder={t("settings.providerConfig.keyName", { index: index + 1 })} />
+                      {renderColorPicker(`apiKey:${item.id}`, item.color, (nextColor) => setApiKeys((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, color: nextColor } : currentItem)))}
+                    </div>
                     <button className="btn btn-sm btn-ghost" type="button" onClick={() => { setApiKeys((current) => current.length === 1 ? [createEmptyApiKey(0)] : current.filter((_, currentIndex) => currentIndex !== index)); setSaveResult(null); }}>{t("settings.providerConfig.deleteKey")}</button>
                   </div>
                   <ApiKeyInput modelValue={item.value} placeholder="sk-..." onChange={(value) => setApiKeys((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, value } : currentItem))} />
@@ -311,7 +361,10 @@ export default function ProviderConfig(props: ProviderConfigProps) {
               {subscriptions.map((item, index) => (
                 <div key={item.id} className="api-key-card">
                   <div className="api-key-header">
-                    <input value={item.name} onChange={(event) => { const nextValue = event.target.value; setSubscriptions((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, name: nextValue } : currentItem)); }} className="key-name-input" type="text" placeholder={t("settings.providerConfig.subscriptionName", { index: index + 1 })} />
+                    <div className="name-color-row">
+                      <input value={item.name} onChange={(event) => { const nextValue = event.target.value; setSubscriptions((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, name: nextValue } : currentItem)); }} className="key-name-input" type="text" placeholder={t("settings.providerConfig.subscriptionName", { index: index + 1 })} />
+                      {renderColorPicker(`subscription:${item.id}`, item.color, (nextColor) => setSubscriptions((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, color: nextColor } : currentItem)))}
+                    </div>
                     <button className="btn btn-sm btn-ghost" type="button" onClick={() => { setSubscriptions((current) => current.length === 1 ? [createEmptySubscription(0)] : current.filter((_, currentIndex) => currentIndex !== index)); setSaveResult(null); }}>{t("settings.providerConfig.deleteSubscription")}</button>
                   </div>
                   <ApiKeyInput modelValue={item.oauthToken} placeholder={config.providerId === "anthropic" ? "sk-ant-oat01-..." : "eyJ..."} onChange={(value) => setSubscriptions((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, oauthToken: value } : currentItem))} />

@@ -166,6 +166,15 @@
   gap: var(--spacing-sm);
 }
 
+.name-color-row {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .key-name-input {
   flex: 1;
   min-width: 0;
@@ -175,6 +184,72 @@
   border-radius: var(--radius-sm);
   padding: 6px 8px;
   font-size: 12px;
+}
+
+.color-picker {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.color-swatch-trigger {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--color-settings-border);
+  border-radius: 6px;
+  background: var(--color-settings-control-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.color-swatch-trigger:hover,
+.color-swatch-trigger.is-open {
+  border-color: var(--color-settings-border-strong);
+  box-shadow: 0 0 0 2px var(--color-settings-focus-ring);
+}
+
+.color-swatch-trigger-fill,
+.color-palette-swatch-fill {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.color-palette {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--color-settings-border-strong);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, var(--color-settings-surface-elevated), var(--color-settings-surface));
+  box-shadow: var(--shadow-settings-surface);
+}
+
+.color-palette-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.color-palette-swatch:hover,
+.color-palette-swatch.is-selected {
+  border-color: var(--color-settings-border-strong);
+  background: var(--color-settings-ghost);
 }
 
 .config-actions {

@@ -41,6 +41,7 @@ export interface PollingSettings {
 export interface AppSettings extends PollingSettings {
   providerPollingOverridesEnabled: boolean;
   providerPollingOverrides: Partial<Record<ProviderId, PollingSettings>>;
+  compactColorMarkersEnabled: boolean;
   refreshOnSettingsClose: boolean;
   autoExpandWindowToFitContent: boolean;
   edgeDockCollapseEnabled: boolean;
@@ -67,6 +68,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pollingUnit: "minutes",
   providerPollingOverridesEnabled: false,
   providerPollingOverrides: {},
+  compactColorMarkersEnabled: false,
   refreshOnSettingsClose: false,
   autoExpandWindowToFitContent: false,
   edgeDockCollapseEnabled: true,
@@ -135,6 +137,7 @@ export function normalizeAppSettings(settings: AppSettings): AppSettings {
     ...normalizePollingSettings(settings),
     providerPollingOverridesEnabled: !!settings.providerPollingOverridesEnabled,
     providerPollingOverrides: normalizeProviderPollingOverrides(settings.providerPollingOverrides),
+    compactColorMarkersEnabled: !!settings.compactColorMarkersEnabled,
     refreshOnSettingsClose: !!settings.refreshOnSettingsClose,
     autoExpandWindowToFitContent: !!settings.autoExpandWindowToFitContent,
     edgeDockCollapseEnabled: settings.edgeDockCollapseEnabled !== false,

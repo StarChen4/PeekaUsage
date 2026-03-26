@@ -116,6 +116,7 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
           {
             id: `${selectedDraftProvider.providerId}-draft-key`,
             name: t("settings.providerConfig.keyName", { index: 1 }),
+            color: "#3b82f6",
             value: "",
             isActiveInEnvironment: false,
           },
@@ -125,6 +126,7 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
               {
                 id: `${selectedDraftProvider.providerId}-draft-subscription`,
                 name: t("settings.providerConfig.subscriptionName", { index: 1 }),
+                color: "#3b82f6",
                 oauthToken: "",
                 source: null,
               },
@@ -502,6 +504,22 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
               type="checkbox"
               checked={settings.edgeDockCollapseEnabled}
               onChange={(event) => void saveSettings({ edgeDockCollapseEnabled: event.target.checked })}
+            />
+            <span className="switch-track" />
+          </span>
+        </label>
+
+        <label className="setting-row setting-row-toggle">
+          <span className="setting-copy">
+            <span className="setting-label">{t("settings.compactColorMarkers.label")}</span>
+            <span className="setting-hint">{t("settings.compactColorMarkers.hint")}</span>
+          </span>
+          <span className="switch">
+            <input
+              className="switch-input"
+              type="checkbox"
+              checked={settings.compactColorMarkersEnabled}
+              onChange={(event) => void saveSettings({ compactColorMarkersEnabled: event.target.checked })}
             />
             <span className="switch-track" />
           </span>

@@ -1,6 +1,26 @@
 /** 供应商 ID */
 export type ProviderId = "openai" | "anthropic" | "openrouter";
 
+/** 精简模式标记色 */
+export const PROVIDER_MARKER_COLORS = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+] as const;
+
+export function normalizeProviderMarkerColor(color: string | null | undefined, index: number): string {
+  if (color && PROVIDER_MARKER_COLORS.includes(color as (typeof PROVIDER_MARKER_COLORS)[number])) {
+    return color;
+  }
+
+  return PROVIDER_MARKER_COLORS[index % PROVIDER_MARKER_COLORS.length];
+}
+
 /** 供应商能力 */
 export interface ProviderCapabilities {
   hasBalance: boolean;
@@ -48,6 +68,7 @@ export interface SubscriptionUsage {
 export interface SubscriptionUsageSummary {
   subscriptionId: string;
   subscriptionName: string;
+  color: string;
   source: string | null;
   usage: SubscriptionUsage;
 }
@@ -67,6 +88,7 @@ export type ProviderStatus = "idle" | "loading" | "success" | "error";
 export interface ApiKeyUsageSummary {
   keyId: string;
   keyName: string;
+  color: string;
   status: ProviderStatus;
   usage: UsageData | null;
   rateLimit: RateLimitData | null;
@@ -91,6 +113,7 @@ export interface UsageSummary {
 export interface ProviderApiKeyItem {
   id: string;
   name: string;
+  color: string;
   value: string;
   isActiveInEnvironment: boolean;
 }
@@ -98,6 +121,7 @@ export interface ProviderApiKeyItem {
 export interface ProviderSubscriptionItem {
   id: string;
   name: string;
+  color: string;
   oauthToken: string;
   source: string | null;
 }

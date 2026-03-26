@@ -31,8 +31,8 @@ export async function getSupportedProviders(): Promise<ProviderConfigItem[]> {
 /** 保存供应商配置 */
 export async function saveProviderConfig(config: {
   providerId: ProviderId;
-  apiKeys: Array<Pick<ProviderApiKeyItem, "id" | "name" | "value">>;
-  subscriptions: Array<Pick<ProviderSubscriptionItem, "id" | "name" | "oauthToken" | "source">>;
+  apiKeys: Array<Pick<ProviderApiKeyItem, "id" | "name" | "color" | "value">>;
+  subscriptions: Array<Pick<ProviderSubscriptionItem, "id" | "name" | "color" | "oauthToken" | "source">>;
   enabled: boolean;
 }): Promise<void> {
   return invoke("save_provider_config", { config });

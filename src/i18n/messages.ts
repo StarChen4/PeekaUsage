@@ -104,6 +104,10 @@ export const messages = {
         label: "拖拽到边缘后自动收起",
         hint: "只有把窗口从标题栏拖到屏幕边缘并越过该方向边界时才会收起；鼠标移入细条后会自动展开。",
       },
+      compactColorMarkers: {
+        label: "精简模式用颜色条区分多项",
+        hint: "开启后，精简模式中的多订阅和多 API Key 会改用颜色条区分，不再依赖名称文字。",
+      },
       providersSection: {
         empty: "还没有添加供应商，点击右上角的 + 开始配置。",
       },
@@ -165,6 +169,8 @@ export const messages = {
         removeConfirmMessage: "确认移除 {providerName} 吗？\n已保存的 Key 和 OAuth Token 会一并清除。",
         removeConfirmAria: "确认移除供应商",
         apiKeyInputPlaceholder: "输入 API Key...",
+        markerColorLabel: "标记颜色",
+        selectMarkerColor: "选择标记颜色",
       },
     },
     widget: {
@@ -325,6 +331,10 @@ export const messages = {
         label: "拖曳到邊緣後自動收起",
         hint: "只有把視窗從標題列拖到螢幕邊緣並越過該方向邊界時才會收起；滑鼠移入細條後會自動展開。",
       },
+      compactColorMarkers: {
+        label: "精簡模式用顏色條區分多項",
+        hint: "開啟後，精簡模式中的多訂閱和多 API Key 會改用顏色條區分，不再依賴名稱文字。",
+      },
       providersSection: {
         empty: "還沒有新增供應商，點擊右上角的 + 開始配置。",
       },
@@ -386,6 +396,8 @@ export const messages = {
         removeConfirmMessage: "確認移除 {providerName} 嗎？\n已保存的 Key 和 OAuth Token 會一併清除。",
         removeConfirmAria: "確認移除供應商",
         apiKeyInputPlaceholder: "輸入 API Key...",
+        markerColorLabel: "標記顏色",
+        selectMarkerColor: "選擇標記顏色",
       },
     },
     widget: {
@@ -546,6 +558,10 @@ export const messages = {
         label: "Auto-collapse after dragging to an edge",
         hint: "Collapse only when the title bar is dragged past the screen edge in that direction. Hovering the thin strip expands it again.",
       },
+      compactColorMarkers: {
+        label: "Use color markers in compact mode",
+        hint: "When enabled, multiple subscriptions and API keys in compact mode use color bars instead of name labels.",
+      },
       providersSection: {
         empty: "No provider added yet. Click + in the top-right corner to start.",
       },
@@ -607,6 +623,8 @@ export const messages = {
         removeConfirmMessage: "Remove {providerName}?\nSaved keys and OAuth tokens will be cleared together.",
         removeConfirmAria: "Confirm provider removal",
         apiKeyInputPlaceholder: "Enter API key...",
+        markerColorLabel: "Marker color",
+        selectMarkerColor: "Select marker color",
       },
     },
     widget: {

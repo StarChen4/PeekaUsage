@@ -81,6 +81,7 @@ export default function WidgetContainer({
   const contentLayoutKey = useMemo(
     () => JSON.stringify({
       displayMode: settings.widgetDisplayMode,
+      compactColorMarkersEnabled: settings.compactColorMarkersEnabled,
       language: settings.language,
       providers: orderedProviders.map((provider) => ({
         providerId: provider.providerId,
@@ -97,13 +98,14 @@ export default function WidgetContainer({
         apiKeys: provider.apiKeyUsages.map((item) => ({
           keyId: item.keyId,
           keyName: item.keyName,
+          color: item.color,
           status: item.status,
           hasUsage: !!item.usage,
           hasError: !!item.errorMessage,
         })),
       })),
     }),
-    [orderedProviders, settings.language, settings.widgetDisplayMode],
+    [orderedProviders, settings.compactColorMarkersEnabled, settings.language, settings.widgetDisplayMode],
   );
   const layoutStatusText = layoutSaveState === "saving"
     ? t("widget.layout.saving")
@@ -513,6 +515,7 @@ export default function WidgetContainer({
                 <ProviderCard
                   provider={provider}
                   displayMode={settings.widgetDisplayMode}
+                  useCompactColorMarkers={settings.compactColorMarkersEnabled}
                   isRefreshing={useProviderStore.getState().isProviderRefreshing(provider.providerId)}
                   onRefresh={() => void manualRefreshProvider(provider.providerId)}
                 />

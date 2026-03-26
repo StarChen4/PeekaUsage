@@ -68,6 +68,7 @@ pub struct UsageData {
 pub struct ApiKeyUsageSummary {
     pub key_id: String,
     pub key_name: String,
+    pub color: String,
     pub status: ProviderStatus,
     pub usage: Option<UsageData>,
     pub rate_limit: Option<RateLimitData>,
@@ -124,6 +125,7 @@ pub struct SubscriptionUsage {
 pub struct SubscriptionUsageSummary {
     pub subscription_id: String,
     pub subscription_name: String,
+    pub color: String,
     pub source: Option<String>,
     pub usage: SubscriptionUsage,
 }
@@ -176,6 +178,8 @@ pub struct UsageSummary {
 pub struct ProviderApiKeyInput {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub color: String,
     pub value: String,
 }
 
@@ -197,6 +201,8 @@ pub struct ProviderConfig {
 pub struct ProviderApiKeyItem {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub color: String,
     pub value: String,
     #[serde(default)]
     pub is_active_in_environment: bool,
@@ -208,6 +214,8 @@ pub struct ProviderApiKeyItem {
 pub struct ProviderSubscriptionInput {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub color: String,
     pub oauth_token: String,
     #[serde(default)]
     pub source: Option<String>,
@@ -219,6 +227,8 @@ pub struct ProviderSubscriptionInput {
 pub struct ProviderSubscriptionItem {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub color: String,
     pub oauth_token: String,
     #[serde(default)]
     pub source: Option<String>,

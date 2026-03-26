@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { useI18n } from "../../i18n";
 import type { ApiKeyUsageSummary, UsageSummary } from "../../types/provider";
 import type { WidgetDisplayMode } from "../../types/settings";
@@ -10,6 +11,7 @@ import UsageProgressBar from "./UsageProgressBar";
 type ProviderCardProps = {
   provider: UsageSummary;
   displayMode?: WidgetDisplayMode;
+  useCompactColorMarkers?: boolean;
   isRefreshing?: boolean;
   onRefresh: () => void;
 };
@@ -17,6 +19,7 @@ type ProviderCardProps = {
 export default function ProviderCard({
   provider,
   displayMode = "detailed",
+  useCompactColorMarkers = false,
   isRefreshing = false,
   onRefresh,
 }: ProviderCardProps) {
@@ -27,6 +30,17 @@ export default function ProviderCard({
   const compactApiItems = provider.apiKeyUsages.filter((item) => item.usage);
   const compactApiErrors = provider.apiKeyUsages.filter((item) => item.errorMessage);
   const compactSubscriptionErrors = provider.subscriptions.filter((item) => item.usage.status === "error" && item.usage.errorMessage);
+  const compactVisibleSubscriptions = provider.subscriptions.filter((subscription) => {
+    if (subscription.usage.status !== "success") {
+      return false;
+    }
+
+    const extra = subscription.usage.extraUsage;
+    const hasExtra = !!extra?.isEnabled && extra.monthlyLimitUsd !== null && extra.utilization != null;
+    return subscription.usage.windows.length > 0 || hasExtra;
+  });
+  const useSubscriptionColorMarkers = useCompactColorMarkers && compactVisibleSubscriptions.length > 1;
+  const useApiColorMarkers = useCompactColorMarkers && compactApiItems.length > 1;
 
   function usagePercent(item: ApiKeyUsageSummary) {
     if (!item.usage) {
@@ -93,10 +107,16 @@ export default function ProviderCard({
                 }
 
                 return (
-                  <div key={subscription.subscriptionId} className="compact-subscription-group">
-                    <div className="compact-subscription-title" title={subscription.subscriptionName}>
-                      {subscription.subscriptionName}
-                    </div>
+                  <div
+                    key={subscription.subscriptionId}
+                    className={`compact-subscription-group${useSubscriptionColorMarkers ? " has-marker" : ""}`}
+                    style={{ "--compact-marker-color": subscription.color } as CSSProperties}
+                  >
+                    {!useSubscriptionColorMarkers && (
+                      <div className="compact-subscription-title" title={subscription.subscriptionName}>
+                        {subscription.subscriptionName}
+                      </div>
+                    )}
                     {subscription.usage.windows.map((window, index) => (
                       <div key={`${subscription.subscriptionId}-${window.label}-${index}`} className="compact-metric-row">
                         <span className="compact-metric-label" title={window.label}>
@@ -122,13 +142,28 @@ export default function ProviderCard({
               })}
 
               {compactApiItems.map((item) => (
-                <div key={item.keyId} className="compact-metric-row">
-                  <span className="compact-metric-label" title={item.keyName}>
-                    {formatCompactApiLabel(item.keyName, t("widget.providerCard.apiShort"))}
-                  </span>
-                  <div className="compact-metric-bar">
-                    <UsageProgressBar percent={usagePercent(item)} />
-                  </div>
+                <div
+                  key={item.keyId}
+                  className={`compact-metric-row${useApiColorMarkers ? " has-marker" : ""}`}
+                  style={useApiColorMarkers ? ({ "--compact-marker-color": item.color } as CSSProperties) : undefined}
+                >
+                  {useApiColorMarkers ? (
+                    <>
+                      <span className="compact-metric-marker" aria-hidden="true" />
+                      <div className="compact-metric-bar">
+                        <UsageProgressBar percent={usagePercent(item)} />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <span className="compact-metric-label" title={item.keyName}>
+                        {formatCompactApiLabel(item.keyName, t("widget.providerCard.apiShort"))}
+                      </span>
+                      <div className="compact-metric-bar">
+                        <UsageProgressBar percent={usagePercent(item)} />
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

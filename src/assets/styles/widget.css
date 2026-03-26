@@ -126,6 +126,22 @@
   background: var(--color-muted-surface);
 }
 
+.compact-subscription-group.has-marker {
+  position: relative;
+  padding-left: 14px;
+}
+
+.compact-subscription-group.has-marker::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  bottom: 6px;
+  width: 4px;
+  border-radius: 999px;
+  background: var(--compact-marker-color);
+}
+
 .compact-subscription-title {
   font-size: 10px;
   font-weight: 600;
@@ -334,6 +350,18 @@
   grid-template-columns: minmax(0, auto) minmax(0, 1fr);
   gap: 8px;
   align-items: center;
+}
+
+.compact-metric-row.has-marker {
+  grid-template-columns: 4px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.compact-metric-marker {
+  width: 4px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--compact-marker-color);
 }
 
 .compact-metric-label {

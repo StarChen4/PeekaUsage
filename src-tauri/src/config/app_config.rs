@@ -18,6 +18,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub provider_polling_overrides: HashMap<String, PollingSettings>,
     #[serde(default)]
+    pub compact_color_markers_enabled: bool,
+    #[serde(default)]
     pub refresh_on_settings_close: bool,
     #[serde(default)]
     pub auto_expand_window_to_fit_content: bool,
@@ -122,6 +124,7 @@ impl Default for AppSettings {
             polling_unit: PollingUnit::default(),
             provider_polling_overrides_enabled: false,
             provider_polling_overrides: HashMap::new(),
+            compact_color_markers_enabled: false,
             refresh_on_settings_close: false,
             auto_expand_window_to_fit_content: false,
             edge_dock_collapse_enabled: default_edge_dock_collapse_enabled(),
@@ -207,6 +210,8 @@ fn is_supported_provider_id(provider_id: &str) -> bool {
 pub struct ProviderApiKeyEntry {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub color: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -214,6 +219,8 @@ pub struct ProviderApiKeyEntry {
 pub struct ProviderSubscriptionEntry {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub color: String,
     #[serde(default)]
     pub source: Option<String>,
 }
