@@ -25,6 +25,10 @@ type ResolveWindowDockBoundsOptions = {
   requireExceeded?: boolean;
 };
 
+type WindowFrameInsets = {
+  horizontal: number;
+};
+
 export const MIN_WINDOW_WIDTH = 220;
 export const MIN_WINDOW_HEIGHT = 200;
 export const EDGE_DOCK_COLLAPSED_WIDTH = 16;
@@ -39,6 +43,7 @@ const MANUAL_RESIZE_SUPPRESSION_MS = 600;
 const EDGE_DOCK_TRIGGER_DISTANCE = 28;
 const EDGE_DOCK_RESIZE_ESCAPE_PX = 48;
 const EDGE_DOCK_RESIZE_ESCAPE_RATIO = 0.18;
+const WINDOW_FRAME_INSET_X_FALLBACK = 8;
 
 let programmaticResizeUntil = 0;
 let suppressAutoFitUntil = 0;
@@ -49,6 +54,39 @@ function roundWindowValue(value: number) {
 
 function now() {
   return Date.now();
+}
+
+function getFallbackWindowFrameInsetX() {
+  if (typeof navigator !== "undefined" && /windows/i.test(navigator.userAgent)) {
+    return WINDOW_FRAME_INSET_X_FALLBACK;
+  }
+
+  return 0;
+}
+
+async function getCurrentWindowFrameInsets(): Promise<WindowFrameInsets> {
+  const fallback = getFallbackWindowFrameInsetX();
+
+  try {
+    const currentWindow = getCurrentWindow();
+    const [scaleFactor, innerSize, outerSize] = await Promise.all([
+      currentWindow.scaleFactor(),
+      currentWindow.innerSize(),
+      currentWindow.outerSize(),
+    ]);
+
+    const innerLogicalWidth = innerSize.toLogical(scaleFactor).width;
+    const outerLogicalWidth = outerSize.toLogical(scaleFactor).width;
+    const horizontalInset = Math.max(0, roundWindowValue((outerLogicalWidth - innerLogicalWidth) / 2));
+
+    return {
+      horizontal: horizontalInset > 0 ? horizontalInset : fallback,
+    };
+  } catch {
+    return {
+      horizontal: fallback,
+    };
+  }
 }
 
 export function markProgrammaticWindowResize() {
@@ -248,7 +286,8 @@ export async function resolveWindowDockBounds(
     return null;
   }
 
-  return resolveWindowDockBoundsForMonitor(position, size, monitor, options);
+  const frameInsets = await getCurrentWindowFrameInsets();
+  return resolveWindowDockBoundsForMonitor(position, size, monitor, options, frameInsets);
 }
 
 export function resolveWindowDockBoundsForMonitor(
@@ -256,8 +295,11 @@ export function resolveWindowDockBoundsForMonitor(
   size: LogicalWindowSize,
   monitor: Monitor,
   options?: ResolveWindowDockBoundsOptions,
+  frameInsets: WindowFrameInsets = { horizontal: getFallbackWindowFrameInsetX() },
 ): WindowDockBounds | null {
   const workArea = getLogicalMonitorWorkArea(monitor);
+  const visibleMinX = workArea.x;
+  const visibleMaxX = workArea.x + workArea.width - clamp(roundWindowValue(size.width), MIN_WINDOW_WIDTH, workArea.width);
   const rawPosition = {
     x: roundWindowValue(position.x),
     y: roundWindowValue(position.y),
@@ -266,20 +308,22 @@ export function resolveWindowDockBoundsForMonitor(
     width: clamp(roundWindowValue(size.width), MIN_WINDOW_WIDTH, workArea.width),
     height: clamp(roundWindowValue(size.height), MIN_WINDOW_HEIGHT, workArea.height),
   };
-  const maxX = workArea.x + workArea.width - expandedSize.width;
+  const rawVisibleX = rawPosition.x + frameInsets.horizontal;
+  const clampedVisibleX = clamp(roundWindowValue(rawVisibleX), visibleMinX, visibleMaxX);
+  const clampedPositionX = clampedVisibleX - frameInsets.horizontal;
   const maxY = workArea.y + workArea.height - expandedSize.height;
   const clampedPosition = {
-    x: clamp(roundWindowValue(position.x), workArea.x, maxX),
+    x: clampedPositionX,
     y: clamp(roundWindowValue(position.y), workArea.y, maxY),
   };
   const exceededEdges = [
     {
       edge: "left" as WindowDockEdge,
-      overflow: workArea.x - rawPosition.x,
+      overflow: workArea.x - rawVisibleX,
     },
     {
       edge: "right" as WindowDockEdge,
-      overflow: rawPosition.x + expandedSize.width - (workArea.x + workArea.width),
+      overflow: rawVisibleX + expandedSize.width - (workArea.x + workArea.width),
     },
   ]
     .filter((item) => item.overflow > 0)
@@ -287,11 +331,11 @@ export function resolveWindowDockBoundsForMonitor(
   const nearbyEdges = [
     {
       edge: "left" as WindowDockEdge,
-      distance: Math.abs(clampedPosition.x - workArea.x),
+      distance: Math.abs(clampedVisibleX - workArea.x),
     },
     {
       edge: "right" as WindowDockEdge,
-      distance: Math.abs(clampedPosition.x + expandedSize.width - (workArea.x + workArea.width)),
+      distance: Math.abs(clampedVisibleX + expandedSize.width - (workArea.x + workArea.width)),
     },
   ]
     .filter((item) => item.distance <= EDGE_DOCK_TRIGGER_DISTANCE)
@@ -315,12 +359,12 @@ export function resolveWindowDockBoundsForMonitor(
       return {
         edge: "left",
         expandedPosition: {
-          x: workArea.x,
+          x: workArea.x - frameInsets.horizontal,
           y: clampedPosition.y,
         },
         expandedSize,
         collapsedPosition: {
-          x: workArea.x,
+          x: workArea.x - frameInsets.horizontal,
           y: collapsedY,
         },
         collapsedSize: {
@@ -341,12 +385,12 @@ export function resolveWindowDockBoundsForMonitor(
       return {
         edge: "right",
         expandedPosition: {
-          x: workArea.x + workArea.width - expandedSize.width,
+          x: workArea.x + workArea.width - expandedSize.width - frameInsets.horizontal,
           y: clampedPosition.y,
         },
         expandedSize,
         collapsedPosition: {
-          x: workArea.x + workArea.width - EDGE_DOCK_COLLAPSED_WIDTH,
+          x: workArea.x + workArea.width - EDGE_DOCK_COLLAPSED_WIDTH - frameInsets.horizontal,
           y: collapsedY,
         },
         collapsedSize: {

@@ -41,7 +41,7 @@ textarea {
 
 #app.app-edge-docked-collapsed {
   background: transparent;
-  border-color: transparent;
+  border: none;
   border-radius: 0;
   overflow: visible;
 }
@@ -93,7 +93,7 @@ textarea {
 .edge-dock-handle.edge-right .edge-dock-handle-shell {
   border-right: none;
   border-radius: 12px 0 0 12px;
-}
+  }
 
 .edge-dock-handle-glow,
 .edge-dock-handle-core,

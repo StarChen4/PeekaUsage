@@ -242,6 +242,7 @@ export default function App() {
     windowSize?: LogicalWindowSize | null;
   }) {
     clearEdgeDockCollapseTimer();
+    clearEdgeDockEvaluateTimer();
     updateDockState(null);
 
     if (bounds) {
@@ -505,7 +506,9 @@ export default function App() {
           return;
         }
 
-        if (!isProgrammaticWindowResize()) {
+        const isManualResize = !isProgrammaticWindowResize();
+
+        if (isManualResize) {
           suppressAutoFitAfterManualResize();
         }
 
@@ -514,6 +517,14 @@ export default function App() {
         const dockState = dockStateRef.current;
 
         if (dockState) {
+          if (dockState.phase === "preview" && isManualResize) {
+            clearWindowDock({
+              windowPosition: dockState.expandedBounds.windowPosition,
+              windowSize: nextSize,
+            });
+            return;
+          }
+
           if (dockState.phase !== "collapsed") {
             dockStateRef.current = {
               ...dockState,
@@ -551,6 +562,14 @@ export default function App() {
             return;
           }
 
+          if (dockState.phase === "preview") {
+            const innerSize = await currentWindow.innerSize();
+            const nextSize = toLogicalWindowSize(innerSize, scaleFactor);
+            clearWindowDock({
+              windowPosition: nextPosition,
+              windowSize: nextSize,
+            });
+          } else {
           dockStateRef.current = dockState.phase === "collapsed"
             ? dockState
             : {
@@ -560,7 +579,8 @@ export default function App() {
                 windowPosition: nextPosition,
               },
             };
-          persistDockExpandedBounds(dockStateRef.current ?? dockState);
+            persistDockExpandedBounds(dockStateRef.current ?? dockState);
+          }
         } else {
           scheduleWindowBoundsSave({
             windowPosition: nextPosition,
