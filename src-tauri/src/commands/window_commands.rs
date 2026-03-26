@@ -82,7 +82,10 @@ fn read_codex_token_from_home(home: &std::path::Path, environment: &str) -> Opti
     let content = std::fs::read_to_string(&auth_path).ok()?;
     let auth = serde_json::from_str::<CodexAuth>(&content).ok()?;
     let tokens = auth.tokens?;
-    let token = tokens.access_token.as_ref().and_then(parse_codex_access_token)?;
+    let token = tokens
+        .access_token
+        .as_ref()
+        .and_then(parse_codex_access_token)?;
     let source = "Codex CLI (~/.codex/auth.json)".to_string();
 
     Some(DetectedToken {
@@ -118,7 +121,10 @@ fn read_wsl_codex_token() -> Option<DetectedToken> {
     let content = run_wsl_file_read("~/.codex/auth.json")?;
     let auth = serde_json::from_str::<CodexAuth>(&content).ok()?;
     let tokens = auth.tokens?;
-    let token = tokens.access_token.as_ref().and_then(parse_codex_access_token)?;
+    let token = tokens
+        .access_token
+        .as_ref()
+        .and_then(parse_codex_access_token)?;
     let source = "Codex CLI (~/.codex/auth.json)".to_string();
 
     Some(DetectedToken {

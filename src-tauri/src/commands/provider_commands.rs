@@ -283,7 +283,10 @@ pub async fn save_provider_config(
             }
 
             key_store
-                .set_key(&subscription_storage_key(&provider_id, &old_subscription.id), "")
+                .set_key(
+                    &subscription_storage_key(&provider_id, &old_subscription.id),
+                    "",
+                )
                 .await?;
         }
     }
@@ -295,10 +298,14 @@ pub async fn save_provider_config(
             continue;
         }
 
-        key_store.set_key(&storage_key, &subscription.oauth_token).await?;
+        key_store
+            .set_key(&storage_key, &subscription.oauth_token)
+            .await?;
     }
 
-    key_store.set_key(&oauth_storage_key(&provider_id), "").await?;
+    key_store
+        .set_key(&oauth_storage_key(&provider_id), "")
+        .await?;
 
     sync_active_api_key_envs(app_config.inner(), key_store.inner()).await?;
 
@@ -323,7 +330,10 @@ pub async fn remove_provider_config(
 
         for subscription in &entry.subscriptions {
             key_store
-                .set_key(&subscription_storage_key(&provider_id, &subscription.id), "")
+                .set_key(
+                    &subscription_storage_key(&provider_id, &subscription.id),
+                    "",
+                )
                 .await?;
         }
     }
@@ -428,14 +438,8 @@ async fn build_usage_summary(
 
     let api_keys = load_provider_api_keys(provider_id, &pid, entry.as_ref(), key_store).await;
     let subscriptions = if let Some(env_name) = pid.env_oauth_token_name() {
-        load_provider_subscriptions(
-            provider_id,
-            &pid,
-            entry.as_ref(),
-            key_store,
-            Some(env_name),
-        )
-        .await
+        load_provider_subscriptions(provider_id, &pid, entry.as_ref(), key_store, Some(env_name))
+            .await
     } else {
         Vec::new()
     };
