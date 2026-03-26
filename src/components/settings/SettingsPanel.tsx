@@ -16,7 +16,7 @@ import { LANGUAGE_OPTIONS } from "../../i18n/messages";
 import { useProviderStore } from "../../stores/providerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { syncLaunchAtStartup } from "../../utils/autostart";
-import { getProviderConfigs, getSupportedProviders } from "../../utils/ipc";
+import { getProviderConfigs, getSupportedProviders, setWindowSkipTaskbar } from "../../utils/ipc";
 import AppSelect, { type SelectOption } from "../common/AppSelect";
 import ProviderIcon from "../common/ProviderIcon";
 import ProviderConfig from "./ProviderConfig";
@@ -66,9 +66,15 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
   const [creatingProviderId, setCreatingProviderId] = useState<ProviderId | null>(null);
   const [opacityDraft, setOpacityDraft] = useState(settings.windowOpacity);
   const [launchAtStartupPending, setLaunchAtStartupPending] = useState(false);
+  const [hideTaskbarPending, setHideTaskbarPending] = useState(false);
+  const [generalNotice, setGeneralNotice] = useState<string | null>(null);
   const [pollingIntervalDraft, setPollingIntervalDraft] = useState(String(settings.pollingInterval));
   const [providerPollingIntervalDrafts, setProviderPollingIntervalDrafts] = useState<Partial<Record<ProviderId, string>>>({});
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("general");
+  const isWindows = useMemo(
+    () => typeof navigator !== "undefined" && /windows/i.test(navigator.userAgent),
+    [],
+  );
 
   const languageOptions: Array<SelectOption<AppLanguage>> = LANGUAGE_OPTIONS.map((item) => ({
     value: item.value,
@@ -190,6 +196,41 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
     await useProviderStore.getState().refreshAll();
   }
 
+  function showHideTaskbarNotice() {
+    setGeneralNotice(t("settings.hideTaskbarIcon.notice"));
+  }
+
+  async function handleHideTaskbarIconChange(enabled: boolean) {
+    if (!isWindows || hideTaskbarPending || enabled === settings.hideTaskbarIcon) {
+      return;
+    }
+
+    setHideTaskbarPending(true);
+
+    try {
+      await setWindowSkipTaskbar(enabled);
+      const shouldShowNotice = enabled && !settings.hideTaskbarIconHintShown;
+      await saveSettings({
+        hideTaskbarIcon: enabled,
+        hideTaskbarIconHintShown: settings.hideTaskbarIconHintShown || shouldShowNotice,
+      });
+
+      if (shouldShowNotice) {
+        showHideTaskbarNotice();
+      }
+    } catch (error) {
+      try {
+        await setWindowSkipTaskbar(settings.hideTaskbarIcon);
+      } catch (rollbackError) {
+        console.error("回滚任务栏图标状态失败：", rollbackError);
+      }
+
+      console.error("切换任务栏图标状态失败：", error);
+    } finally {
+      setHideTaskbarPending(false);
+    }
+  }
+
   async function handleLaunchAtStartupChange(enabled: boolean) {
     if (launchAtStartupPending || enabled === settings.launchAtStartup) {
       return;
@@ -199,7 +240,26 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
 
     try {
       await syncLaunchAtStartup(enabled);
-      await saveSettings({ launchAtStartup: enabled });
+      const shouldLinkHideTaskbar = isWindows && enabled && !settings.hideTaskbarIcon;
+
+      if (shouldLinkHideTaskbar) {
+        await setWindowSkipTaskbar(true);
+      }
+
+      const shouldShowNotice = shouldLinkHideTaskbar && !settings.hideTaskbarIconHintShown;
+      await saveSettings({
+        launchAtStartup: enabled,
+        ...(shouldLinkHideTaskbar
+          ? {
+              hideTaskbarIcon: true,
+              hideTaskbarIconHintShown: settings.hideTaskbarIconHintShown || shouldShowNotice,
+            }
+          : {}),
+      });
+
+      if (shouldShowNotice) {
+        showHideTaskbarNotice();
+      }
     } catch (error) {
       try {
         await syncLaunchAtStartup(settings.launchAtStartup);
@@ -240,10 +300,27 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
     settings.pollingUnit,
   ]);
 
+  useEffect(() => {
+    if (!generalNotice) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setGeneralNotice(null);
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [generalNotice]);
+
   const sectionContent: Record<SettingsSectionId, ReactNode> = {
     general: (
       <section className="settings-section settings-section-page">
         <h3 className="section-title">{t("settings.sections.general")}</h3>
+        {generalNotice && (
+          <div className="save-result is-success" role="status">
+            {generalNotice}
+          </div>
+        )}
         <div className="setting-row">
           <label>{t("settings.language.label")}</label>
           <div className="setting-select-wrap">
@@ -356,6 +433,27 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
               checked={settings.launchAtStartup}
               disabled={launchAtStartupPending}
               onChange={(event) => void handleLaunchAtStartupChange(event.target.checked)}
+            />
+            <span className="switch-track" />
+          </span>
+        </label>
+
+        <label className="setting-row setting-row-toggle">
+          <span className="setting-copy">
+            <span className="setting-label">{t("settings.hideTaskbarIcon.label")}</span>
+            <span className="setting-hint">
+              {isWindows
+                ? t("settings.hideTaskbarIcon.hint")
+                : t("settings.hideTaskbarIcon.unsupportedHint")}
+            </span>
+          </span>
+          <span className="switch">
+            <input
+              className="switch-input"
+              type="checkbox"
+              checked={isWindows ? settings.hideTaskbarIcon : false}
+              disabled={!isWindows || hideTaskbarPending || launchAtStartupPending}
+              onChange={(event) => void handleHideTaskbarIconChange(event.target.checked)}
             />
             <span className="switch-track" />
           </span>

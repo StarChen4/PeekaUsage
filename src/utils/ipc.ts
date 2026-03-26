@@ -72,6 +72,11 @@ export async function setWindowOpacity(opacity: number): Promise<void> {
   return invoke("set_window_opacity", { opacity });
 }
 
+/** 璁剧疆鏄惁闅愯棌 Windows 浠诲姟鏍忓浘鏍? */
+export async function setWindowSkipTaskbar(skip: boolean): Promise<void> {
+  return invoke("set_window_skip_taskbar", { skip });
+}
+
 /** 检测到的 OAuth Token */
 export interface DetectedToken {
   token: string;

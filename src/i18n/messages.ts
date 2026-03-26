@@ -86,6 +86,12 @@ export const messages = {
         label: "开机自动启动",
         hint: "登录系统后自动启动 PeekaUsage。",
       },
+      hideTaskbarIcon: {
+        label: "隐藏任务栏图标",
+        hint: "窗口显示时不在任务栏中占位，仍可通过托盘图标显示或切换窗口。",
+        unsupportedHint: "该功能当前仅在 Windows 正式支持。",
+        notice: "任务栏图标已隐藏。后续可通过托盘图标重新显示或切换窗口。",
+      },
       refreshOnBack: {
         label: "返回时刷新主界面",
         hint: "从设置页返回主界面后，立即刷新所有供应商数据。",
@@ -301,6 +307,12 @@ export const messages = {
         label: "開機自動啟動",
         hint: "登入系統後自動啟動 PeekaUsage。",
       },
+      hideTaskbarIcon: {
+        label: "隱藏工作列圖示",
+        hint: "視窗顯示時不在工作列中占位，仍可透過系統匣圖示顯示或切換視窗。",
+        unsupportedHint: "此功能目前僅正式支援 Windows。",
+        notice: "工作列圖示已隱藏。之後可透過系統匣圖示重新顯示或切換視窗。",
+      },
       refreshOnBack: {
         label: "返回時刷新主介面",
         hint: "從設定頁返回主介面後，立即刷新所有供應商資料。",
@@ -515,6 +527,12 @@ export const messages = {
       launchAtStartup: {
         label: "Launch at startup",
         hint: "Start PeekaUsage automatically after you sign in.",
+      },
+      hideTaskbarIcon: {
+        label: "Hide taskbar icon",
+        hint: "Keep the window visible without occupying a taskbar slot. You can still reopen or toggle it from the tray icon.",
+        unsupportedHint: "This feature is officially supported on Windows only.",
+        notice: "The taskbar icon is now hidden. Use the tray icon to reopen or toggle the window later.",
       },
       refreshOnBack: {
         label: "Refresh widget when leaving settings",

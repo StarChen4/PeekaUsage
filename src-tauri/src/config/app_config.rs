@@ -24,6 +24,10 @@ pub struct AppSettings {
     #[serde(default = "default_edge_dock_collapse_enabled")]
     pub edge_dock_collapse_enabled: bool,
     #[serde(default)]
+    pub hide_taskbar_icon: bool,
+    #[serde(default)]
+    pub hide_taskbar_icon_hint_shown: bool,
+    #[serde(default)]
     pub language: AppLanguage,
     #[serde(default)]
     pub widget_display_mode: WidgetDisplayMode,
@@ -121,6 +125,8 @@ impl Default for AppSettings {
             refresh_on_settings_close: false,
             auto_expand_window_to_fit_content: false,
             edge_dock_collapse_enabled: default_edge_dock_collapse_enabled(),
+            hide_taskbar_icon: false,
+            hide_taskbar_icon_hint_shown: false,
             language: AppLanguage::default(),
             widget_display_mode: WidgetDisplayMode::default(),
             always_on_top: true,
@@ -155,6 +161,10 @@ impl AppSettings {
                 }
             })
             .collect();
+        #[cfg(not(windows))]
+        {
+            self.hide_taskbar_icon = false;
+        }
         self.window_opacity = self.window_opacity.clamp(10.0, 100.0);
         self
     }

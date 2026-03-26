@@ -32,6 +32,7 @@ pub fn run() {
             let app_config = AppConfig::new(app_data_dir.clone());
             let key_store = KeyStore::new(app_data_dir);
             let provider_manager = ProviderManager::new();
+            let initial_settings = tauri::async_runtime::block_on(app_config.get_settings());
 
             app.manage(app_config);
             app.manage(key_store);
@@ -43,6 +44,10 @@ pub fn run() {
 
             // 窗口关闭事件：隐藏到托盘而非退出
             let window = app.get_webview_window("main").unwrap();
+            #[cfg(windows)]
+            if initial_settings.hide_taskbar_icon {
+                let _ = window.set_skip_taskbar(true);
+            }
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
@@ -66,6 +71,7 @@ pub fn run() {
             commands::provider_commands::activate_provider_api_key,
             commands::settings_commands::get_settings,
             commands::settings_commands::save_settings,
+            commands::taskbar_commands::set_window_skip_taskbar,
             commands::window_commands::set_window_opacity,
             commands::window_commands::detect_oauth_tokens,
             commands::update_commands::check_app_update,
