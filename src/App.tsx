@@ -672,6 +672,7 @@ export default function App() {
       {currentView === "widget" ? (
         <WidgetContainer
           onOpenSettings={() => setCurrentView("settings")}
+          onDragIntentStart={registerTitlebarDragIntent}
           suppressWindowAutoFit={dockVisualState?.phase === "collapsed"}
         />
       ) : (

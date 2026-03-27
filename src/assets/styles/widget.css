@@ -435,7 +435,8 @@
 .card-list {
   flex: 1;
   overflow-y: auto;
-  padding: var(--spacing-sm);
+  position: relative;
+  padding: var(--spacing-sm) 18px var(--spacing-sm) 14px;
   display: flex;
   flex-direction: column;
 }
@@ -448,6 +449,28 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+}
+
+.card-list-drag-strip {
+  position: absolute;
+  top: var(--spacing-sm);
+  bottom: var(--spacing-sm);
+  width: 8px;
+  z-index: 2;
+  border-radius: 999px;
+  cursor: grab;
+}
+
+.card-list-drag-strip:active {
+  cursor: grabbing;
+}
+
+.drag-strip-left {
+  left: 0;
+}
+
+.drag-strip-right {
+  right: 8px;
 }
 
 .card-list-content.is-empty {
@@ -506,6 +529,19 @@
   flex-shrink: 0;
 }
 
+.widget-footer-drag-region {
+  flex: 1;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  padding-right: var(--spacing-xs);
+  cursor: grab;
+}
+
+.widget-footer-drag-region:active {
+  cursor: grabbing;
+}
+
 .footer-actions {
   display: flex;
   align-items: center;
@@ -513,10 +549,10 @@
 }
 
 .layout-status {
-  margin-right: auto;
   font-size: 10px;
   color: var(--color-text-muted);
   transition: color 0.2s ease;
+  pointer-events: none;
 }
 
 .layout-status.is-saving {

@@ -1,5 +1,5 @@
 type EdgeDockHandleProps = {
-  edge: "left" | "right";
+  edge: "left" | "right" | "top";
 };
 
 export default function EdgeDockHandle({ edge }: EdgeDockHandleProps) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import { useI18n } from "../../i18n";
 import { THEME_OPTION_ORDER } from "../../i18n/messages";
 import { useProviders } from "../../composables/useProviders";
@@ -14,6 +14,7 @@ import ProviderCard from "./ProviderCard";
 
 type WidgetContainerProps = {
   onOpenSettings: () => void;
+  onDragIntentStart?: () => void;
   suppressWindowAutoFit?: boolean;
 };
 
@@ -48,6 +49,7 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number) {
 
 export default function WidgetContainer({
   onOpenSettings,
+  onDragIntentStart,
   suppressWindowAutoFit = false,
 }: WidgetContainerProps) {
   const { t } = useI18n();
@@ -386,6 +388,19 @@ export default function WidgetContainer({
     ].filter(Boolean).join(" ");
   }
 
+  function handleWindowDragIntentMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const target = event.target;
+    if (target instanceof Element && target.closest("button, a, input, textarea, select")) {
+      return;
+    }
+
+    onDragIntentStart?.();
+  }
+
   useEffect(() => {
     orderedProvidersRef.current = orderedProviders;
   }, [orderedProviders]);
@@ -494,6 +509,16 @@ export default function WidgetContainer({
     <div className="widget-container">
       <div ref={cardListRef} className={`card-list${isDragging ? " is-dragging" : ""}`}>
         <div
+          className="card-list-drag-strip drag-strip-left"
+          data-tauri-drag-region
+          onMouseDown={handleWindowDragIntentMouseDown}
+        />
+        <div
+          className="card-list-drag-strip drag-strip-right"
+          data-tauri-drag-region
+          onMouseDown={handleWindowDragIntentMouseDown}
+        />
+        <div
           ref={cardListContentRef}
           className={`card-list-content${orderedProviders.length === 0 ? " is-empty" : ""}`}
         >
@@ -531,11 +556,17 @@ export default function WidgetContainer({
       </div>
 
       <div ref={footerRef} className="widget-footer">
-        {layoutStatusText && (
-          <span className={`layout-status is-${layoutSaveState}`}>
-            {layoutStatusText}
-          </span>
-        )}
+        <div
+          className="widget-footer-drag-region"
+          data-tauri-drag-region
+          onMouseDown={handleWindowDragIntentMouseDown}
+        >
+          {layoutStatusText && (
+            <span className={`layout-status is-${layoutSaveState}`}>
+              {layoutStatusText}
+            </span>
+          )}
+        </div>
 
         <div className="footer-actions">
           <button

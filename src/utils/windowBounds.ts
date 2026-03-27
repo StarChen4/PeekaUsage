@@ -11,7 +11,7 @@ export type LogicalWindowPosition = {
   y: number;
 };
 
-export type WindowDockEdge = "left" | "right";
+export type WindowDockEdge = "left" | "right" | "top";
 
 export type WindowDockBounds = {
   edge: WindowDockEdge;
@@ -27,6 +27,7 @@ type ResolveWindowDockBoundsOptions = {
 
 type WindowFrameInsets = {
   horizontal: number;
+  vertical: number;
 };
 
 export const MIN_WINDOW_WIDTH = 220;
@@ -34,6 +35,9 @@ export const MIN_WINDOW_HEIGHT = 200;
 export const EDGE_DOCK_COLLAPSED_WIDTH = 16;
 export const EDGE_DOCK_COLLAPSED_HEIGHT_MIN = 96;
 export const EDGE_DOCK_COLLAPSED_HEIGHT_MAX = 136;
+export const EDGE_DOCK_COLLAPSED_TOP_HEIGHT = 16;
+export const EDGE_DOCK_COLLAPSED_TOP_WIDTH_MIN = 76;
+export const EDGE_DOCK_COLLAPSED_TOP_WIDTH_MAX = 132;
 
 const WINDOW_SIZE_EPSILON = 1;
 const WINDOW_SCREEN_MARGIN = 16;
@@ -44,6 +48,7 @@ const EDGE_DOCK_TRIGGER_DISTANCE = 28;
 const EDGE_DOCK_RESIZE_ESCAPE_PX = 48;
 const EDGE_DOCK_RESIZE_ESCAPE_RATIO = 0.18;
 const WINDOW_FRAME_INSET_X_FALLBACK = 8;
+const WINDOW_FRAME_INSET_Y_FALLBACK = 8;
 
 let programmaticResizeUntil = 0;
 let suppressAutoFitUntil = 0;
@@ -64,8 +69,17 @@ function getFallbackWindowFrameInsetX() {
   return 0;
 }
 
+function getFallbackWindowFrameInsetY() {
+  if (typeof navigator !== "undefined" && /windows/i.test(navigator.userAgent)) {
+    return WINDOW_FRAME_INSET_Y_FALLBACK;
+  }
+
+  return 0;
+}
+
 async function getCurrentWindowFrameInsets(): Promise<WindowFrameInsets> {
-  const fallback = getFallbackWindowFrameInsetX();
+  const fallbackX = getFallbackWindowFrameInsetX();
+  const fallbackY = getFallbackWindowFrameInsetY();
 
   try {
     const currentWindow = getCurrentWindow();
@@ -77,14 +91,19 @@ async function getCurrentWindowFrameInsets(): Promise<WindowFrameInsets> {
 
     const innerLogicalWidth = innerSize.toLogical(scaleFactor).width;
     const outerLogicalWidth = outerSize.toLogical(scaleFactor).width;
+    const innerLogicalHeight = innerSize.toLogical(scaleFactor).height;
+    const outerLogicalHeight = outerSize.toLogical(scaleFactor).height;
     const horizontalInset = Math.max(0, roundWindowValue((outerLogicalWidth - innerLogicalWidth) / 2));
+    const verticalInset = Math.max(0, roundWindowValue((outerLogicalHeight - innerLogicalHeight) / 2));
 
     return {
-      horizontal: horizontalInset > 0 ? horizontalInset : fallback,
+      horizontal: horizontalInset > 0 ? horizontalInset : fallbackX,
+      vertical: verticalInset > 0 ? verticalInset : fallbackY,
     };
   } catch {
     return {
-      horizontal: fallback,
+      horizontal: fallbackX,
+      vertical: fallbackY,
     };
   }
 }
@@ -276,6 +295,14 @@ function getCollapsedHeight(expandedHeight: number, workAreaHeight: number) {
   );
 }
 
+function getCollapsedTopWidth(expandedWidth: number, workAreaWidth: number) {
+  return clamp(
+    Math.round(expandedWidth * 0.34),
+    EDGE_DOCK_COLLAPSED_TOP_WIDTH_MIN,
+    Math.min(EDGE_DOCK_COLLAPSED_TOP_WIDTH_MAX, workAreaWidth),
+  );
+}
+
 export async function resolveWindowDockBounds(
   position: LogicalWindowPosition,
   size: LogicalWindowSize,
@@ -295,11 +322,13 @@ export function resolveWindowDockBoundsForMonitor(
   size: LogicalWindowSize,
   monitor: Monitor,
   options?: ResolveWindowDockBoundsOptions,
-  frameInsets: WindowFrameInsets = { horizontal: getFallbackWindowFrameInsetX() },
+  frameInsets: WindowFrameInsets = {
+    horizontal: getFallbackWindowFrameInsetX(),
+    vertical: getFallbackWindowFrameInsetY(),
+  },
 ): WindowDockBounds | null {
   const workArea = getLogicalMonitorWorkArea(monitor);
   const visibleMinX = workArea.x;
-  const visibleMaxX = workArea.x + workArea.width - clamp(roundWindowValue(size.width), MIN_WINDOW_WIDTH, workArea.width);
   const rawPosition = {
     x: roundWindowValue(position.x),
     y: roundWindowValue(position.y),
@@ -308,13 +337,18 @@ export function resolveWindowDockBoundsForMonitor(
     width: clamp(roundWindowValue(size.width), MIN_WINDOW_WIDTH, workArea.width),
     height: clamp(roundWindowValue(size.height), MIN_WINDOW_HEIGHT, workArea.height),
   };
+  const visibleMaxX = workArea.x + workArea.width - expandedSize.width;
+  const visibleMinY = workArea.y;
+  const visibleMaxY = workArea.y + workArea.height - expandedSize.height;
   const rawVisibleX = rawPosition.x + frameInsets.horizontal;
+  const rawVisibleY = rawPosition.y + frameInsets.vertical;
   const clampedVisibleX = clamp(roundWindowValue(rawVisibleX), visibleMinX, visibleMaxX);
+  const clampedVisibleY = clamp(roundWindowValue(rawVisibleY), visibleMinY, visibleMaxY);
   const clampedPositionX = clampedVisibleX - frameInsets.horizontal;
-  const maxY = workArea.y + workArea.height - expandedSize.height;
+  const clampedPositionY = clampedVisibleY - frameInsets.vertical;
   const clampedPosition = {
     x: clampedPositionX,
-    y: clamp(roundWindowValue(position.y), workArea.y, maxY),
+    y: clampedPositionY,
   };
   const exceededEdges = [
     {
@@ -324,6 +358,10 @@ export function resolveWindowDockBoundsForMonitor(
     {
       edge: "right" as WindowDockEdge,
       overflow: rawVisibleX + expandedSize.width - (workArea.x + workArea.width),
+    },
+    {
+      edge: "top" as WindowDockEdge,
+      overflow: workArea.y - rawVisibleY,
     },
   ]
     .filter((item) => item.overflow > 0)
@@ -336,6 +374,10 @@ export function resolveWindowDockBoundsForMonitor(
     {
       edge: "right" as WindowDockEdge,
       distance: Math.abs(clampedVisibleX + expandedSize.width - (workArea.x + workArea.width)),
+    },
+    {
+      edge: "top" as WindowDockEdge,
+      distance: Math.abs(clampedVisibleY - workArea.y),
     },
   ]
     .filter((item) => item.distance <= EDGE_DOCK_TRIGGER_DISTANCE)
@@ -396,6 +438,32 @@ export function resolveWindowDockBoundsForMonitor(
         collapsedSize: {
           width: EDGE_DOCK_COLLAPSED_WIDTH,
           height: collapsedHeight,
+        },
+      };
+    }
+    case "top": {
+      const collapsedWidth = getCollapsedTopWidth(expandedSize.width, workArea.width);
+      const expandedCenterX = clampedVisibleX + expandedSize.width / 2;
+      const collapsedVisibleX = clamp(
+        roundWindowValue(expandedCenterX - collapsedWidth / 2),
+        workArea.x,
+        workArea.x + workArea.width - collapsedWidth,
+      );
+
+      return {
+        edge: "top",
+        expandedPosition: {
+          x: clampedPosition.x,
+          y: workArea.y - frameInsets.vertical,
+        },
+        expandedSize,
+        collapsedPosition: {
+          x: collapsedVisibleX - frameInsets.horizontal,
+          y: workArea.y - frameInsets.vertical,
+        },
+        collapsedSize: {
+          width: collapsedWidth,
+          height: EDGE_DOCK_COLLAPSED_TOP_HEIGHT,
         },
       };
     }
