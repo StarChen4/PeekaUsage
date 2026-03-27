@@ -24,6 +24,8 @@
   --color-bg: rgba(248, 250, 252, 0.94);
   --color-surface: rgba(255, 255, 255, 0.92);
   --color-surface-hover: rgba(255, 255, 255, 0.98);
+  --color-surface-elevated: rgba(255, 255, 255, 0.97);
+  --color-control-bg: rgba(255, 255, 255, 0.88);
   --color-text: #0f172a;
   --color-text-secondary: #475569;
   --color-text-muted: #64748b;
@@ -60,22 +62,24 @@
   --color-danger-soft-bg: rgba(239, 68, 68, 0.12);
   --color-danger-soft-border: rgba(239, 68, 68, 0.24);
   --color-danger-soft-text: #b91c1c;
+  --shadow-surface: 0 10px 24px rgba(15, 23, 42, 0.08);
+  --shadow-overlay: 0 18px 40px rgba(15, 23, 42, 0.14);
   --shadow-drag: 0 18px 42px rgba(15, 23, 42, 0.16);
-  --color-settings-panel-bg: rgba(241, 245, 249, 0.98);
-  --color-settings-surface: rgba(255, 255, 255, 0.98);
-  --color-settings-surface-elevated: rgba(255, 255, 255, 0.995);
-  --color-settings-border: rgba(15, 23, 42, 0.14);
-  --color-settings-border-strong: rgba(59, 130, 246, 0.36);
-  --color-settings-ghost: rgba(148, 163, 184, 0.18);
-  --color-settings-ghost-hover: rgba(148, 163, 184, 0.28);
-  --color-settings-control-bg: rgba(255, 255, 255, 0.99);
-  --color-settings-control-bg-hover: rgba(255, 255, 255, 1);
-  --color-settings-selected-bg: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(37, 99, 235, 0.18));
+  --color-settings-panel-bg: rgba(244, 247, 251, 0.98);
+  --color-settings-surface: var(--color-surface);
+  --color-settings-surface-elevated: var(--color-surface-elevated);
+  --color-settings-border: var(--color-border);
+  --color-settings-border-strong: var(--color-primary-soft-border);
+  --color-settings-ghost: var(--color-ghost-bg);
+  --color-settings-ghost-hover: var(--color-ghost-bg-hover);
+  --color-settings-control-bg: var(--color-control-bg);
+  --color-settings-control-bg-hover: var(--color-surface-elevated);
+  --color-settings-selected-bg: var(--color-primary-soft-bg);
   --color-settings-selected-solid: #dbeafe;
-  --color-settings-selected-text: #1e40af;
-  --color-settings-selected-shadow: 0 0 0 1px rgba(59, 130, 246, 0.14), 0 8px 18px rgba(59, 130, 246, 0.12);
-  --color-settings-focus-ring: rgba(59, 130, 246, 0.22);
-  --shadow-settings-surface: 0 10px 24px rgba(15, 23, 42, 0.06);
+  --color-settings-selected-text: var(--color-primary-soft-text);
+  --color-settings-selected-shadow: 0 0 0 1px var(--color-primary-soft-border);
+  --color-settings-focus-ring: var(--color-primary-soft-bg);
+  --shadow-settings-surface: var(--shadow-surface);
 }
 
 :root[data-theme="dark"] {
@@ -83,6 +87,8 @@
   --color-bg: rgba(15, 15, 15, 0.85);
   --color-surface: rgba(30, 30, 30, 0.9);
   --color-surface-hover: rgba(45, 45, 45, 0.95);
+  --color-surface-elevated: rgba(35, 35, 35, 0.95);
+  --color-control-bg: rgba(20, 20, 20, 0.42);
   --color-text: #f0f0f0;
   --color-text-secondary: #a0a0a0;
   --color-text-muted: #666666;
@@ -119,22 +125,24 @@
   --color-danger-soft-bg: rgba(239, 68, 68, 0.12);
   --color-danger-soft-border: rgba(239, 68, 68, 0.25);
   --color-danger-soft-text: #ffb4b4;
+  --shadow-surface: 0 14px 32px rgba(2, 6, 23, 0.24);
+  --shadow-overlay: 0 18px 40px rgba(2, 6, 23, 0.34);
   --shadow-drag: 0 18px 42px rgba(15, 23, 42, 0.42);
-  --color-settings-panel-bg: rgba(11, 16, 24, 0.98);
-  --color-settings-surface: rgba(18, 24, 35, 0.98);
-  --color-settings-surface-elevated: rgba(24, 32, 45, 0.99);
-  --color-settings-border: rgba(148, 163, 184, 0.18);
-  --color-settings-border-strong: rgba(96, 165, 250, 0.44);
-  --color-settings-ghost: rgba(148, 163, 184, 0.14);
-  --color-settings-ghost-hover: rgba(148, 163, 184, 0.24);
-  --color-settings-control-bg: rgba(22, 28, 40, 0.99);
-  --color-settings-control-bg-hover: rgba(30, 39, 54, 0.99);
-  --color-settings-selected-bg: linear-gradient(180deg, rgba(37, 99, 235, 0.42), rgba(29, 78, 216, 0.34));
+  --color-settings-panel-bg: rgba(18, 18, 18, 0.92);
+  --color-settings-surface: var(--color-surface);
+  --color-settings-surface-elevated: var(--color-surface-elevated);
+  --color-settings-border: var(--color-border);
+  --color-settings-border-strong: var(--color-primary-soft-border);
+  --color-settings-ghost: var(--color-ghost-bg);
+  --color-settings-ghost-hover: var(--color-ghost-bg-hover);
+  --color-settings-control-bg: var(--color-control-bg);
+  --color-settings-control-bg-hover: var(--color-surface-elevated);
+  --color-settings-selected-bg: var(--color-primary-soft-bg);
   --color-settings-selected-solid: rgba(30, 64, 175, 0.42);
-  --color-settings-selected-text: #eff6ff;
-  --color-settings-selected-shadow: 0 0 0 1px rgba(96, 165, 250, 0.22), 0 10px 22px rgba(29, 78, 216, 0.28);
-  --color-settings-focus-ring: rgba(96, 165, 250, 0.26);
-  --shadow-settings-surface: 0 14px 32px rgba(2, 6, 23, 0.34);
+  --color-settings-selected-text: var(--color-primary-soft-text);
+  --color-settings-selected-shadow: 0 0 0 1px var(--color-primary-soft-border);
+  --color-settings-focus-ring: var(--color-primary-soft-bg);
+  --shadow-settings-surface: var(--shadow-surface);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -143,6 +151,8 @@
     --color-bg: rgba(15, 15, 15, 0.85);
     --color-surface: rgba(30, 30, 30, 0.9);
     --color-surface-hover: rgba(45, 45, 45, 0.95);
+    --color-surface-elevated: rgba(35, 35, 35, 0.95);
+    --color-control-bg: rgba(20, 20, 20, 0.42);
     --color-text: #f0f0f0;
     --color-text-secondary: #a0a0a0;
     --color-text-muted: #666666;
@@ -179,21 +189,23 @@
     --color-danger-soft-bg: rgba(239, 68, 68, 0.12);
     --color-danger-soft-border: rgba(239, 68, 68, 0.25);
     --color-danger-soft-text: #ffb4b4;
+    --shadow-surface: 0 14px 32px rgba(2, 6, 23, 0.24);
+    --shadow-overlay: 0 18px 40px rgba(2, 6, 23, 0.34);
     --shadow-drag: 0 18px 42px rgba(15, 23, 42, 0.42);
-    --color-settings-panel-bg: rgba(11, 16, 24, 0.98);
-    --color-settings-surface: rgba(18, 24, 35, 0.98);
-    --color-settings-surface-elevated: rgba(24, 32, 45, 0.99);
-    --color-settings-border: rgba(148, 163, 184, 0.18);
-    --color-settings-border-strong: rgba(96, 165, 250, 0.44);
-    --color-settings-ghost: rgba(148, 163, 184, 0.14);
-    --color-settings-ghost-hover: rgba(148, 163, 184, 0.24);
-    --color-settings-control-bg: rgba(22, 28, 40, 0.99);
-    --color-settings-control-bg-hover: rgba(30, 39, 54, 0.99);
-    --color-settings-selected-bg: linear-gradient(180deg, rgba(37, 99, 235, 0.42), rgba(29, 78, 216, 0.34));
+    --color-settings-panel-bg: rgba(18, 18, 18, 0.92);
+    --color-settings-surface: var(--color-surface);
+    --color-settings-surface-elevated: var(--color-surface-elevated);
+    --color-settings-border: var(--color-border);
+    --color-settings-border-strong: var(--color-primary-soft-border);
+    --color-settings-ghost: var(--color-ghost-bg);
+    --color-settings-ghost-hover: var(--color-ghost-bg-hover);
+    --color-settings-control-bg: var(--color-control-bg);
+    --color-settings-control-bg-hover: var(--color-surface-elevated);
+    --color-settings-selected-bg: var(--color-primary-soft-bg);
     --color-settings-selected-solid: rgba(30, 64, 175, 0.42);
-    --color-settings-selected-text: #eff6ff;
-    --color-settings-selected-shadow: 0 0 0 1px rgba(96, 165, 250, 0.22), 0 10px 22px rgba(29, 78, 216, 0.28);
-    --color-settings-focus-ring: rgba(96, 165, 250, 0.26);
-    --shadow-settings-surface: 0 14px 32px rgba(2, 6, 23, 0.34);
+    --color-settings-selected-text: var(--color-primary-soft-text);
+    --color-settings-selected-shadow: 0 0 0 1px var(--color-primary-soft-border);
+    --color-settings-focus-ring: var(--color-primary-soft-bg);
+    --shadow-settings-surface: var(--shadow-surface);
   }
 }
