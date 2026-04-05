@@ -7,6 +7,7 @@ use crate::config::encryption::KeyStore;
 use crate::config::system_env::sync_active_api_key_envs;
 use crate::providers::types::*;
 use crate::providers::ProviderManager;
+use crate::stats::UsageStatsStore;
 
 const LEGACY_API_KEY_ID: &str = "legacy-default";
 const LEGACY_SUBSCRIPTION_ID: &str = "legacy-subscription";
@@ -32,6 +33,7 @@ pub async fn fetch_all_usage(
     provider_manager: State<'_, ProviderManager>,
     app_config: State<'_, AppConfig>,
     key_store: State<'_, KeyStore>,
+    usage_stats_store: State<'_, UsageStatsStore>,
 ) -> Result<Vec<UsageSummary>, String> {
     let enabled = app_config.get_enabled_providers().await;
     let mut results = Vec::new();
@@ -48,6 +50,10 @@ pub async fn fetch_all_usage(
         results.push(summary);
     }
 
+    if let Err(error) = usage_stats_store.record_summaries(&results).await {
+        eprintln!("写入统计历史失败: {}", error);
+    }
+
     Ok(results)
 }
 
@@ -58,15 +64,25 @@ pub async fn fetch_provider_usage(
     provider_manager: State<'_, ProviderManager>,
     app_config: State<'_, AppConfig>,
     key_store: State<'_, KeyStore>,
+    usage_stats_store: State<'_, UsageStatsStore>,
 ) -> Result<UsageSummary, String> {
     let entry = app_config.get_provider_entry(&provider_id).await;
-    build_usage_summary(
+    let summary = build_usage_summary(
         &provider_id,
         entry,
         provider_manager.inner(),
         key_store.inner(),
     )
-    .await
+    .await?;
+
+    if let Err(error) = usage_stats_store
+        .record_summaries(std::slice::from_ref(&summary))
+        .await
+    {
+        eprintln!("写入统计历史失败: {}", error);
+    }
+
+    Ok(summary)
 }
 
 /// 获取已添加的供应商配置
@@ -326,6 +342,7 @@ pub async fn remove_provider_config(
     provider_id: String,
     app_config: State<'_, AppConfig>,
     key_store: State<'_, KeyStore>,
+    usage_stats_store: State<'_, UsageStatsStore>,
 ) -> Result<(), String> {
     let existing_entry = app_config.get_provider_entry(&provider_id).await;
 
@@ -367,6 +384,10 @@ pub async fn remove_provider_config(
             },
         )
         .await?;
+
+    if let Err(error) = usage_stats_store.remove_provider(&provider_id).await {
+        eprintln!("清理统计历史失败: {}", error);
+    }
 
     sync_active_api_key_envs(app_config.inner(), key_store.inner()).await
 }

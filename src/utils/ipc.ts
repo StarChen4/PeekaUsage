@@ -7,6 +7,7 @@ import type {
   ProviderSubscriptionItem,
 } from "../types/provider";
 import type { AppSettings } from "../types/settings";
+import type { StatsRange, UsageStatsSnapshot } from "../types/stats";
 
 /** 获取所有供应商用量摘要 */
 export async function fetchAllUsage(): Promise<UsageSummary[]> {
@@ -45,6 +46,10 @@ export async function removeProviderConfig(providerId: ProviderId): Promise<void
 
 export async function saveProviderOrder(order: ProviderId[]): Promise<void> {
   return invoke("save_provider_order", { order });
+}
+
+export async function getUsageStatsSnapshot(range: StatsRange): Promise<UsageStatsSnapshot> {
+  return invoke<UsageStatsSnapshot>("get_usage_stats_snapshot", { range });
 }
 
 /** 激活某个 API Key 并同步到系统环境变量 */

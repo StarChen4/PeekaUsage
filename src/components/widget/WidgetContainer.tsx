@@ -11,6 +11,7 @@ import { saveProviderOrder } from "../../utils/ipc";
 import { fitCurrentWindowHeight, shouldSuppressAutoFit } from "../../utils/windowBounds";
 import OpacityHandle from "./OpacityHandle";
 import ProviderCard from "./ProviderCard";
+import UsageStatsPanel from "./UsageStatsPanel";
 
 type WidgetContainerProps = {
   onOpenSettings: () => void;
@@ -61,6 +62,7 @@ export default function WidgetContainer({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [layoutSaveState, setLayoutSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
   const cardListRef = useRef<HTMLDivElement | null>(null);
   const cardListContentRef = useRef<HTMLDivElement | null>(null);
   const footerRef = useRef<HTMLDivElement | null>(null);
@@ -82,6 +84,7 @@ export default function WidgetContainer({
   }));
   const contentLayoutKey = useMemo(
     () => JSON.stringify({
+      statsOpen: isStatsOpen,
       displayMode: settings.widgetDisplayMode,
       compactColorMarkersEnabled: settings.compactColorMarkersEnabled,
       language: settings.language,
@@ -107,7 +110,7 @@ export default function WidgetContainer({
         })),
       })),
     }),
-    [orderedProviders, settings.compactColorMarkersEnabled, settings.language, settings.widgetDisplayMode],
+    [isStatsOpen, orderedProviders, settings.compactColorMarkersEnabled, settings.language, settings.widgetDisplayMode],
   );
   const layoutStatusText = layoutSaveState === "saving"
     ? t("widget.layout.saving")
@@ -508,6 +511,15 @@ export default function WidgetContainer({
   return (
     <div className="widget-container">
       <div ref={cardListRef} className={`card-list${isDragging ? " is-dragging" : ""}`}>
+        {isStatsOpen && (
+          <div className="stats-drawer-shell">
+            <UsageStatsPanel
+              open={isStatsOpen}
+              providers={orderedProviders}
+              onClose={() => setIsStatsOpen(false)}
+            />
+          </div>
+        )}
         <div
           className="card-list-drag-strip drag-strip-left"
           data-tauri-drag-region
@@ -520,7 +532,7 @@ export default function WidgetContainer({
         />
         <div
           ref={cardListContentRef}
-          className={`card-list-content${orderedProviders.length === 0 ? " is-empty" : ""}`}
+          className={`card-list-content${orderedProviders.length === 0 ? " is-empty" : ""}${isStatsOpen ? " is-obscured" : ""}`}
         >
           {orderedProviders.length > 0 ? (
             orderedProviders.map((provider) => (
@@ -706,6 +718,26 @@ export default function WidgetContainer({
               <path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
               <path
                 d="M20 5.5v5h-5"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.8"
+              />
+            </svg>
+          </button>
+
+          <button
+            className={`icon-btn${isStatsOpen ? " is-active" : ""}`}
+            type="button"
+            title={t("widget.actions.stats")}
+            aria-label={t("widget.actions.stats")}
+            aria-pressed={isStatsOpen}
+            onClick={() => setIsStatsOpen((value) => !value)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M5 18.5h14M7.5 16V10.5M12 16V7.5M16.5 16V12.5"
                 fill="none"
                 stroke="currentColor"
                 strokeLinecap="round"

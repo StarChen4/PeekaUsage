@@ -2,12 +2,14 @@ mod commands;
 mod config;
 mod polling;
 mod providers;
+mod stats;
 mod tray;
 
 use config::app_config::AppConfig;
 use config::encryption::KeyStore;
 use config::migration::migrate_legacy_app_data;
 use providers::ProviderManager;
+use stats::UsageStatsStore;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -30,13 +32,15 @@ pub fn run() {
 
             // 初始化状态
             let app_config = AppConfig::new(app_data_dir.clone());
-            let key_store = KeyStore::new(app_data_dir);
+            let key_store = KeyStore::new(app_data_dir.clone());
             let provider_manager = ProviderManager::new();
+            let usage_stats_store = UsageStatsStore::new(app_data_dir);
             let initial_settings = tauri::async_runtime::block_on(app_config.get_settings());
 
             app.manage(app_config);
             app.manage(key_store);
             app.manage(provider_manager);
+            app.manage(usage_stats_store);
 
             // 初始化系统托盘
             let handle = app.handle().clone();
@@ -71,6 +75,7 @@ pub fn run() {
             commands::provider_commands::activate_provider_api_key,
             commands::settings_commands::get_settings,
             commands::settings_commands::save_settings,
+            commands::stats_commands::get_usage_stats_snapshot,
             commands::taskbar_commands::set_window_skip_taskbar,
             commands::window_commands::set_window_opacity,
             commands::window_commands::detect_oauth_tokens,
