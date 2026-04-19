@@ -3,6 +3,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager,
 };
+use tokio::time::{sleep, Duration};
 
 fn show_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -11,6 +12,29 @@ fn show_main_window(app: &AppHandle) {
         }
         let _ = window.show();
         let _ = window.set_focus();
+    }
+}
+
+fn recenter_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let was_always_on_top = window.is_always_on_top().unwrap_or(false);
+
+        if window.is_minimized().unwrap_or(false) {
+            let _ = window.unminimize();
+        }
+
+        let _ = window.show();
+        let _ = window.set_always_on_top(true);
+        let _ = window.center();
+        let _ = window.set_focus();
+
+        if !was_always_on_top {
+            let window = window.clone();
+            tauri::async_runtime::spawn(async move {
+                sleep(Duration::from_millis(1200)).await;
+                let _ = window.set_always_on_top(false);
+            });
+        }
     }
 }
 
@@ -32,11 +56,18 @@ fn toggle_main_window(app: &AppHandle) {
 /// 初始化系统托盘
 pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let show = MenuItem::with_id(app, "show", "显示/隐藏窗口", true, None::<&str>)?;
+    let recenter = MenuItem::with_id(
+        app,
+        "recenter",
+        "重置到屏幕中央并置顶",
+        true,
+        None::<&str>,
+    )?;
     let refresh = MenuItem::with_id(app, "refresh", "刷新所有数据", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "设置...", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
 
-    let menu = Menu::with_items(app, &[&show, &refresh, &settings, &quit])?;
+    let menu = Menu::with_items(app, &[&show, &recenter, &refresh, &settings, &quit])?;
 
     let mut tray_builder = TrayIconBuilder::new()
         .menu(&menu)
@@ -46,6 +77,9 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             match event.id.as_ref() {
                 "show" => {
                     toggle_main_window(app);
+                }
+                "recenter" => {
+                    recenter_main_window(app);
                 }
                 "refresh" => {
                     // 通过事件通知前端刷新
