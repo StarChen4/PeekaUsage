@@ -540,7 +540,7 @@ async fn build_usage_summary(
         .iter()
         .any(|item| matches!(item.usage.status, ProviderStatus::Success));
 
-    let has_usage_data = usage.is_some();
+    let has_usage_data = !successful_usages.is_empty();
     let status = if has_usage_data || has_subscription_data {
         ProviderStatus::Success
     } else {
@@ -551,6 +551,8 @@ async fn build_usage_summary(
         None
     } else if !api_errors.is_empty() {
         Some(api_errors.join("；"))
+    } else if !subscription_errors.is_empty() {
+        Some(subscription_errors.join("；"))
     } else {
         Some("未配置 API Key 或 OAuth Token".into())
     };
@@ -673,6 +675,12 @@ async fn load_provider_subscriptions(
 
 fn aggregate_usage_data(items: &[UsageData]) -> Option<UsageData> {
     let first = items.first()?;
+    // 多把管理密钥可能读取同一份组织、账户或共享预算，不能盲目相加。
+    if items.iter().any(|item| item.currency != first.currency)
+        || (items.len() > 1 && items.iter().any(|item| item.scope != UsageScope::Key))
+    {
+        return None;
+    }
     let currency = first.currency.clone();
     let mut total_used = 0.0;
     let mut total_budget = Some(0.0);
@@ -698,6 +706,7 @@ fn aggregate_usage_data(items: &[UsageData]) -> Option<UsageData> {
     }
 
     Some(UsageData {
+        scope: first.scope.clone(),
         total_used,
         total_budget,
         remaining,
@@ -804,4 +813,48 @@ fn mask_value(value: &str) -> String {
     }
 
     format!("{}...{}", &value[..4], &value[value.len() - 4..])
+}
+
+#[cfg(test)]
+mod usage_tests {
+    use super::*;
+
+    fn sample(scope: UsageScope) -> UsageData {
+        UsageData {
+            scope,
+            total_used: 10.0,
+            total_budget: Some(100.0),
+            remaining: Some(90.0),
+            currency: "USD".into(),
+            period_start: None,
+            period_end: None,
+        }
+    }
+
+    #[test]
+    fn only_independent_key_usage_can_be_summed() {
+        let aggregate =
+            aggregate_usage_data(&[sample(UsageScope::Key), sample(UsageScope::Key)]).unwrap();
+        assert_eq!(aggregate.total_used, 20.0);
+        for scope in [
+            UsageScope::Organization,
+            UsageScope::Account,
+            UsageScope::SharedBudget,
+        ] {
+            assert!(aggregate_usage_data(&[sample(scope.clone()), sample(scope)]).is_none());
+        }
+        let mut foreign = sample(UsageScope::Key);
+        foreign.currency = "EUR".into();
+        assert!(aggregate_usage_data(&[sample(UsageScope::Key), foreign]).is_none());
+    }
+
+    #[test]
+    fn old_usage_without_scope_remains_readable() {
+        let mut value = serde_json::to_value(sample(UsageScope::Key)).unwrap();
+        value.as_object_mut().unwrap().remove("scope");
+        assert_eq!(
+            serde_json::from_value::<UsageData>(value).unwrap().scope,
+            UsageScope::Key
+        );
+    }
 }

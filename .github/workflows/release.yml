@@ -97,7 +97,7 @@ jobs:
             const tag = process.env.TAG_NAME;
             const releaseName = process.env.RELEASE_NAME;
             const releaseNotes = fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8").trim();
-            const releaseBody = `${releaseNotes}\n\n---\n\n## Artifacts\n- Windows: NSIS installer\n- Linux x86_64: DEB / AppImage\n- macOS x86_64 / arm64: app / dmg\n\n## Notes\n- Current macOS artifacts are unsigned and not notarized`;
+            const releaseBody = `${releaseNotes}\n\n---\n\n## 安装包\n- Windows：NSIS 安装包\n- Linux x86_64：DEB / AppImage\n- macOS x86_64 / arm64：app / dmg\n\n## 注意事项\n- 当前 macOS 安装包未签名、未公证`;
 
             try {
               const existing = await github.rest.repos.getReleaseByTag({
@@ -213,7 +213,7 @@ jobs:
           releaseId: ${{ needs.prepare-release.outputs.release_id }}
           tagName: ${{ needs.validate-version.outputs.tag_name }}
           args: ${{ matrix.tauri_args }}
-          releaseAssetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
+          tauriScript: ${{ matrix.install_linux_deps && 'bash scripts/build-linux.sh' || '' }}
 
   verify-updater-manifest:
     name: Verify updater manifest
@@ -222,6 +222,9 @@ jobs:
       - validate-version
       - publish-bundles
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Check latest.json
         shell: bash
         run: |
@@ -233,8 +236,4 @@ jobs:
             exit 1
           fi
 
-          if ! grep -q '"version"' /tmp/latest.json; then
-            echo "latest.json is missing the version field"
-            cat /tmp/latest.json
-            exit 1
-          fi
+          python scripts/check-update-manifest.py /tmp/latest.json "${{ needs.validate-version.outputs.tag_name }}"

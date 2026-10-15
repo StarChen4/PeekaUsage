@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use crate::config::app_config::{AppSettings, PollingMode};
-use crate::providers::types::{ExtraUsage, UsageSummary};
+use crate::providers::types::{ExtraUsage, UsageScope, UsageSummary};
 
 const STATS_FILE_VERSION: u32 = 1;
 const HISTORY_RETENTION_DAYS: i64 = 180;
@@ -123,6 +123,8 @@ pub struct UsageStatsSnapshot {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct UsageValueSample {
+    #[serde(default)]
+    scope: Option<UsageScope>,
     captured_at: String,
     total_used: f64,
     total_budget: Option<f64>,
@@ -303,6 +305,7 @@ fn record_summary(stats: &mut UsageStatsFile, summary: &UsageSummary, now: DateT
         push_usage_sample(
             &mut api_summary.samples,
             UsageValueSample {
+                scope: Some(usage.scope.clone()),
                 captured_at: captured_at.clone(),
                 total_used: usage.total_used,
                 total_budget: usage.total_budget,
@@ -328,6 +331,7 @@ fn record_summary(stats: &mut UsageStatsFile, summary: &UsageSummary, now: DateT
             push_usage_sample(
                 &mut api_key_history.samples,
                 UsageValueSample {
+                    scope: Some(usage.scope.clone()),
                     captured_at: captured_at.clone(),
                     total_used: usage.total_used,
                     total_budget: usage.total_budget,
@@ -407,6 +411,7 @@ fn push_usage_sample(samples: &mut Vec<UsageValueSample>, next: UsageValueSample
     };
 
     if within_dedupe_window
+        && last.scope == next.scope
         && nearly_equal(last.total_used, next.total_used)
         && optional_nearly_equal(last.total_budget, next.total_budget)
         && optional_nearly_equal(last.remaining, next.remaining)
@@ -1108,7 +1113,8 @@ fn accumulate_extra_usage_delta(samples: &[ExtraUsageSample]) -> f64 {
 }
 
 fn usage_series_reset(previous: &UsageValueSample, current: &UsageValueSample) -> bool {
-    previous.period_start != current.period_start
+    previous.scope != current.scope
+        || previous.period_start != current.period_start
         || previous.period_end != current.period_end
         || current.total_used + FLOAT_EPSILON < previous.total_used
 }
@@ -1296,6 +1302,7 @@ mod tests {
 
     fn usage_sample(hours_offset: i64, total_used: f64, period_start: &str) -> UsageValueSample {
         UsageValueSample {
+            scope: Some(UsageScope::Key),
             captured_at: (fixed_time() + Duration::hours(hours_offset)).to_rfc3339(),
             total_used,
             total_budget: Some(100.0),
@@ -1329,6 +1336,7 @@ mod tests {
                     currency: "USD".to_string(),
                     samples: vec![
                         UsageValueSample {
+                            scope: Some(UsageScope::Key),
                             captured_at: (fixed_time() - Duration::days(181)).to_rfc3339(),
                             total_used: 1.0,
                             total_budget: Some(10.0),
@@ -1361,6 +1369,7 @@ mod tests {
         push_usage_sample(
             &mut samples,
             UsageValueSample {
+                scope: Some(UsageScope::Key),
                 captured_at: (fixed_time() + Duration::minutes(4)).to_rfc3339(),
                 total_used: 10.0,
                 total_budget: Some(100.0),
@@ -1404,6 +1413,34 @@ mod tests {
         );
 
         assert_eq!(forecast.status, UsageForecastStatus::UnlikelyBeforeReset);
+    }
+
+    #[test]
+    fn scope_changes_do_not_become_spending_spikes_or_get_deduplicated() {
+        let mut legacy = usage_sample(-2, 0.01, "2026-04-01");
+        legacy.scope = None;
+        let mut current = usage_sample(-1, 1.0, "2026-04-01");
+        current.scope = Some(UsageScope::Organization);
+        let mut next = usage_sample(0, 1.5, "2026-04-01");
+        next.scope = Some(UsageScope::Organization);
+        assert!(nearly_equal(
+            accumulate_usage_delta(&[legacy, current.clone(), next]),
+            0.5
+        ));
+
+        let mut samples = vec![usage_sample(0, 1.0, "2026-04-01")];
+        current.captured_at = samples[0].captured_at.clone();
+        push_usage_sample(&mut samples, current);
+        assert_eq!(samples.len(), 2);
+
+        let mut json = serde_json::to_value(&samples[0]).unwrap();
+        json.as_object_mut().unwrap().remove("scope");
+        assert_eq!(
+            serde_json::from_value::<UsageValueSample>(json)
+                .unwrap()
+                .scope,
+            None
+        );
     }
 
     #[test]

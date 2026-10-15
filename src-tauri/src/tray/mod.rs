@@ -56,13 +56,7 @@ fn toggle_main_window(app: &AppHandle) {
 /// 初始化系统托盘
 pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let show = MenuItem::with_id(app, "show", "显示/隐藏窗口", true, None::<&str>)?;
-    let recenter = MenuItem::with_id(
-        app,
-        "recenter",
-        "重置到屏幕中央并置顶",
-        true,
-        None::<&str>,
-    )?;
+    let recenter = MenuItem::with_id(app, "recenter", "重置到屏幕中央并置顶", true, None::<&str>)?;
     let refresh = MenuItem::with_id(app, "refresh", "刷新所有数据", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "设置...", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;

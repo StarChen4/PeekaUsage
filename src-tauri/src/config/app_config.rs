@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -94,6 +94,31 @@ pub enum AppLanguage {
     ZhHant,
     #[serde(rename = "en")]
     En,
+}
+
+impl AppLanguage {
+    /// 仅用于首次创建配置；旧配置仍沿用简体中文缺省值。
+    fn from_system_locale(locale: Option<&str>) -> Self {
+        let locale = locale.unwrap_or_default().trim().to_ascii_lowercase();
+        let locale = locale.split(['.', '@']).next().unwrap_or_default();
+        let mut parts = locale.split(['-', '_']);
+        if parts.next() != Some("zh") {
+            return Self::En;
+        }
+
+        let subtags: Vec<_> = parts.collect();
+        if subtags.contains(&"hans") {
+            Self::ZhHans
+        } else if subtags.contains(&"hant")
+            || subtags
+                .iter()
+                .any(|part| matches!(*part, "tw" | "hk" | "mo"))
+        {
+            Self::ZhHant
+        } else {
+            Self::ZhHans
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -267,7 +292,16 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn new(app_data_dir: PathBuf) -> Self {
+    pub fn new(app_data_dir: PathBuf) -> Result<Self, String> {
+        Self::load(app_data_dir, || {
+            AppLanguage::from_system_locale(sys_locale::get_locale().as_deref())
+        })
+    }
+
+    fn load(
+        app_data_dir: PathBuf,
+        detect_language: impl FnOnce() -> AppLanguage,
+    ) -> Result<Self, String> {
         let config_path = app_data_dir.join("config.json");
         let config = if config_path.exists() {
             match std::fs::read_to_string(&config_path) {
@@ -279,29 +313,23 @@ impl AppConfig {
                 Err(_) => ConfigFile::default(),
             }
         } else {
-            ConfigFile::default()
+            let mut config = ConfigFile::default();
+            config.settings.language = detect_language();
+            // 首次启动即持久化，之后系统语言变化也不会覆盖用户的选择。
+            write_config(&config_path, &config)?;
+            config
         };
 
-        Self {
+        Ok(Self {
             config: Arc::new(RwLock::new(config)),
             config_path,
-        }
+        })
     }
 
     /// 保存配置到文件
     async fn save(&self) -> Result<(), String> {
         let config = self.config.read().await;
-        let content =
-            serde_json::to_string_pretty(&*config).map_err(|e| format!("序列化配置失败: {}", e))?;
-
-        if let Some(parent) = self.config_path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {}", e))?;
-        }
-
-        std::fs::write(&self.config_path, content)
-            .map_err(|e| format!("写入配置文件失败: {}", e))?;
-
-        Ok(())
+        write_config(&self.config_path, &config)
     }
 
     pub async fn get_settings(&self) -> AppSettings {
@@ -364,6 +392,15 @@ impl AppConfig {
     }
 }
 
+fn write_config(config_path: &Path, config: &ConfigFile) -> Result<(), String> {
+    let content =
+        serde_json::to_string_pretty(config).map_err(|e| format!("序列化配置失败: {}", e))?;
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {}", e))?;
+    }
+    std::fs::write(config_path, content).map_err(|e| format!("写入配置文件失败: {}", e))
+}
+
 fn compare_provider_order(order: &[String], left: &str, right: &str) -> std::cmp::Ordering {
     let left_index = order.iter().position(|id| id == left).unwrap_or(usize::MAX);
     let right_index = order
@@ -383,5 +420,109 @@ fn provider_rank(provider_id: &str) -> usize {
         "anthropic" => 1,
         "openrouter" => 2,
         _ => usize::MAX,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestDirectory(PathBuf);
+
+    impl TestDirectory {
+        fn new() -> Self {
+            Self(std::env::temp_dir().join(format!("peekausage-language-{}", uuid::Uuid::new_v4())))
+        }
+    }
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn system_locale_selects_supported_language() {
+        for (locale, expected) in [
+            (Some("zh_CN.UTF-8"), AppLanguage::ZhHans),
+            (Some("zh-SG"), AppLanguage::ZhHans),
+            (Some("zh"), AppLanguage::ZhHans),
+            (Some("zh-Hans-HK"), AppLanguage::ZhHans),
+            (Some("zh_TW.UTF-8"), AppLanguage::ZhHant),
+            (Some("ZH-hk"), AppLanguage::ZhHant),
+            (Some("zh-MO"), AppLanguage::ZhHant),
+            (Some("zh-Hant-CN"), AppLanguage::ZhHant),
+            (Some("en-US"), AppLanguage::En),
+            (Some("ja_JP.UTF-8"), AppLanguage::En),
+            (Some("de_DE@euro"), AppLanguage::En),
+            (Some("C.UTF-8"), AppLanguage::En),
+            (Some(""), AppLanguage::En),
+            (None, AppLanguage::En),
+        ] {
+            assert_eq!(
+                AppLanguage::from_system_locale(locale),
+                expected,
+                "区域设置：{locale:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn first_launch_persists_language_without_later_overrides() {
+        for language in [AppLanguage::ZhHans, AppLanguage::ZhHant, AppLanguage::En] {
+            let directory = TestDirectory::new();
+            let config = AppConfig::load(directory.0.clone(), || language.clone()).unwrap();
+            assert_eq!(config.get_settings().await.language, language);
+            let content = std::fs::read_to_string(directory.0.join("config.json")).unwrap();
+            let saved: ConfigFile = serde_json::from_str(&content).unwrap();
+            assert_eq!(saved.settings.language, language);
+
+            let reloaded = AppConfig::load(directory.0.clone(), || {
+                panic!("已有配置时不应再次检测系统语言")
+            })
+            .unwrap();
+            assert_eq!(reloaded.get_settings().await.language, language);
+            assert_eq!(
+                std::fs::read_to_string(directory.0.join("config.json")).unwrap(),
+                content
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn legacy_configuration_keeps_chinese_and_other_settings() {
+        let directory = TestDirectory::new();
+        std::fs::create_dir_all(&directory.0).unwrap();
+        let mut config = ConfigFile::default();
+        config.settings.polling_interval = 17;
+        config.provider_order = vec!["anthropic".to_string(), "openai".to_string()];
+        let mut json = serde_json::to_value(config).unwrap();
+        json["settings"].as_object_mut().unwrap().remove("language");
+        let content = serde_json::to_string(&json).unwrap();
+        std::fs::write(directory.0.join("config.json"), &content).unwrap();
+
+        let loaded = AppConfig::load(directory.0.clone(), || {
+            panic!("旧配置缺少语言字段时也不应检测系统语言")
+        })
+        .unwrap();
+        let settings = loaded.get_settings().await;
+        assert_eq!(settings.language, AppLanguage::ZhHans);
+        assert_eq!(settings.polling_interval, 17);
+        assert_eq!(
+            loaded.config.read().await.provider_order,
+            ["anthropic", "openai"]
+        );
+        assert_eq!(
+            std::fs::read_to_string(directory.0.join("config.json")).unwrap(),
+            content
+        );
+    }
+
+    #[test]
+    fn first_launch_reports_persistence_failure() {
+        let directory = TestDirectory::new();
+        std::fs::write(&directory.0, "阻止把文件当作配置目录").unwrap();
+        assert!(AppConfig::load(directory.0.clone(), || AppLanguage::En).is_err());
+        std::fs::remove_file(&directory.0).unwrap();
     }
 }

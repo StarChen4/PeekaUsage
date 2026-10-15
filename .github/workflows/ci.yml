@@ -77,3 +77,13 @@ jobs:
         run: cargo check
         working-directory: src-tauri
 
+      - name: 验证 Rust 逻辑与供应商响应兼容
+        run: cargo test --lib
+        working-directory: src-tauri
+
+      - name: 构建并检查 Linux AppImage
+        if: matrix.platform == 'ubuntu-22.04'
+        run: >-
+          npm run tauri:build:linux -- --debug
+          --config '{"bundle":{"createUpdaterArtifacts":false}}'
+

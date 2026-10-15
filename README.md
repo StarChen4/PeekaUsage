@@ -47,7 +47,7 @@ PeekaUsage 干的事情很简单：**把这些信息钉在桌面角落里，变�
 
 ### 多供应商总览
 
-- OpenAI、Anthropic、OpenRouter 的按量用量、预算、余额、速率限制
+- OpenAI、Anthropic、OpenRouter 的按量用量，以及接口实际提供的预算与余额
 - OpenAI、Anthropic 的订阅窗口消耗
 - Anthropic 额外支持展示更多订阅窗口和 Extra Usage
 - 同一个桌面浮窗里统一查看，不用来回切页面
@@ -72,6 +72,8 @@ PeekaUsage 干的事情很简单：**把这些信息钉在桌面角落里，变�
 - 始终置顶、窗口透明度调节
 - 系统托盘显示 / 隐藏 / 刷新 / 打开设置
 - 简体中文、繁体中文、English 即时切换
+
+首次启动会按系统语言选择界面：简体中文环境使用简体中文，繁体中文环境（含台湾、香港、澳门）使用繁体中文，其他环境或无法识别语言时使用英文。该选择会立即保存，之后继续使用已保存的语言，不随系统语言变化。已有用户配置（包括从旧应用目录迁移的配置）保持原有语言；旧配置缺少语言字段时仍使用简体中文。
 
 ## 为什么它可能值得 Star
 
@@ -147,6 +149,16 @@ cargo fmt --all --check
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
+首次启动语言与旧配置兼容测试：
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml config::app_config::tests
+```
+
+Linux 本地打包使用 `npm run tauri:build:linux`。项目锁定 Tauri CLI 2.11.4，使用上游修复后的相对图标链接；本地构建、Linux CI 和 Release 共用 `scripts/build-linux.sh`，解包检查本次产物的 `.DirIcon` 是否存在、非空、指向包内 PNG，且不使用构建机绝对路径。Release 检查通过后才上传安装包。也可运行 `bash scripts/check-appimage.sh /路径/PeekaUsage.AppImage` 单独检查产物。
+
+Linux 桌面入口使用 `Utility` 分类。发版流水线通过 `scripts/check-update-manifest.py` 检查 `latest.json` 的版本、四个平台下载条目及签名格式。
+
 发版前还需要先补齐对应版本的发版说明文件，例如 `.github/release-notes/v0.1.0.md`，再打 `v0.1.0` 标签并推送。
 
 ## 凭据来源
@@ -163,7 +175,9 @@ cargo check --manifest-path src-tauri/Cargo.toml
 
 说明：
 
-- Anthropic 的按量成本接口需要 Admin Key
+- OpenAI 和 Anthropic 的按量成本查询需要各自的组织管理凭据；普通推理 Key 不代表拥有成本查询权限
+- OpenAI、Anthropic 返回组织成本，不能理解为当前某一把 Key 的独立消费
+- OpenRouter 普通 Key 返回自身用量和生效额度，Management Key 才能查询账户总余额
 - 环境变量优先级高于设置页里保存的值
 - 设置页支持把某个已保存的 Key 一键切换为当前系统环境变量
 - Windows 会写入用户级环境变量；Linux / macOS 会同步当前进程并写入应用托管的 Shell 环境脚本，新开的终端会读取新值
@@ -184,6 +198,22 @@ cargo check --manifest-path src-tauri/Cargo.toml
 - OpenAI 的 `tokens.access_token` 同时兼容字符串和索引对象两种格式
 - OpenAI 凭据也可能保存在系统凭据库，而不一定存在 `~/.codex/auth.json`
 - OpenRouter 当前没有订阅 OAuth 查询
+
+## 接口兼容说明（2026-10-15）
+
+| 查询通路 | 当前处理方式 | 核对来源 |
+| --- | --- | --- |
+| OpenAI API 成本 | 使用组织 Admin API Key 调用 `/v1/organization/costs`，累计全部分页；`amount.value` 已是对应币种金额，美元不能再除以 100。公开成本接口没有余额与预算，界面按未提供处理。 | [官方成本接口](https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/costs) |
+| Anthropic API 成本 | 使用 `/v1/organizations/cost_report` 的 `starting_at` / `ending_at` 参数，读取 `data[].results[].amount` 十进制字符串，按美分换算美元并累计全部分页。 | [官方用量与成本文档](https://platform.claude.com/docs/en/manage-claude/usage-cost-api) |
+| OpenRouter API 用量 | 普通 Key 查询 `/api/v1/key`，优先使用 `effective_budget`，其次按 `limit_remaining` 和额度周期处理；Management Key 才查询 `/api/v1/credits` 的账户总额。已废弃的 `rate_limit` 不再当作实时限额。 | [Key 接口](https://openrouter.ai/docs/api/api-reference/api-keys/get-current-api-key)、[余额接口](https://openrouter.ai/docs/api/api-reference/credits/get-remaining-credits) |
+
+界面会区分当前 Key、组织成本、账户总额与共享预算。多把管理密钥可能读到同一份数据，因此组织、账户或共享预算不再直接相加为供应商合计；缺少可计算的预算时，精简模式显示 `—`，不会误报为 `0%`。
+
+Claude 与 Codex 的 OAuth 订阅查询继续兼容当前已知的客户端内部接口结构，保留额外模型窗口和 Extra Usage。内部接口没有公开稳定性承诺，本次没有使用真实账号凭据做在线验证；接口返回未知或不完整结构时会明确报解析错误，不会静默显示零用量。Extra Usage 有额度与已用金额时据此计算百分比，不再盲目将利用率乘以 100；没有返回的重置时间不自行猜测。
+
+所有用量请求均有连接和总请求超时，认证失败、HTTP 429 和服务错误不会伪装成成功。应用不再为探测速率限制发送 Anthropic 模型生成请求。设置页的 Key 验证检查实际用量查询权限，而不是只检查能否列举模型。
+
+执行 `cargo test --lib --manifest-path src-tauri/Cargo.toml` 可验证请求路径、参数、分页、金额单位、额度范围、订阅窗口和错误响应。测试使用本地 HTTP 服务与构造的响应样本，不会调用真实供应商或消耗模型额度；CI 在三个桌面平台执行这些测试。旧版已经记录的历史统计不会被自动重算或清除；旧样本与新口径之间、不同用量范围切换时会跳过跨界增量，避免产生虚假的消费突增。
 
 ## 支持平台
 

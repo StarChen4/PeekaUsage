@@ -50,10 +50,23 @@ pub struct ProviderCapabilities {
     pub has_subscription: bool,
 }
 
+/// 用量统计范围，防止将多把管理密钥读取的同一份成本重复相加。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum UsageScope {
+    #[default]
+    Key,
+    Organization,
+    Account,
+    SharedBudget,
+}
+
 /// 用量数据（按量 API）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageData {
+    #[serde(default)]
+    pub scope: UsageScope,
     pub total_used: f64,
     pub total_budget: Option<f64>,
     pub remaining: Option<f64>,

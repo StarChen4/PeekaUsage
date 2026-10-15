@@ -31,6 +31,7 @@ export interface ProviderCapabilities {
 
 /** 用量数据（按量 API） */
 export interface UsageData {
+  scope: "key" | "organization" | "account" | "sharedBudget";
   totalUsed: number;
   totalBudget: number | null;
   remaining: number | null;

@@ -30,13 +30,12 @@ export default function SubscriptionBadge({ subscription }: SubscriptionBadgePro
     if (extra.monthlyLimitUsd === null) {
       return <div className="sub-window sub-window--extra"><div className="window-header"><span className="window-label">{label}</span><span className="window-reset">{t("widget.subscription.extraUsageUnlimited")}</span></div></div>;
     }
-    const utilization = extra.utilization ?? 0;
-    const usedStr = extra.usedUsd != null ? extra.usedUsd.toFixed(2) : "0.00";
+    const usedStr = extra.usedUsd != null ? extra.usedUsd.toFixed(2) : "—";
     const limitStr = extra.monthlyLimitUsd.toFixed(2);
     return (
       <div className="sub-window sub-window--extra">
         <div className="window-header"><span className="window-label">{label}</span><span className="window-reset" title={extra.resetsAt ?? undefined}>{resetText}</span></div>
-        <UsageProgressBar percent={utilization} />
+        {extra.utilization != null && <UsageProgressBar percent={extra.utilization} />}
         <div className="extra-usage-spent">{t("widget.subscription.extraUsageSpent", { used: usedStr, limit: limitStr })}</div>
       </div>
     );
@@ -49,7 +48,7 @@ export default function SubscriptionBadge({ subscription }: SubscriptionBadgePro
         {usage.status === "error" && <span className="sub-error" title={usage.errorMessage ?? ""}>!</span>}
       </div>
       <div className="sub-plan-label">{planLabel}</div>
-      {usage.status === "success" && usage.windows.length > 0 && (
+      {usage.status === "success" && (usage.windows.length > 0 || usage.extraUsage?.isEnabled) && (
         <div className="sub-windows">
           {usage.windows.map((win, index) => (
             <div key={`${subscription.subscriptionId}-${win.label}-${index}`} className="sub-window">

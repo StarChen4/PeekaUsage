@@ -327,6 +327,11 @@
 - 主界面、设置页和通用交互文案切换要即时生效
 - 新增文案不要再直接散落在组件里，优先收敛到 `src/i18n/messages.ts`
 - 旧配置缺少 `language` 时要继续兼容，默认按简体中文处理
+- 仅在 `config.json` 不存在时跟随系统语言：简体中文环境使用 `zh-Hans`，繁体中文环境（`Hant` 或台湾、香港、澳门）使用 `zh-Hant`，非中文或未知环境使用 `en`
+- 新配置创建时立即保存语言；以后启动不再因系统语言变化覆盖用户选择
+- 旧标识数据迁移先于新配置初始化执行，已有或迁移来的配置始终优先；旧配置缺少语言字段仍按简体中文兼容
+- 系统语言由 Rust 的 `sys-locale` 跨平台读取；Linux 使用语言环境变量，Windows / macOS 使用系统语言 API
+- 前端读取持久化配置后再渲染，避免首次启动闪现错误语言
 
 ### 18. 设置页 OAuth Token 区域已新增官方获取入口
 
@@ -435,6 +440,21 @@
 - 要兼容 `5 小时`、`7 天`、`7 天 Sonnet` 等多个订阅窗口
 - 如果 OAuth 返回 `extra_usage`，主界面也要展示 Extra Usage 的利用率
 - 精简模式下也要保留这些额外窗口和 Extra Usage 的进度条
+
+## 供应商接口兼容基线（2026-10-15）
+
+- OpenAI API 成本只使用公开 `/v1/organization/costs`：需要组织 Admin API Key；`amount.value` 为美元金额时不得再除以 100；必须遍历 `has_more` / `next_page`。不再依赖旧 Dashboard 余额与预算私有接口。
+- Anthropic 成本接口为 `/v1/organizations/cost_report`，参数是 `starting_at` / `ending_at`，金额在 `data[].results[].amount` 中，十进制字符串以美分表示；同样必须处理分页。
+- OpenAI / Anthropic 的统计周期使用固定月初与下月月初边界，请求截止时间另取当前时间，不能每次刷新都改变统计周期而重置趋势。
+- OpenRouter 先查 `/api/v1/key`；普通 Key 不请求需要 Management Key 的 `/api/v1/credits`。优先显示 `effective_budget`，其次使用 `limit_remaining`；回退计算必须考虑重置周期与 BYOK。
+- 三家目前均不通过用量查询展示实时请求限额。不得把 OpenRouter 已废弃的 `rate_limit` 当实时剩余量，也不得额外发模型生成请求探测 Anthropic 限额。
+- `UsageData.scope` 的前后端定义必须同步，当前为 `key`、`organization`、`account`、`sharedBudget`。多条组织、账户或共享预算数据不得盲目相加；有成功单项但不能合计时，供应商状态仍为成功。
+- 历史用量样本记录可选 `scope`，旧样本保持可读；跨用量范围、旧样本切换新口径时不能累计虚假的消费增量，也不能被去重逻辑吞掉。旧历史不自动重算或删除。
+- 无预算时不能把无法计算的百分比显示成 `0%`，精简模式应显示 `—`；详细模式继续保留实际可用的数据。
+- OAuth 订阅端点属于内部接口，保留已知旧结构并允许额外窗口；格式未知、缺少已用百分比时应报错，不能补零伪装成功。Extra Usage 优先按已用金额 / 月度额度计算百分比，不乘以 100 放大已是百分比的数据，不猜测缺失的重置时间。
+- 订阅失败的汇总错误必须保留真实原因，不能错误地回退成“未配置凭据”。只有 Extra Usage 的响应也要在精简、详细两种模式中正常展示。
+- 通用 HTTP 客户端在 `providers/http.rs`，连接超时 10 秒、总请求超时 30 秒；成本分页缺少游标或游标循环时要报错。
+- 回归检查使用 `cargo test --lib`，本地 HTTP 样本不使用真实凭据、不产生模型消费；CI 在 Windows、Linux、macOS 执行。当前内部订阅接口未做真实账号在线验证，不能将兼容性样本称为官方稳定契约。
 
 ## 先读哪些文件
 
@@ -640,11 +660,17 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 
 ### 发版约束
 
+- Tauri CLI 当前锁定为 `2.11.4`；不要降至 `2.11.4` 以下，旧版 AppImage 的 `.DirIcon` 可能是指向构建机的绝对链接
+- Linux 本地打包与 Release 通过 `scripts/build-linux.sh` 执行，并用 `scripts/check-appimage.sh` 解包检查本次产物的 `.DirIcon`；要求图标存在、非空、为包内 PNG，且不使用绝对链接
+- Linux 应用分类在 `tauri.linux.conf.json` 中设为 `Utility`，确保桌面入口包含有效的 `Categories`
+- Release 必须在图标检查通过后才上传 Linux 安装包；CI 在 Linux 上构建不带更新签名的调试安装包执行相同检查
+- 首次启动语言与旧配置兼容测试为 `cargo test config::app_config::tests`，CI 在三个桌面平台均执行
 - 改版本号时，必须同步修改 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`
 - GitHub Release 的标签名必须使用 `v` 前缀并与应用版本完全一致
 - 每次发版必须同步提交对应的发版说明文件 `.github/release-notes/vX.Y.Z.md`
 - 发版说明必须覆盖本次功能更新和修复内容，不能只发空 Release 或只上传安装包
 - Release 流水线结束前还必须校验对应 tag 下的 `latest.json` 可访问且内容合法，避免应用内更新读取失败
+- 更新清单使用 `scripts/check-update-manifest.py` 检查 JSON、标签版本、四个平台条目、当前版本下载地址和签名格式
 - Windows 产物是 `nsis`
 - Linux 产物当前是 `x86_64` 的 `deb` 和 `appimage`
 - macOS 产物是 `x86_64` / `arm64` 的 `app` 和 `dmg`

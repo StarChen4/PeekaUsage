@@ -124,6 +124,11 @@ export const messages = {
         apiKeyTab: "API Key",
         subscriptionTab: "订阅计划",
         apiKeyLabel: "API Key（按量计费）",
+        apiKeyHints: {
+          openai: "成本查询需要 OpenAI Admin API Key，显示组织本月成本；普通项目 Key 无法读取。余额和预算未由公开接口提供。",
+          anthropic: "成本查询需要 Anthropic Admin API 凭据（如 sk-ant-admin...），显示组织本月成本。订阅 Token 请填写在订阅计划中。",
+          openrouter: "普通 Key 显示自身用量与生效额度；Management Key 显示账户总额。成员或工作区预算可能被多把 Key 共用。",
+        },
         addKey: "+ 添加 Key",
         keyName: "密钥 {index}",
         deleteKey: "删除",
@@ -268,6 +273,8 @@ export const messages = {
       providerCard: {
         apiLabel: "按量 API",
         apiSummary: "按量汇总",
+        usageScopes: { key: "当前 Key", organization: "组织成本", account: "账户总额", sharedBudget: "共享预算" },
+        percentageUnavailable: "未提供可用额度，无法计算百分比",
         apiShort: "API",
         subscriptionShort: "订阅",
         total: "合计",
@@ -412,6 +419,11 @@ export const messages = {
         apiKeyTab: "API Key",
         subscriptionTab: "訂閱方案",
         apiKeyLabel: "API Key（按量計費）",
+        apiKeyHints: {
+          openai: "成本查詢需要 OpenAI Admin API Key，顯示組織本月成本；一般專案 Key 無法讀取。公開介面未提供餘額與預算。",
+          anthropic: "成本查詢需要 Anthropic Admin API 憑據（如 sk-ant-admin...），顯示組織本月成本。訂閱 Token 請填寫在訂閱方案中。",
+          openrouter: "一般 Key 顯示自身用量與生效額度；Management Key 顯示帳戶總額。成員或工作區預算可能由多把 Key 共用。",
+        },
         addKey: "+ 新增 Key",
         keyName: "金鑰 {index}",
         deleteKey: "刪除",
@@ -556,6 +568,8 @@ export const messages = {
       providerCard: {
         apiLabel: "按量 API",
         apiSummary: "按量摘要",
+        usageScopes: { key: "目前 Key", organization: "組織成本", account: "帳戶總額", sharedBudget: "共用預算" },
+        percentageUnavailable: "未提供可用額度，無法計算百分比",
         apiShort: "API",
         subscriptionShort: "訂閱",
         total: "合計",
@@ -700,6 +714,11 @@ export const messages = {
         apiKeyTab: "API Key",
         subscriptionTab: "Subscriptions",
         apiKeyLabel: "API Key (usage billing)",
+        apiKeyHints: {
+          openai: "Cost queries require an OpenAI Admin API key and show monthly organization costs. Regular project keys cannot read them. The public endpoint does not provide balances or budgets.",
+          anthropic: "Cost queries require Anthropic Admin API credentials (such as sk-ant-admin...) and show monthly organization costs. Add subscription tokens under Subscriptions.",
+          openrouter: "Regular keys show their own usage and effective limits; Management keys show account totals. Member or workspace budgets may be shared by multiple keys.",
+        },
         addKey: "+ Add key",
         keyName: "Key {index}",
         deleteKey: "Delete",
@@ -844,6 +863,8 @@ export const messages = {
       providerCard: {
         apiLabel: "Usage API",
         apiSummary: "Usage summary",
+        usageScopes: { key: "Current key", organization: "Organization costs", account: "Account totals", sharedBudget: "Shared budget" },
+        percentageUnavailable: "No available limit was provided to calculate a percentage",
         apiShort: "API",
         subscriptionShort: "Sub",
         total: "Total",

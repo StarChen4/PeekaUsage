@@ -43,8 +43,8 @@ export default function ProviderCard({
   const useApiColorMarkers = useCompactColorMarkers && compactApiItems.length > 1;
 
   function usagePercent(item: ApiKeyUsageSummary) {
-    if (!item.usage) {
-      return 0;
+    if (!item.usage || item.usage.totalBudget == null || item.usage.totalBudget <= 0) {
+      return null;
     }
 
     return calcUsagePercent(item.usage.totalUsed, item.usage.totalBudget);
@@ -91,7 +91,7 @@ export default function ProviderCard({
 
       {displayMode === "compact" ? (
         <>
-          {(provider.subscriptions.some((item) => item.usage.status === "success" && item.usage.windows.length > 0) || compactApiItems.length > 0) ? (
+          {(compactVisibleSubscriptions.length > 0 || compactApiItems.length > 0) ? (
             <div className="compact-metrics">
               {provider.subscriptions.map((subscription) => {
                 if (subscription.usage.status !== "success") {
@@ -156,7 +156,7 @@ export default function ProviderCard({
                     </>
                   ) : (
                     <>
-                      <span className="compact-metric-label" title={item.keyName}>
+                      <span className="compact-metric-label" title={`${item.keyName} · ${t(`widget.providerCard.usageScopes.${item.usage?.scope ?? "key"}`)}`}>
                         {formatCompactApiLabel(item.keyName, t("widget.providerCard.apiShort"))}
                       </span>
                       <div className="compact-metric-bar">
@@ -228,6 +228,7 @@ export default function ProviderCard({
 
                   {item.usage && (
                     <div className="api-key-meta">
+                      <span>{t(`widget.providerCard.usageScopes.${item.usage.scope ?? "key"}`)}</span>
                       {item.usage.remaining != null && (
                         <span className="balance-info">
                           {t("widget.providerCard.balance")}: {formatCurrency(item.usage.remaining, item.usage.currency)}

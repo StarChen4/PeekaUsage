@@ -1,27 +1,35 @@
 use async_trait::async_trait;
+use chrono::Utc;
 use reqwest::Client;
 use serde::Deserialize;
+use std::collections::HashSet;
 
+use super::http::{check_response, month_bounds, new_client, ApiNumber, Pagination};
 use super::traits::{ProviderError, UsageProvider};
 use super::types::*;
 
+const AUTH_MESSAGE: &str =
+    "查询组织成本需要具备读取用量权限的 OpenAI Admin API Key，普通项目 Key 不适用";
+
 pub struct OpenAIProvider {
     client: Client,
+    base_url: String,
 }
 
 impl OpenAIProvider {
     pub fn new() -> Self {
         Self {
-            client: Client::new(),
+            client: new_client(),
+            base_url: "https://api.openai.com".into(),
         }
     }
 }
 
-/// /v1/organization/costs 响应
 #[derive(Debug, Deserialize)]
 struct CostsResponse {
-    #[serde(default)]
     data: Vec<CostBucket>,
+    #[serde(flatten)]
+    pagination: Pagination,
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,21 +44,25 @@ struct CostResult {
 
 #[derive(Debug, Deserialize)]
 struct CostAmount {
-    value: f64,
+    value: ApiNumber,
+    currency: String,
 }
 
-/// /v1/dashboard/billing/subscription 响应
-#[derive(Debug, Deserialize)]
-struct SubscriptionResponse {
-    hard_limit_usd: Option<f64>,
-}
-
-/// /v1/dashboard/billing/credit_grants 响应
-#[derive(Debug, Deserialize)]
-struct CreditGrantsResponse {
-    total_granted: Option<f64>,
-    total_used: Option<f64>,
-    total_available: Option<f64>,
+impl CostsResponse {
+    fn total_usd(&self) -> Result<f64, ProviderError> {
+        self.data
+            .iter()
+            .flat_map(|bucket| &bucket.results)
+            .try_fold(0.0, |sum, item| {
+                if !item.amount.currency.eq_ignore_ascii_case("usd") {
+                    return Err(ProviderError::ParseError(
+                        "成本报告包含非美元金额，不能直接合计".into(),
+                    ));
+                }
+                // OpenAI 的 amount.value 已经以美元表示，不能再除以 100。
+                Ok(sum + item.amount.value.value()?)
+            })
+    }
 }
 
 #[async_trait]
@@ -58,14 +70,12 @@ impl UsageProvider for OpenAIProvider {
     fn id(&self) -> ProviderId {
         ProviderId::OpenAI
     }
-
     fn display_name(&self) -> &str {
         "OpenAI"
     }
-
     fn capabilities(&self) -> ProviderCapabilities {
         ProviderCapabilities {
-            has_balance: true,
+            has_balance: false,
             has_usage: true,
             has_rate_limit: false,
             has_subscription: true,
@@ -73,103 +83,47 @@ impl UsageProvider for OpenAIProvider {
     }
 
     async fn fetch_usage(&self, api_key: &str) -> Result<UsageData, ProviderError> {
-        // 先尝试获取 credit grants（预付费账户）
-        let credits_result = self
-            .client
-            .get("https://api.openai.com/v1/dashboard/billing/credit_grants")
-            .bearer_auth(api_key)
-            .send()
-            .await;
-
-        if let Ok(resp) = credits_result {
-            if resp.status().is_success() {
-                if let Ok(credits) = resp.json::<CreditGrantsResponse>().await {
-                    if let (Some(granted), Some(used), Some(available)) = (
-                        credits.total_granted,
-                        credits.total_used,
-                        credits.total_available,
-                    ) {
-                        if granted > 0.0 {
-                            return Ok(UsageData {
-                                total_used: used,
-                                total_budget: Some(granted),
-                                remaining: Some(available),
-                                currency: "USD".to_string(),
-                                period_start: None,
-                                period_end: None,
-                            });
-                        }
-                    }
-                }
+        let now = Utc::now();
+        let (start, end) = month_bounds(now);
+        let mut page = None;
+        let mut seen = HashSet::new();
+        let mut total_used = 0.0;
+        loop {
+            let mut request = self
+                .client
+                .get(format!("{}/v1/organization/costs", self.base_url))
+                .bearer_auth(api_key)
+                .query(&[
+                    ("start_time", start.timestamp().to_string()),
+                    (
+                        "end_time",
+                        now.timestamp().max(start.timestamp() + 1).to_string(),
+                    ),
+                    ("limit", "31".into()),
+                ]);
+            if let Some(ref cursor) = page {
+                request = request.query(&[("page", cursor)]);
             }
-        }
-
-        // 后付费账户：获取本月用量
-        let now = chrono::Utc::now();
-        let start_of_month = now.format("%Y-%m-01").to_string();
-        let end_date = now.format("%Y-%m-%d").to_string();
-
-        // 获取用量（costs API）
-        let start_timestamp = chrono::NaiveDate::parse_from_str(&start_of_month, "%Y-%m-%d")
-            .map(|d| d.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp())
-            .unwrap_or(0);
-        let end_timestamp = now.timestamp();
-
-        let costs_url = format!(
-            "https://api.openai.com/v1/organization/costs?start_time={}&end_time={}&group_by=line_item",
-            start_timestamp, end_timestamp
-        );
-
-        let costs_resp = self
-            .client
-            .get(&costs_url)
-            .bearer_auth(api_key)
-            .send()
-            .await?;
-
-        if costs_resp.status().as_u16() == 401 || costs_resp.status().as_u16() == 403 {
-            return Err(ProviderError::AuthError("API Key 无效或权限不足".into()));
-        }
-
-        let total_used = if costs_resp.status().is_success() {
-            let costs: CostsResponse = costs_resp
+            let response = check_response(request.send().await?, AUTH_MESSAGE)?;
+            let costs: CostsResponse = response
                 .json()
                 .await
-                .map_err(|e| ProviderError::ParseError(e.to_string()))?;
-            costs
-                .data
-                .iter()
-                .flat_map(|b| b.results.iter())
-                .map(|r| r.amount.value)
-                .sum::<f64>()
-                / 100.0 // API 返回的是美分
-        } else {
-            0.0
-        };
-
-        // 尝试获取 subscription 限额
-        let budget = match self
-            .client
-            .get("https://api.openai.com/v1/dashboard/billing/subscription")
-            .bearer_auth(api_key)
-            .send()
-            .await
-        {
-            Ok(resp) if resp.status().is_success() => resp
-                .json::<SubscriptionResponse>()
-                .await
-                .ok()
-                .and_then(|s| s.hard_limit_usd),
-            _ => None,
-        };
-
+                .map_err(|error| ProviderError::ParseError(error.to_string()))?;
+            total_used += costs.total_usd()?;
+            page = costs.pagination.next(&mut seen)?;
+            if page.is_none() {
+                break;
+            }
+        }
+        // 公开成本接口不提供预付余额或预算，避免调用旧 Dashboard 私有接口猜测。
         Ok(UsageData {
+            scope: UsageScope::Organization,
             total_used,
-            total_budget: budget,
-            remaining: budget.map(|b| (b - total_used).max(0.0)),
-            currency: "USD".to_string(),
-            period_start: Some(start_of_month),
-            period_end: Some(end_date),
+            total_budget: None,
+            remaining: None,
+            currency: "USD".into(),
+            period_start: Some(start.to_rfc3339()),
+            period_end: Some(end.to_rfc3339()),
         })
     }
 
@@ -177,18 +131,58 @@ impl UsageProvider for OpenAIProvider {
         &self,
         _api_key: &str,
     ) -> Result<Option<RateLimitData>, ProviderError> {
-        // OpenAI 速率限制在响应 header 中返回，需要实际请求才能获取
         Ok(None)
     }
 
     async fn validate_key(&self, api_key: &str) -> Result<bool, ProviderError> {
-        let resp = self
-            .client
-            .get("https://api.openai.com/v1/models")
-            .bearer_auth(api_key)
-            .send()
-            .await?;
+        match self.fetch_usage(api_key).await {
+            Ok(_) => Ok(true),
+            Err(ProviderError::AuthError(_)) => Ok(false),
+            Err(error) => Err(error),
+        }
+    }
+}
 
-        Ok(resp.status().is_success())
+#[cfg(test)]
+mod tests {
+    use super::super::http::tests::MockServer;
+    use super::*;
+
+    #[tokio::test]
+    async fn costs_keep_dollars_and_follow_pagination() {
+        let server = MockServer::start(vec![
+            (200, r#"{"data":[{"results":[{"amount":{"value":1.25,"currency":"usd"}}]}],"has_more":true,"next_page":"page/2"}"#),
+            (200, r#"{"data":[{"results":[{"amount":{"value":0.06,"currency":"usd"}}]}],"has_more":false,"next_page":null}"#),
+        ]).await;
+        let provider = OpenAIProvider {
+            client: new_client(),
+            base_url: server.url.clone(),
+        };
+        let usage = provider.fetch_usage("test-key").await.unwrap();
+        assert!((usage.total_used - 1.31).abs() < 1e-9);
+        assert_eq!(usage.remaining, None);
+        let requests = server.finish().await;
+        assert!(requests[0].starts_with("GET /v1/organization/costs?"));
+        assert!(requests[0].contains("limit=31"));
+        assert!(requests[1].contains("page=page%2F2"));
+        assert!(!requests.iter().any(|request| request.contains("dashboard")));
+    }
+
+    #[tokio::test]
+    async fn failed_requests_and_unknown_shapes_never_become_zero_usage() {
+        for (status, body) in [
+            (500, "{}"),
+            (429, "{}"),
+            (200, "{}"),
+            (200, r#"{"data":[],"has_more":true}"#),
+        ] {
+            let server = MockServer::start(vec![(status, body)]).await;
+            let provider = OpenAIProvider {
+                client: new_client(),
+                base_url: server.url.clone(),
+            };
+            assert!(provider.fetch_usage("test-key").await.is_err());
+            server.finish().await;
+        }
     }
 }

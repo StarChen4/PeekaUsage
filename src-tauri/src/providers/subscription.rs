@@ -1,43 +1,39 @@
-use reqwest::Client;
-use serde::Deserialize;
+use std::collections::BTreeMap;
 
+use reqwest::{Client, RequestBuilder};
+use serde::Deserialize;
+use serde_json::Value;
+
+use super::http::{check_response, new_client, ApiNumber};
+use super::traits::ProviderError;
 use super::types::*;
 
-/// 订阅用量查询器
+/// 订阅端点属于客户端内部接口；保留已知结构，同时拒绝把未知格式显示为零用量。
 pub struct SubscriptionFetcher {
     client: Client,
 }
 
-// ===== Anthropic 订阅 =====
-
-#[derive(Debug, Deserialize)]
-struct AnthropicOAuthUsageResponse {
-    five_hour: Option<AnthropicUsageWindow>,
-    seven_day: Option<AnthropicUsageWindow>,
-    seven_day_sonnet: Option<AnthropicUsageWindow>,
-    extra_usage: Option<AnthropicExtraUsage>,
-}
-
 #[derive(Debug, Deserialize)]
 struct AnthropicUsageWindow {
-    utilization: f64,
+    utilization: ApiNumber,
     resets_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct AnthropicExtraUsage {
     is_enabled: bool,
-    monthly_limit: Option<f64>,
-    used_credits: Option<f64>,
-    utilization: Option<f64>,
+    monthly_limit: Option<ApiNumber>,
+    used_credits: Option<ApiNumber>,
+    utilization: Option<ApiNumber>,
+    resets_at: Option<String>,
 }
-
-// ===== OpenAI 订阅 =====
 
 #[derive(Debug, Deserialize)]
 struct OpenAIWhamUsageResponse {
     plan_type: Option<String>,
     rate_limit: Option<OpenAIRateLimitInfo>,
+    #[serde(flatten)]
+    additional: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -48,269 +44,334 @@ struct OpenAIRateLimitInfo {
 
 #[derive(Debug, Deserialize)]
 struct OpenAIUsageWindow {
-    used_percent: Option<f64>,
+    used_percent: ApiNumber,
     limit_window_seconds: Option<u64>,
-    reset_at: Option<u64>,
+    reset_at: Option<i64>,
+    reset_after_seconds: Option<i64>,
 }
 
 impl SubscriptionFetcher {
     pub fn new() -> Self {
         Self {
-            client: Client::new(),
+            client: new_client(),
         }
     }
 
-    /// 获取 Anthropic 订阅用量（Claude Pro/Max/Team）
     pub async fn fetch_anthropic(&self, oauth_token: &str) -> SubscriptionUsage {
-        let resp = self
-            .client
-            .get("https://api.anthropic.com/api/oauth/usage")
-            .header("Authorization", format!("Bearer {}", oauth_token))
-            .header("Accept", "application/json")
-            .header("Content-Type", "application/json")
-            .header("anthropic-beta", "oauth-2025-04-20")
-            .send()
-            .await;
+        fetch_subscription(
+            self.client
+                .get("https://api.anthropic.com/api/oauth/usage")
+                .bearer_auth(oauth_token)
+                .header("Accept", "application/json")
+                .header("anthropic-beta", "oauth-2025-04-20"),
+            parse_anthropic,
+        )
+        .await
+    }
 
-        let resp = match resp {
-            Ok(r) => r,
-            Err(e) => {
-                return SubscriptionUsage {
-                    plan_name: None,
-                    windows: vec![],
-                    extra_usage: None,
-                    status: ProviderStatus::Error,
-                    error_message: Some(format!("请求失败: {}", e)),
-                };
-            }
+    pub async fn fetch_openai(&self, oauth_token: &str) -> SubscriptionUsage {
+        fetch_subscription(
+            self.client
+                .get("https://chatgpt.com/backend-api/wham/usage")
+                .bearer_auth(oauth_token)
+                .header("Accept", "application/json"),
+            parse_openai,
+        )
+        .await
+    }
+}
+
+async fn fetch_subscription(
+    request: RequestBuilder,
+    parse: fn(Value) -> Result<SubscriptionUsage, ProviderError>,
+) -> SubscriptionUsage {
+    let result = async {
+        let response = check_response(
+            request.send().await?,
+            "OAuth Token 无效、已过期或缺少订阅查询权限",
+        )?;
+        let value = response
+            .json::<Value>()
+            .await
+            .map_err(|error| ProviderError::ParseError(error.to_string()))?;
+        parse(value)
+    }
+    .await;
+    result.unwrap_or_else(|error| SubscriptionUsage {
+        plan_name: None,
+        windows: vec![],
+        extra_usage: None,
+        status: ProviderStatus::Error,
+        error_message: Some(error.to_string()),
+    })
+}
+
+fn parse_anthropic(value: Value) -> Result<SubscriptionUsage, ProviderError> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| ProviderError::ParseError("订阅响应不是 JSON 对象".into()))?;
+    let mut entries: Vec<_> = object
+        .iter()
+        .filter(|(name, value)| {
+            name.as_str() != "extra_usage" && value.get("utilization").is_some()
+        })
+        .collect();
+    entries.sort_by(|(left, _), (right, _)| {
+        anthropic_window_rank(left)
+            .cmp(&anthropic_window_rank(right))
+            .then_with(|| left.cmp(right))
+    });
+    let mut windows = Vec::new();
+    for (name, value) in entries {
+        let window: AnthropicUsageWindow = serde_json::from_value(value.clone())
+            .map_err(|error| ProviderError::ParseError(error.to_string()))?;
+        let label = match name.as_str() {
+            "five_hour" => "5小时",
+            "seven_day" => "7天",
+            "seven_day_sonnet" => "7天(Sonnet)",
+            "seven_day_opus" => "7天(Opus)",
+            "seven_day_oauth_apps" => "7天(OAuth Apps)",
+            other => other,
         };
-
-        if resp.status().as_u16() == 401 || resp.status().as_u16() == 403 {
-            return SubscriptionUsage {
-                plan_name: None,
-                windows: vec![],
-                extra_usage: None,
-                status: ProviderStatus::Error,
-                error_message: Some("OAuth Token 无效或已过期".into()),
-            };
-        }
-
-        if resp.status().as_u16() == 429 {
-            return SubscriptionUsage {
-                plan_name: None,
-                windows: vec![],
-                extra_usage: None,
-                status: ProviderStatus::Error,
-                error_message: Some("请求过于频繁，请稍后再试".into()),
-            };
-        }
-
-        if !resp.status().is_success() {
-            return SubscriptionUsage {
-                plan_name: None,
-                windows: vec![],
-                extra_usage: None,
-                status: ProviderStatus::Error,
-                error_message: Some(format!("HTTP {}", resp.status())),
-            };
-        }
-
-        let data: AnthropicOAuthUsageResponse = match resp.json().await {
-            Ok(d) => d,
-            Err(e) => {
-                return SubscriptionUsage {
-                    plan_name: None,
-                    windows: vec![],
-                    extra_usage: None,
-                    status: ProviderStatus::Error,
-                    error_message: Some(format!("解析失败: {}", e)),
-                };
+        windows.push(SubscriptionWindow {
+            label: label.into(),
+            utilization: window.utilization.value()?,
+            resets_at: window.resets_at,
+        });
+    }
+    let extra_usage = object
+        .get("extra_usage")
+        .filter(|value| !value.is_null())
+        .map(|value| {
+            let extra: AnthropicExtraUsage = serde_json::from_value(value.clone())
+                .map_err(|error| ProviderError::ParseError(error.to_string()))?;
+            if extra.is_enabled
+                && (value.get("monthly_limit").is_none() || value.get("used_credits").is_none())
+            {
+                return Err(ProviderError::ParseError(
+                    "Extra Usage 响应缺少额度或已用金额字段".into(),
+                ));
             }
-        };
-
-        let mut windows = Vec::new();
-
-        if let Some(w) = data.five_hour {
-            windows.push(SubscriptionWindow {
-                label: "5小时".into(),
-                utilization: w.utilization,
-                resets_at: w.resets_at,
-            });
-        }
-
-        if let Some(w) = data.seven_day {
-            windows.push(SubscriptionWindow {
-                label: "7天".into(),
-                utilization: w.utilization,
-                resets_at: w.resets_at,
-            });
-        }
-
-        if let Some(w) = data.seven_day_sonnet {
-            windows.push(SubscriptionWindow {
-                label: "7天(Sonnet)".into(),
-                utilization: w.utilization,
-                resets_at: w.resets_at,
-            });
-        }
-
-        let extra_usage = data.extra_usage.map(|e| {
-            let monthly_limit_usd = e.monthly_limit.map(|c| (c / 100.0 * 100.0).round() / 100.0);
-            let used_usd = e.used_credits.map(|c| (c / 100.0 * 100.0).round() / 100.0);
-            let utilization = e.utilization.map(|u| u * 100.0);
-            let resets_at = next_month_iso();
-            ExtraUsage {
-                is_enabled: e.is_enabled,
+            let monthly_limit_usd = extra
+                .monthly_limit
+                .as_ref()
+                .map(ApiNumber::value)
+                .transpose()?
+                .map(|value| value / 100.0);
+            let used_usd = extra
+                .used_credits
+                .as_ref()
+                .map(ApiNumber::value)
+                .transpose()?
+                .map(|value| value / 100.0);
+            let utilization = match (monthly_limit_usd, used_usd) {
+                (Some(limit), Some(used)) if limit > 0.0 => Some(used / limit * 100.0),
+                _ => extra
+                    .utilization
+                    .as_ref()
+                    .map(ApiNumber::value)
+                    .transpose()?,
+            };
+            Ok(ExtraUsage {
+                is_enabled: extra.is_enabled,
                 monthly_limit_usd,
                 used_usd,
                 utilization,
-                resets_at: Some(resets_at),
-            }
-        });
-
-        SubscriptionUsage {
-            plan_name: Some("Claude Pro/Max".into()),
-            windows,
-            extra_usage,
-            status: ProviderStatus::Success,
-            error_message: None,
-        }
+                resets_at: extra.resets_at,
+            })
+        })
+        .transpose()?;
+    if windows.is_empty() && extra_usage.is_none() {
+        return Err(ProviderError::ParseError(
+            "未识别到 Anthropic 订阅窗口，响应格式可能已变化".into(),
+        ));
     }
+    Ok(SubscriptionUsage {
+        plan_name: None,
+        windows,
+        extra_usage,
+        status: ProviderStatus::Success,
+        error_message: None,
+    })
+}
 
-    /// 获取 OpenAI 订阅用量（ChatGPT Plus/Pro/Team）
-    pub async fn fetch_openai(&self, oauth_token: &str) -> SubscriptionUsage {
-        let resp = self
-            .client
-            .get("https://chatgpt.com/backend-api/wham/usage")
-            .header("Authorization", format!("Bearer {}", oauth_token))
-            .header("User-Agent", "ai-usage-monitor")
-            .send()
-            .await;
-
-        let resp = match resp {
-            Ok(r) => r,
-            Err(e) => {
-                return SubscriptionUsage {
-                    plan_name: None,
-                    windows: vec![],
-                    extra_usage: None,
-                    status: ProviderStatus::Error,
-                    error_message: Some(format!("请求失败: {}", e)),
-                };
-            }
-        };
-
-        if resp.status().as_u16() == 401 || resp.status().as_u16() == 403 {
-            return SubscriptionUsage {
-                plan_name: None,
-                windows: vec![],
-                extra_usage: None,
-                status: ProviderStatus::Error,
-                error_message: Some("OAuth Token 无效或已过期".into()),
-            };
-        }
-
-        if !resp.status().is_success() {
-            return SubscriptionUsage {
-                plan_name: None,
-                windows: vec![],
-                extra_usage: None,
-                status: ProviderStatus::Error,
-                error_message: Some(format!("HTTP {}", resp.status())),
-            };
-        }
-
-        let data: OpenAIWhamUsageResponse = match resp.json().await {
-            Ok(d) => d,
-            Err(e) => {
-                return SubscriptionUsage {
-                    plan_name: None,
-                    windows: vec![],
-                    extra_usage: None,
-                    status: ProviderStatus::Error,
-                    error_message: Some(format!("解析失败: {}", e)),
-                };
-            }
-        };
-
-        let plan_name = data.plan_type.map(|p| match p.as_str() {
-            "plus" => "ChatGPT Plus".into(),
-            "pro" => "ChatGPT Pro".into(),
-            "team" => "ChatGPT Team".into(),
-            "enterprise" => "ChatGPT Enterprise".into(),
-            other => other.to_string(),
-        });
-
-        let mut windows = Vec::new();
-
-        if let Some(ref rl) = data.rate_limit {
-            if let Some(ref w) = rl.primary_window {
-                let label = w
-                    .limit_window_seconds
-                    .map(|s| format_window_duration(s))
-                    .unwrap_or_else(|| "主窗口".into());
-                windows.push(SubscriptionWindow {
-                    label,
-                    utilization: w.used_percent.unwrap_or(0.0),
-                    resets_at: w.reset_at.map(|ts| {
-                        chrono::DateTime::from_timestamp(ts as i64, 0)
-                            .map(|dt| dt.to_rfc3339())
-                            .unwrap_or_default()
-                    }),
-                });
-            }
-            if let Some(ref w) = rl.secondary_window {
-                let label = w
-                    .limit_window_seconds
-                    .map(|s| format_window_duration(s))
-                    .unwrap_or_else(|| "次窗口".into());
-                windows.push(SubscriptionWindow {
-                    label,
-                    utilization: w.used_percent.unwrap_or(0.0),
-                    resets_at: w.reset_at.map(|ts| {
-                        chrono::DateTime::from_timestamp(ts as i64, 0)
-                            .map(|dt| dt.to_rfc3339())
-                            .unwrap_or_default()
-                    }),
-                });
-            }
-        }
-
-        SubscriptionUsage {
-            plan_name,
-            windows,
-            extra_usage: None,
-            status: ProviderStatus::Success,
-            error_message: None,
-        }
+fn anthropic_window_rank(name: &str) -> u8 {
+    match name {
+        "five_hour" => 0,
+        "seven_day" => 1,
+        "seven_day_sonnet" => 2,
+        "seven_day_opus" => 3,
+        _ => 4,
     }
 }
 
-/// 计算下个月月初的 ISO 8601 字符串（extra_usage 的重置时间）
-fn next_month_iso() -> String {
-    use chrono::{Datelike, TimeZone, Utc};
-    let now = Utc::now();
-    let (year, month) = if now.month() == 12 {
-        (now.year() + 1, 1)
-    } else {
-        (now.year(), now.month() + 1)
-    };
-    Utc.with_ymd_and_hms(year, month, 1, 0, 0, 0)
-        .single()
-        .map(|dt| dt.to_rfc3339())
-        .unwrap_or_default()
+fn parse_openai(value: Value) -> Result<SubscriptionUsage, ProviderError> {
+    let data: OpenAIWhamUsageResponse = serde_json::from_value(value)
+        .map_err(|error| ProviderError::ParseError(error.to_string()))?;
+    let plan_name = data.plan_type.map(|plan| match plan.as_str() {
+        "free" => "ChatGPT Free".into(),
+        "plus" => "ChatGPT Plus".into(),
+        "pro" => "ChatGPT Pro".into(),
+        "team" => "ChatGPT Team".into(),
+        "business" => "ChatGPT Business".into(),
+        "enterprise" => "ChatGPT Enterprise".into(),
+        other => other.to_string(),
+    });
+    let mut windows = Vec::new();
+    if let Some(limit) = data.rate_limit {
+        append_openai_windows(&mut windows, limit, "")?;
+    }
+    // 仅在附加对象仍使用已知窗口结构时解析，不凭空推测新字段的单位。
+    for (name, value) in &data.additional {
+        if name.ends_with("_rate_limit") && value.is_object() {
+            let limit: OpenAIRateLimitInfo = serde_json::from_value(value.clone())
+                .map_err(|error| ProviderError::ParseError(error.to_string()))?;
+            append_openai_windows(&mut windows, limit, name.trim_end_matches("_rate_limit"))?;
+        }
+    }
+    if let Some(limits) = data
+        .additional
+        .get("additional_rate_limits")
+        .and_then(Value::as_array)
+    {
+        for (index, value) in limits.iter().enumerate() {
+            if let Some(limit) = value.get("rate_limit") {
+                let label = value
+                    .get("limit_name")
+                    .or_else(|| value.get("limit_id"))
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| format!("附加额度{}", index + 1));
+                let limit: OpenAIRateLimitInfo = serde_json::from_value(limit.clone())
+                    .map_err(|error| ProviderError::ParseError(error.to_string()))?;
+                append_openai_windows(&mut windows, limit, &label)?;
+            }
+        }
+    }
+    if windows.is_empty() {
+        return Err(ProviderError::ParseError(
+            "未识别到 OpenAI 订阅窗口，响应格式可能已变化".into(),
+        ));
+    }
+    Ok(SubscriptionUsage {
+        plan_name,
+        windows,
+        extra_usage: None,
+        status: ProviderStatus::Success,
+        error_message: None,
+    })
 }
 
-/// 把秒数格式化为可读的窗口时长
+fn append_openai_windows(
+    windows: &mut Vec<SubscriptionWindow>,
+    limit: OpenAIRateLimitInfo,
+    prefix: &str,
+) -> Result<(), ProviderError> {
+    for (window, fallback) in [
+        (limit.primary_window, "主窗口"),
+        (limit.secondary_window, "次窗口"),
+    ] {
+        if let Some(window) = window {
+            let duration = window
+                .limit_window_seconds
+                .map(format_window_duration)
+                .unwrap_or_else(|| fallback.into());
+            let label = if prefix.is_empty() {
+                duration
+            } else {
+                format!("{prefix} · {duration}")
+            };
+            let resets_at = window
+                .reset_at
+                .and_then(|timestamp| chrono::DateTime::from_timestamp(timestamp, 0))
+                .or_else(|| {
+                    window
+                        .reset_after_seconds
+                        .and_then(chrono::Duration::try_seconds)
+                        .and_then(|duration| chrono::Utc::now().checked_add_signed(duration))
+                })
+                .map(|time| time.to_rfc3339());
+            windows.push(SubscriptionWindow {
+                label,
+                utilization: window.used_percent.value()?,
+                resets_at,
+            });
+        }
+    }
+    Ok(())
+}
+
 fn format_window_duration(seconds: u64) -> String {
     if seconds >= 86400 {
-        let days = seconds / 86400;
-        format!("{}天", days)
+        format!("{}天", seconds / 86400)
     } else if seconds >= 3600 {
-        let hours = seconds / 3600;
-        format!("{}小时", hours)
+        format!("{}小时", seconds / 3600)
+    } else if seconds >= 60 {
+        format!("{}分钟", seconds / 60)
     } else {
-        let mins = seconds / 60;
-        format!("{}分钟", mins)
+        format!("{seconds}秒")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn anthropic_preserves_all_windows_and_extra_usage_units() {
+        let usage = parse_anthropic(json!({
+            "five_hour": {"utilization": 12.5, "resets_at": null},
+            "seven_day": {"utilization": 25, "resets_at": null},
+            "seven_day_sonnet": null,
+            "seven_day_opus": {"utilization": 30, "resets_at": null},
+            "future_model_window": {"utilization": "40", "resets_at": null},
+            "extra_usage": {"is_enabled": true, "monthly_limit": 5000, "used_credits": 500.5, "utilization": 10.01}
+        })).unwrap();
+        assert_eq!(usage.windows.len(), 4);
+        assert_eq!(usage.windows[0].label, "5小时");
+        assert_eq!(usage.windows[2].label, "7天(Opus)");
+        let extra = usage.extra_usage.unwrap();
+        assert_eq!(extra.monthly_limit_usd, Some(50.0));
+        assert_eq!(extra.used_usd, Some(5.005));
+        assert!((extra.utilization.unwrap() - 10.01).abs() < 1e-9);
+        assert_eq!(extra.resets_at, None);
+    }
+
+    #[test]
+    fn extra_usage_can_exist_without_subscription_windows() {
+        let usage = parse_anthropic(json!({"extra_usage": {"is_enabled": true, "monthly_limit": 1000, "used_credits": 200}})).unwrap();
+        assert!(usage.windows.is_empty());
+        assert_eq!(usage.extra_usage.unwrap().utilization, Some(20.0));
+    }
+
+    #[test]
+    fn openai_preserves_standard_and_additional_windows() {
+        let usage = parse_openai(json!({
+            "plan_type": "business",
+            "rate_limit": {
+                "primary_window": {"used_percent": 15, "limit_window_seconds": 18000, "reset_at": 1800000000},
+                "secondary_window": {"used_percent": 35, "limit_window_seconds": 604800, "reset_at": null, "reset_after_seconds": 120}
+            },
+            "code_review_rate_limit": {"primary_window": {"used_percent": 50, "limit_window_seconds": 604800}},
+            "additional_rate_limits": [{"limit_name": "模型额度", "rate_limit": {"primary_window": {"used_percent": "60", "limit_window_seconds": 18000}}}]
+        })).unwrap();
+        assert_eq!(usage.plan_name.as_deref(), Some("ChatGPT Business"));
+        assert_eq!(usage.windows.len(), 4);
+        assert_eq!(usage.windows[0].label, "5小时");
+        assert_eq!(usage.windows[1].label, "7天");
+        assert!(usage.windows[1].resets_at.is_some());
+        assert_eq!(usage.windows[3].utilization, 60.0);
+    }
+
+    #[test]
+    fn unknown_or_incomplete_subscriptions_are_errors_instead_of_zero_usage() {
+        assert!(parse_anthropic(json!({})).is_err());
+        assert!(parse_anthropic(json!({"extra_usage": {"is_enabled": true}})).is_err());
+        assert!(parse_openai(json!({})).is_err());
+        assert!(parse_openai(
+            json!({"rate_limit": {"primary_window": {"limit_window_seconds": 18000}}})
+        )
+        .is_err());
     }
 }

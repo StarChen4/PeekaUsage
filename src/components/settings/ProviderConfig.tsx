@@ -311,6 +311,7 @@ export default function ProviderConfig(props: ProviderConfigProps) {
                 <label className="field-label">{t("settings.providerConfig.apiKeyLabel")}</label>
                 <button className="btn btn-sm btn-secondary" type="button" onClick={() => { setApiKeys((current) => [...current, createEmptyApiKey(current.length)]); setSaveResult(null); }}>{t("settings.providerConfig.addKey")}</button>
               </div>
+              <p className="field-hint">{t(`settings.providerConfig.apiKeyHints.${selectedProvider.providerId}`)}</p>
               {apiKeys.map((item, index) => (
                 <div key={item.id} className="api-key-card">
                   <div className="api-key-header">

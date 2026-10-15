@@ -20,6 +20,13 @@
 - Windows 在窗口隐藏或最小化时可能上报离屏哨兵坐标（例如 `-21845`）；这类位置不能继续写回配置，也不能在启动时照单恢复
 - 设置页“通用”里已新增语言选择，顺序固定为“简体中文”“繁體中文”“English”，持久化字段是 `language`
 - 当前前端文案统一收敛到 `src/i18n/messages.ts`，默认支持 `zh-Hans`、`zh-Hant`、`en`
+- 仅首次创建 `config.json` 时，Rust 通过 `sys-locale` 读取系统语言，简体中文环境使用 `zh-Hans`，繁体中文环境（`Hant` 或台湾、香港、澳门）使用 `zh-Hant`，其他或未知环境使用 `en`，并立即持久化
+- 已有及迁移来的配置继续使用保存的语言；旧配置缺少 `language` 时仍按简体中文兼容，不能在每次启动时覆盖用户选择
+- `src/main.tsx` 等待读取配置后才渲染界面，避免首次启动时短暂显示错误语言
+- Tauri CLI 锁定为 `2.11.4`，修复 AppImage 中 `.DirIcon` 绝对链接分发后失效的问题；不得降到此修复版本以下
+- Linux 本地构建、CI 和 Release 共用 `scripts/build-linux.sh`，通过 `scripts/check-appimage.sh` 解包检查本次安装包的 `.DirIcon`，检查通过才允许 Release 上传；CI 使用关闭更新签名的调试构建
+- Linux 应用分类在 `tauri.linux.conf.json` 中设为 `Utility`，确保桌面入口的 `Categories` 有效
+- `cargo test config::app_config::tests` 覆盖系统语言映射、首次启动持久化、已保存语言不被覆盖及旧配置缺省兼容；CI 在 Windows、Linux、macOS 上执行
 - 设置页子导航现在包含“更新”分区，支持查看当前版本、检查更新、查看 Release 说明和触发应用内更新安装
 - 自动更新检查配置字段现在是 `updateAutoCheckEnabled`、`updateCheckOnLaunch`、`updateCheckIntervalHours`
 - `src-tauri/src/lib.rs` 里 `tauri-plugin-updater` 和 `tauri-plugin-process` 只能注册一次，不能重复挂载
@@ -625,9 +632,9 @@ WidgetContainer 拖拽结束
 
 | 服务商 | 端点 | 认证 |
 |--------|------|------|
-| OpenAI | `/v1/organization/costs`、`/v1/dashboard/billing/subscription` | API Key |
-| Anthropic | `/v1/organizations/cost_report` | Admin API Key |
-| OpenRouter | `/api/v1/credits`、`/api/v1/key` | API Key |
+| OpenAI | `/v1/organization/costs` | Admin API Key |
+| Anthropic | `/v1/organizations/cost_report`，`starting_at` / `ending_at` | Admin API 凭据 |
+| OpenRouter | `/api/v1/key`；Management Key 额外查询 `/api/v1/credits` | API Key / Management Key |
 
 ### 订阅 OAuth
 
@@ -635,6 +642,18 @@ WidgetContainer 拖拽结束
 |--------|------|------|
 | Anthropic | `api.anthropic.com/api/oauth/usage` | OAuth Token |
 | OpenAI | `chatgpt.com/backend-api/wham/usage` | OAuth Token |
+
+## 供应商兼容核查（2026-10-15）
+
+- OpenAI 的按量查询现仅使用 `/v1/organization/costs`，需要 Admin API Key；金额已经是美元，不除以 100，必须处理分页；不再调用旧 Dashboard 私有余额或预算接口。
+- Anthropic 成本响应按 `data[].results[].amount` 解析，十进制字符串为美分，换算美元后汇总全部分页；不再发送模型生成请求探测速率限制。
+- OpenAI / Anthropic 的统计周期固定为整个月，请求截止时间另取当前时间，避免每次刷新都让历史趋势重新开始。
+- OpenRouter 普通 Key 显示 Key 用量，管理 Key 显示账户总额；优先处理成员或工作区等 `effective_budget`，其次使用 `limit_remaining`，回退计算考虑周期与 BYOK；旧 `rate_limit` 不再展示为实时请求额度。
+- `UsageData.scope` 同步到 Rust / TypeScript，允许 `key`、`organization`、`account`、`sharedBudget`。多条管理数据或共享预算不能直接相加为供应商总额，单项成功时仍保持供应商成功状态；无预算的进度显示 `—`。
+- 历史样本通过可选 `scope` 区分口径；旧样本保持可读，跨旧样本 / 新范围边界不计算消费增量，避免把接口金额修正误算成消费突增。
+- OAuth 查询继续使用已知客户端内部接口，允许额外模型窗口；未知结构不能当作成功且用量为零。Extra Usage 按金额与额度计算百分比，不再盲目乘以 100，也不猜测未返回的重置时间；两种显示模式都支持仅 Extra Usage 的响应。
+- 统一 HTTP 客户端位于 `providers/http.rs`，有连接 / 总请求超时、认证错误、429 与分页异常处理；Key 验证检查真实用量查询权限。
+- `cargo test --lib` 使用本地 HTTP 服务和构造响应覆盖请求与解析，CI 三平台执行。OAuth 内部接口没有稳定公开契约，本次没有真实账号在线验证；旧历史统计不会自动重算或删除。
 
 ## 重要注意事项
 
@@ -662,6 +681,7 @@ WidgetContainer 拖拽结束
 - 不要推送和版本号不一致的标签，Release 流水线会直接失败
 - 每次发版都要同步提交 `.github/release-notes/vX.Y.Z.md`，并写清本次功能更新与修复内容
 - 发版结束前还要确认对应 tag 下的 `latest.json` 可访问且内容合法，否则应用内更新会直接失败
+- 使用 `scripts/check-update-manifest.py` 检查更新清单的 JSON、标签版本、四个平台条目、当前版本下载地址和签名格式
 - 不要把 Linux 的 `deb` / `appimage` 目标直接塞回主 `tauri.conf.json`，统一放在 `src-tauri/tauri.linux.conf.json`
 - 不要把 macOS 的 `app` / `dmg` 目标直接塞回主 `tauri.conf.json`，统一放在 `src-tauri/tauri.macos.conf.json`
 

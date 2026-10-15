@@ -31,7 +31,7 @@ pub fn run() {
             migrate_legacy_app_data(&app_data_dir).map_err(std::io::Error::other)?;
 
             // 初始化状态
-            let app_config = AppConfig::new(app_data_dir.clone());
+            let app_config = AppConfig::new(app_data_dir.clone()).map_err(std::io::Error::other)?;
             let key_store = KeyStore::new(app_data_dir.clone());
             let provider_manager = ProviderManager::new();
             let usage_stats_store = UsageStatsStore::new(app_data_dir);
