@@ -1,10 +1,14 @@
 pub mod anthropic;
 mod http;
+pub mod newapi;
 pub mod openai;
 pub mod openrouter;
 pub mod subscription;
 pub mod traits;
 pub mod types;
+
+#[cfg(test)]
+pub(crate) use http::tests::MockServer;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -28,10 +32,12 @@ impl ProviderManager {
         let openai = Arc::new(openai::OpenAIProvider::new());
         let anthropic = Arc::new(anthropic::AnthropicProvider::new());
         let openrouter = Arc::new(openrouter::OpenRouterProvider::new());
+        let newapi = Arc::new(newapi::NewApiProvider::new(""));
 
         providers.insert(openai.id().as_str().to_string(), openai);
         providers.insert(anthropic.id().as_str().to_string(), anthropic);
         providers.insert(openrouter.id().as_str().to_string(), openrouter);
+        providers.insert(newapi.id().as_str().to_string(), newapi);
 
         Self {
             providers,
@@ -81,11 +87,9 @@ impl ProviderManager {
         &self,
         provider_id: &str,
         api_key: &str,
+        base_url: Option<&str>,
     ) -> Result<(UsageData, Option<RateLimitData>), String> {
-        let provider = self
-            .providers
-            .get(provider_id)
-            .ok_or_else(|| format!("未知供应商: {}", provider_id))?;
+        let provider = self.request_provider(provider_id, base_url)?;
 
         let usage = provider
             .fetch_usage(api_key)
@@ -121,12 +125,31 @@ impl ProviderManager {
         cache.insert(provider_id.to_string(), summary);
     }
 
-    /// 验证 Key
-    pub async fn validate_key(&self, provider_id: &str, api_key: &str) -> Result<bool, String> {
-        let provider = self
-            .providers
+    /// 固定供应商复用实例，New API 按当前 Key 的站点地址创建查询实例。
+    fn request_provider(
+        &self,
+        provider_id: &str,
+        base_url: Option<&str>,
+    ) -> Result<Arc<dyn UsageProvider>, String> {
+        if provider_id == "newapi" {
+            return Ok(Arc::new(newapi::NewApiProvider::new(
+                base_url.unwrap_or_default(),
+            )));
+        }
+        self.providers
             .get(provider_id)
-            .ok_or_else(|| format!("未知供应商: {}", provider_id))?;
+            .cloned()
+            .ok_or_else(|| format!("未知供应商: {}", provider_id))
+    }
+
+    /// 验证 Key 的实际用量查询权限。
+    pub async fn validate_key(
+        &self,
+        provider_id: &str,
+        api_key: &str,
+        base_url: Option<&str>,
+    ) -> Result<bool, String> {
+        let provider = self.request_provider(provider_id, base_url)?;
 
         provider
             .validate_key(api_key)

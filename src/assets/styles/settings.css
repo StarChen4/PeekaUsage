@@ -1162,3 +1162,24 @@
   display: block;
   line-height: 1.4;
 }
+
+.newapi-site-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+.newapi-site-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.newapi-site-input:focus-visible {
+  border-color: var(--color-primary);
+  outline: 1px solid var(--color-primary);
+}

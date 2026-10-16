@@ -45,6 +45,7 @@ export default function ProviderConfig(props: ProviderConfigProps) {
   const [activeView, setActiveView] = useState<ProviderConfigView>("apiKeys");
   const [validatingKeyId, setValidatingKeyId] = useState<string | null>(null);
   const [activatingKeyId, setActivatingKeyId] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [validationResults, setValidationResults] = useState<Record<string, boolean | null>>({});
   const [detecting, setDetecting] = useState(false);
   const [detectResult, setDetectResult] = useState<string | null>(null);
@@ -65,13 +66,13 @@ export default function ProviderConfig(props: ProviderConfigProps) {
   function defaultKeyName(index: number) { return t("settings.providerConfig.keyName", { index: index + 1 }); }
   function defaultSubscriptionName(index: number) { return t("settings.providerConfig.subscriptionName", { index: index + 1 }); }
   function createId(prefix: string) { return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`; }
-  function createEmptyApiKey(index: number): ProviderApiKeyItem { return { id: createId("key"), name: defaultKeyName(index), color: normalizeProviderMarkerColor(null, index), value: "", isActiveInEnvironment: false }; }
+  function createEmptyApiKey(index: number): ProviderApiKeyItem { return { id: createId("key"), name: defaultKeyName(index), color: normalizeProviderMarkerColor(null, index), value: "", baseUrl: null, isActiveInEnvironment: false }; }
   function createEmptySubscription(index: number): ProviderSubscriptionItem { return { id: createId("subscription"), name: defaultSubscriptionName(index), color: normalizeProviderMarkerColor(null, index), oauthToken: "", source: null }; }
-  function cloneApiKeys(source: ProviderApiKeyItem[]) { return source.length === 0 ? [createEmptyApiKey(0)] : source.map((item, index) => ({ id: item.id || createId("key"), name: item.name || defaultKeyName(index), color: normalizeProviderMarkerColor(item.color, index), value: item.value, isActiveInEnvironment: !!item.isActiveInEnvironment })); }
+  function cloneApiKeys(source: ProviderApiKeyItem[]) { return source.length === 0 ? [createEmptyApiKey(0)] : source.map((item, index) => ({ id: item.id || createId("key"), name: item.name || defaultKeyName(index), color: normalizeProviderMarkerColor(item.color, index), value: item.value, baseUrl: item.baseUrl ?? null, isActiveInEnvironment: !!item.isActiveInEnvironment })); }
   function cloneSubscriptions(source: ProviderSubscriptionItem[]) { if (!canDetectOAuth) return []; return source.length === 0 ? [createEmptySubscription(0)] : source.map((item, index) => ({ id: item.id || createId("subscription"), name: item.name || defaultSubscriptionName(index), color: normalizeProviderMarkerColor(item.color, index), oauthToken: item.oauthToken, source: item.source ?? null })); }
-  function sanitizedApiKeys(items: ProviderApiKeyItem[]) { return items.map((item, index) => ({ id: item.id, name: item.name.trim() || defaultKeyName(index), color: normalizeProviderMarkerColor(item.color, index), value: item.value.trim() })).filter((item) => item.value.length > 0); }
+  function sanitizedApiKeys(items: ProviderApiKeyItem[]) { return items.map((item, index) => ({ id: item.id, name: item.name.trim() || defaultKeyName(index), color: normalizeProviderMarkerColor(item.color, index), value: item.value.trim(), baseUrl: selectedProvider.providerId === "newapi" ? item.baseUrl?.trim() || null : null })).filter((item) => item.value.length > 0); }
   function sanitizedSubscriptions(items: ProviderSubscriptionItem[]) { return items.map((item, index) => ({ id: item.id, name: item.name.trim() || defaultSubscriptionName(index), color: normalizeProviderMarkerColor(item.color, index), oauthToken: item.oauthToken.trim(), source: item.source?.trim() || null })).filter((item) => item.oauthToken.length > 0); }
-  function clearTransientState() { setValidatingKeyId(null); setActivatingKeyId(null); setValidationResults({}); setDetecting(false); setDetectResult(null); setDetectChoice(null); setShowRemoveDialog(false); setColorPickerTarget(null); }
+  function clearTransientState() { setValidatingKeyId(null); setActivatingKeyId(null); setValidationResults({}); setValidationErrors({}); setDetecting(false); setDetectResult(null); setDetectChoice(null); setShowRemoveDialog(false); setColorPickerTarget(null); }
 
   const hasAnyCredential = sanitizedApiKeys(apiKeys).length > 0 || sanitizedSubscriptions(subscriptions).length > 0;
   const hasChanges = JSON.stringify({ apiKeys: sanitizedApiKeys(apiKeys), subscriptions: sanitizedSubscriptions(subscriptions) }) !== JSON.stringify({ apiKeys: sanitizedApiKeys(config.apiKeys), subscriptions: sanitizedSubscriptions(config.subscriptions) });
@@ -148,11 +149,13 @@ export default function ProviderConfig(props: ProviderConfigProps) {
     const value = target?.value.trim();
     if (!target || !value || value.includes("...")) return;
     setValidatingKeyId(target.id);
+    setValidationErrors((current) => ({ ...current, [target.id]: "" }));
     setValidationResults((current) => ({ ...current, [target.id]: null }));
     try {
-      const result = await validateApiKey(config.providerId, value);
+      const result = await validateApiKey(config.providerId, value, target.baseUrl);
       setValidationResults((current) => ({ ...current, [target.id]: result }));
-    } catch {
+    } catch (error: unknown) {
+      setValidationErrors((current) => ({ ...current, [target.id]: error instanceof Error ? error.message : String(error) }));
       setValidationResults((current) => ({ ...current, [target.id]: false }));
     } finally {
       setValidatingKeyId(null);
@@ -231,7 +234,7 @@ export default function ProviderConfig(props: ProviderConfigProps) {
     try {
       await activateProviderApiKey(config.providerId, item.id);
       keepSaveResultOnNextSyncRef.current = true;
-      setSaveResult({ type: "success", message: t("settings.providerConfig.environmentActivated", { envVar: config.environmentVariableName }) });
+      setSaveResult({ type: "success", message: t("settings.providerConfig.environmentActivated", { envVar: config.providerId === "newapi" ? "NEWAPI_API_KEY / NEWAPI_BASE_URL" : config.environmentVariableName }) });
       await onEnvironmentChanged?.();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -321,9 +324,15 @@ export default function ProviderConfig(props: ProviderConfigProps) {
                     </div>
                     <button className="btn btn-sm btn-ghost" type="button" onClick={() => { setApiKeys((current) => current.length === 1 ? [createEmptyApiKey(0)] : current.filter((_, currentIndex) => currentIndex !== index)); setSaveResult(null); }}>{t("settings.providerConfig.deleteKey")}</button>
                   </div>
+                  {selectedProvider.providerId === "newapi" && (
+                    <label className="newapi-site-field">
+                      <span className="field-label">{t("settings.providerConfig.newApiBaseUrl")}</span>
+                      <input className="key-input newapi-site-input" type="url" value={item.baseUrl ?? ""} placeholder="https://newapi.example.com" spellCheck={false} autoCapitalize="none" onChange={(event) => { const baseUrl = event.target.value; setApiKeys((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, baseUrl } : currentItem)); }} />
+                    </label>
+                  )}
                   <ApiKeyInput modelValue={item.value} placeholder="sk-..." onChange={(value) => setApiKeys((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, value } : currentItem))} />
                   <div className="config-actions">
-                    <button className="btn btn-sm" disabled={validatingKeyId === item.id || !item.value.trim() || item.value.includes("...")} type="button" onClick={() => void handleValidate(index)}>{validatingKeyId === item.id ? t("settings.providerConfig.validating") : t("settings.providerConfig.validate")}</button>
+                    <button className="btn btn-sm" disabled={validatingKeyId === item.id || !item.value.trim() || item.value.includes("...") || (selectedProvider.providerId === "newapi" && !item.baseUrl?.trim())} type="button" onClick={() => void handleValidate(index)}>{validatingKeyId === item.id ? t("settings.providerConfig.validating") : t("settings.providerConfig.validate")}</button>
                     {validationResults[item.id] === true && <span className="valid-mark">{t("settings.providerConfig.valid")}</span>}
                     {validationResults[item.id] === false && <span className="invalid-mark">{t("settings.providerConfig.invalid")}</span>}
                     {item.isActiveInEnvironment ? <span className="environment-pill">{t("settings.providerConfig.activeEnvironment")}</span> : (
@@ -332,9 +341,10 @@ export default function ProviderConfig(props: ProviderConfigProps) {
                       </button>
                     )}
                   </div>
+                  {validationErrors[item.id] && <div className="invalid-mark" role="alert">{validationErrors[item.id]}</div>}
                 </div>
               ))}
-              <div className="field-hint">{hasChanges ? t("settings.providerConfig.environmentSaveFirstHint") : t("settings.providerConfig.environmentHint", { envVar: config.environmentVariableName })}</div>
+              <div className="field-hint">{hasChanges ? t("settings.providerConfig.environmentSaveFirstHint") : selectedProvider.providerId === "newapi" ? t("settings.providerConfig.newApiEnvironmentHint") : t("settings.providerConfig.environmentHint", { envVar: config.environmentVariableName })}</div>
             </div>
           )}
 

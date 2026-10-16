@@ -222,11 +222,15 @@ fn default_provider_card_expanded() -> HashMap<String, bool> {
         ("openai".to_string(), true),
         ("anthropic".to_string(), true),
         ("openrouter".to_string(), true),
+        ("newapi".to_string(), true),
     ])
 }
 
 fn is_supported_provider_id(provider_id: &str) -> bool {
-    matches!(provider_id, "openai" | "anthropic" | "openrouter")
+    matches!(
+        provider_id,
+        "openai" | "anthropic" | "openrouter" | "newapi"
+    )
 }
 
 /// 供应商下单个 API Key 的元数据
@@ -237,6 +241,8 @@ pub struct ProviderApiKeyEntry {
     pub name: String,
     #[serde(default)]
     pub color: String,
+    #[serde(default)]
+    pub base_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -419,6 +425,7 @@ fn provider_rank(provider_id: &str) -> usize {
         "openai" => 0,
         "anthropic" => 1,
         "openrouter" => 2,
+        "newapi" => 3,
         _ => usize::MAX,
     }
 }
@@ -524,5 +531,66 @@ mod tests {
         std::fs::write(&directory.0, "阻止把文件当作配置目录").unwrap();
         assert!(AppConfig::load(directory.0.clone(), || AppLanguage::En).is_err());
         std::fs::remove_file(&directory.0).unwrap();
+    }
+
+    #[tokio::test]
+    async fn new_api_sites_and_order_survive_configuration_reload() {
+        let directory = TestDirectory::new();
+        let config = AppConfig::load(directory.0.clone(), || AppLanguage::ZhHans).unwrap();
+        let entry: ProviderEntry = serde_json::from_value(serde_json::json!({
+            "providerId": "newapi", "enabled": true,
+            "apiKeys": [
+                {"id": "a", "name": "站点甲", "baseUrl": "https://a.example"},
+                {"id": "b", "name": "站点乙", "baseUrl": "http://localhost:3000/proxy"}
+            ]
+        }))
+        .unwrap();
+        config.save_provider_entry("newapi", entry).await.unwrap();
+        config
+            .save_provider_order(vec!["newapi".into(), "openai".into()])
+            .await
+            .unwrap();
+        let mut settings = config.get_settings().await;
+        settings.provider_polling_overrides_enabled = true;
+        settings.provider_polling_overrides.insert(
+            "newapi".into(),
+            PollingSettings {
+                polling_interval: 9,
+                polling_mode: PollingMode::Manual,
+                polling_unit: PollingUnit::Seconds,
+            },
+        );
+        config.save_settings(settings).await.unwrap();
+        let reloaded =
+            AppConfig::load(directory.0.clone(), || panic!("已有配置不应检测语言")).unwrap();
+        let saved = reloaded.get_provider_entry("newapi").await.unwrap();
+        assert_eq!(
+            saved.api_keys[0].base_url.as_deref(),
+            Some("https://a.example")
+        );
+        assert_eq!(
+            saved.api_keys[1].base_url.as_deref(),
+            Some("http://localhost:3000/proxy")
+        );
+        assert_eq!(reloaded.get_enabled_providers().await, ["newapi"]);
+        let settings = reloaded.get_settings().await;
+        assert!(settings.provider_card_expanded["newapi"]);
+        assert!(settings.provider_polling_overrides_enabled);
+        assert!(matches!(
+            settings.provider_polling_overrides["newapi"].polling_mode,
+            PollingMode::Manual
+        ));
+        assert_eq!(
+            settings.provider_polling_overrides["newapi"].polling_interval,
+            9
+        );
+        assert_eq!(
+            reloaded.config.read().await.provider_order,
+            ["newapi", "openai"]
+        );
+
+        let legacy: ProviderApiKeyEntry =
+            serde_json::from_str(r#"{"id":"old","name":"旧密钥"}"#).unwrap();
+        assert!(legacy.base_url.is_none());
     }
 }

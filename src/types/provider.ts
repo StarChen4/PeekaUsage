@@ -1,5 +1,5 @@
 /** 供应商 ID */
-export type ProviderId = "openai" | "anthropic" | "openrouter";
+export type ProviderId = "openai" | "anthropic" | "openrouter" | "newapi";
 
 /** 精简模式标记色 */
 export const PROVIDER_MARKER_COLORS = [
@@ -32,6 +32,8 @@ export interface ProviderCapabilities {
 /** 用量数据（按量 API） */
 export interface UsageData {
   scope: "key" | "organization" | "account" | "sharedBudget";
+  /** 用量来源标识，用于区分不同站点和换算比例 */
+  source?: string | null;
   totalUsed: number;
   totalBudget: number | null;
   remaining: number | null;
@@ -116,6 +118,8 @@ export interface ProviderApiKeyItem {
   name: string;
   color: string;
   value: string;
+  /** New API 站点地址，每个命名 Key 独立配置 */
+  baseUrl: string | null;
   isActiveInEnvironment: boolean;
 }
 

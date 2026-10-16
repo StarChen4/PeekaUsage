@@ -93,6 +93,7 @@ function createDefaultProviderCardExpanded(): Record<ProviderId, boolean> {
     openai: true,
     anthropic: true,
     openrouter: true,
+    newapi: true,
   };
 }
 
@@ -120,7 +121,7 @@ export function normalizeProviderPollingOverrides(
 ): Partial<Record<ProviderId, PollingSettings>> {
   const next: Partial<Record<ProviderId, PollingSettings>> = {};
 
-  for (const providerId of ["openai", "anthropic", "openrouter"] as const) {
+  for (const providerId of ["openai", "anthropic", "openrouter", "newapi"] as const) {
     const item = overrides?.[providerId];
     if (!item) {
       continue;

@@ -10,6 +10,8 @@ pub enum ProviderId {
     Anthropic,
     #[serde(rename = "openrouter")]
     OpenRouter,
+    #[serde(rename = "newapi")]
+    NewApi,
 }
 
 impl ProviderId {
@@ -18,6 +20,7 @@ impl ProviderId {
             ProviderId::OpenAI => "openai",
             ProviderId::Anthropic => "anthropic",
             ProviderId::OpenRouter => "openrouter",
+            ProviderId::NewApi => "newapi",
         }
     }
 
@@ -27,6 +30,7 @@ impl ProviderId {
             ProviderId::OpenAI => "OPENAI_API_KEY",
             ProviderId::Anthropic => "ANTHROPIC_API_KEY",
             ProviderId::OpenRouter => "OPENROUTER_API_KEY",
+            ProviderId::NewApi => "NEWAPI_API_KEY",
         }
     }
 
@@ -35,7 +39,7 @@ impl ProviderId {
         match self {
             ProviderId::OpenAI => Some("OPENAI_OAUTH_TOKEN"),
             ProviderId::Anthropic => Some("ANTHROPIC_OAUTH_TOKEN"),
-            ProviderId::OpenRouter => None,
+            ProviderId::OpenRouter | ProviderId::NewApi => None,
         }
     }
 }
@@ -67,6 +71,9 @@ pub enum UsageScope {
 pub struct UsageData {
     #[serde(default)]
     pub scope: UsageScope,
+    /// 用量来源标识，用于隔离不同站点与额度换算比例的历史增量。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
     pub total_used: f64,
     pub total_budget: Option<f64>,
     pub remaining: Option<f64>,
@@ -194,6 +201,8 @@ pub struct ProviderApiKeyInput {
     #[serde(default)]
     pub color: String,
     pub value: String,
+    #[serde(default)]
+    pub base_url: Option<String>,
 }
 
 /// 供应商配置（从前端传入）
@@ -217,6 +226,8 @@ pub struct ProviderApiKeyItem {
     #[serde(default)]
     pub color: String,
     pub value: String,
+    #[serde(default)]
+    pub base_url: Option<String>,
     #[serde(default)]
     pub is_active_in_environment: bool,
 }

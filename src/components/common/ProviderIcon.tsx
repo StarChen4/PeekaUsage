@@ -4,6 +4,7 @@ import type { ProviderId } from "../../types/provider";
 import openaiIcon from "../../assets/provider-icons/openai.svg";
 import anthropicIcon from "../../assets/provider-icons/anthropic.png";
 import openrouterIcon from "../../assets/provider-icons/openrouter.jpeg";
+import newapiIcon from "../../assets/provider-icons/newapi.png";
 
 type ProviderIconProps = {
   providerId: ProviderId;
@@ -14,12 +15,14 @@ const iconSrcMap: Record<ProviderId, string> = {
   openai: openaiIcon,
   anthropic: anthropicIcon,
   openrouter: openrouterIcon,
+  newapi: newapiIcon,
 };
 
 const iconAltMap: Record<ProviderId, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
   openrouter: "OpenRouter",
+  newapi: "New API",
 };
 
 export default function ProviderIcon({

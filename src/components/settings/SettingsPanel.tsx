@@ -118,6 +118,7 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
             name: t("settings.providerConfig.keyName", { index: 1 }),
             color: "#3b82f6",
             value: "",
+            baseUrl: null,
             isActiveInEnvironment: false,
           },
         ],

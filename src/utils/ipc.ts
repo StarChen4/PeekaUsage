@@ -32,7 +32,7 @@ export async function getSupportedProviders(): Promise<ProviderConfigItem[]> {
 /** 保存供应商配置 */
 export async function saveProviderConfig(config: {
   providerId: ProviderId;
-  apiKeys: Array<Pick<ProviderApiKeyItem, "id" | "name" | "color" | "value">>;
+  apiKeys: Array<Pick<ProviderApiKeyItem, "id" | "name" | "color" | "value" | "baseUrl">>;
   subscriptions: Array<Pick<ProviderSubscriptionItem, "id" | "name" | "color" | "oauthToken" | "source">>;
   enabled: boolean;
 }): Promise<void> {
@@ -58,8 +58,8 @@ export async function activateProviderApiKey(providerId: ProviderId, apiKeyId: s
 }
 
 /** 验证 API Key */
-export async function validateApiKey(providerId: ProviderId, apiKey: string): Promise<boolean> {
-  return invoke<boolean>("validate_api_key", { providerId, apiKey });
+export async function validateApiKey(providerId: ProviderId, apiKey: string, baseUrl: string | null = null): Promise<boolean> {
+  return invoke<boolean>("validate_api_key", { providerId, apiKey, baseUrl });
 }
 
 /** 获取应用设置 */

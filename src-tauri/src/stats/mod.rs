@@ -125,6 +125,8 @@ pub struct UsageStatsSnapshot {
 struct UsageValueSample {
     #[serde(default)]
     scope: Option<UsageScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source: Option<String>,
     captured_at: String,
     total_used: f64,
     total_budget: Option<f64>,
@@ -306,6 +308,7 @@ fn record_summary(stats: &mut UsageStatsFile, summary: &UsageSummary, now: DateT
             &mut api_summary.samples,
             UsageValueSample {
                 scope: Some(usage.scope.clone()),
+                source: usage.source.clone(),
                 captured_at: captured_at.clone(),
                 total_used: usage.total_used,
                 total_budget: usage.total_budget,
@@ -332,6 +335,7 @@ fn record_summary(stats: &mut UsageStatsFile, summary: &UsageSummary, now: DateT
                 &mut api_key_history.samples,
                 UsageValueSample {
                     scope: Some(usage.scope.clone()),
+                    source: usage.source.clone(),
                     captured_at: captured_at.clone(),
                     total_used: usage.total_used,
                     total_budget: usage.total_budget,
@@ -412,6 +416,7 @@ fn push_usage_sample(samples: &mut Vec<UsageValueSample>, next: UsageValueSample
 
     if within_dedupe_window
         && last.scope == next.scope
+        && last.source == next.source
         && nearly_equal(last.total_used, next.total_used)
         && optional_nearly_equal(last.total_budget, next.total_budget)
         && optional_nearly_equal(last.remaining, next.remaining)
@@ -1114,6 +1119,7 @@ fn accumulate_extra_usage_delta(samples: &[ExtraUsageSample]) -> f64 {
 
 fn usage_series_reset(previous: &UsageValueSample, current: &UsageValueSample) -> bool {
     previous.scope != current.scope
+        || previous.source != current.source
         || previous.period_start != current.period_start
         || previous.period_end != current.period_end
         || current.total_used + FLOAT_EPSILON < previous.total_used
@@ -1280,11 +1286,7 @@ fn max_timestamp(
 }
 
 fn provider_id_to_string(provider_id: &crate::providers::types::ProviderId) -> String {
-    match provider_id {
-        crate::providers::types::ProviderId::OpenAI => "openai".to_string(),
-        crate::providers::types::ProviderId::Anthropic => "anthropic".to_string(),
-        crate::providers::types::ProviderId::OpenRouter => "openrouter".to_string(),
-    }
+    provider_id.as_str().to_string()
 }
 
 fn provider_status_is_success(status: &crate::providers::types::ProviderStatus) -> bool {
@@ -1303,6 +1305,7 @@ mod tests {
     fn usage_sample(hours_offset: i64, total_used: f64, period_start: &str) -> UsageValueSample {
         UsageValueSample {
             scope: Some(UsageScope::Key),
+            source: None,
             captured_at: (fixed_time() + Duration::hours(hours_offset)).to_rfc3339(),
             total_used,
             total_budget: Some(100.0),
@@ -1337,6 +1340,7 @@ mod tests {
                     samples: vec![
                         UsageValueSample {
                             scope: Some(UsageScope::Key),
+                            source: None,
                             captured_at: (fixed_time() - Duration::days(181)).to_rfc3339(),
                             total_used: 1.0,
                             total_budget: Some(10.0),
@@ -1370,6 +1374,7 @@ mod tests {
             &mut samples,
             UsageValueSample {
                 scope: Some(UsageScope::Key),
+                source: None,
                 captured_at: (fixed_time() + Duration::minutes(4)).to_rfc3339(),
                 total_used: 10.0,
                 total_budget: Some(100.0),
@@ -1451,5 +1456,34 @@ mod tests {
         ];
 
         assert!(compute_usage_velocity(&samples, fixed_time()).is_none());
+    }
+
+    #[test]
+    fn site_and_conversion_changes_start_a_new_usage_baseline() {
+        let mut first = usage_sample(-3, 1.0, "");
+        first.source = Some("https://site-a.example|500000".into());
+        let mut second = usage_sample(-2, 10.0, "");
+        second.source = Some("https://site-b.example|500000".into());
+        let mut third = usage_sample(-1, 20.0, "");
+        third.source = Some("https://site-b.example|250000".into());
+        let mut fourth = usage_sample(0, 20.5, "");
+        fourth.source = third.source.clone();
+        assert!(nearly_equal(
+            accumulate_usage_delta(&[first.clone(), second.clone(), third, fourth]),
+            0.5
+        ));
+
+        second.total_used = first.total_used;
+        second.captured_at = first.captured_at.clone();
+        let mut samples = vec![first];
+        push_usage_sample(&mut samples, second);
+        assert_eq!(samples.len(), 2);
+
+        let mut legacy = serde_json::to_value(&samples[0]).unwrap();
+        legacy.as_object_mut().unwrap().remove("source");
+        assert!(serde_json::from_value::<UsageValueSample>(legacy)
+            .unwrap()
+            .source
+            .is_none());
     }
 }

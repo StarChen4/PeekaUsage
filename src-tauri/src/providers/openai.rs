@@ -118,6 +118,7 @@ impl UsageProvider for OpenAIProvider {
         // 公开成本接口不提供预付余额或预算，避免调用旧 Dashboard 私有接口猜测。
         Ok(UsageData {
             scope: UsageScope::Organization,
+            source: None,
             total_used,
             total_budget: None,
             remaining: None,

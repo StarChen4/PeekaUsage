@@ -48,14 +48,21 @@ pub async fn sync_active_api_key_envs(
 fn collect_managed_env_names(provider_entries: &HashMap<String, ProviderEntry>) -> Vec<String> {
     supported_provider_ids()
         .into_iter()
-        .filter_map(|provider_id| {
-            let provider = parse_provider_id(provider_id)?;
-            let entry = provider_entries.get(provider_id)?;
-            if entry.manage_api_key_environment {
-                Some(provider.env_key_name().to_string())
-            } else {
-                None
+        .flat_map(|provider_id| {
+            let Some(provider) = parse_provider_id(provider_id) else {
+                return Vec::new();
+            };
+            let Some(entry) = provider_entries.get(provider_id) else {
+                return Vec::new();
+            };
+            if !entry.manage_api_key_environment {
+                return Vec::new();
             }
+            let mut names = vec![provider.env_key_name().to_string()];
+            if provider == ProviderId::NewApi {
+                names.push("NEWAPI_BASE_URL".to_string());
+            }
+            names
         })
         .collect()
 }
@@ -75,6 +82,10 @@ async fn collect_active_assignments(
             continue;
         };
 
+        if !entry.manage_api_key_environment {
+            continue;
+        }
+
         let Some(active_api_key_id) = entry.active_api_key_id.as_ref() else {
             continue;
         };
@@ -90,6 +101,16 @@ async fn collect_active_assignments(
         }
 
         assignments.insert(provider.env_key_name().to_string(), trimmed.to_string());
+        if provider == ProviderId::NewApi {
+            if let Some(base_url) = entry
+                .api_keys
+                .iter()
+                .find(|key| key.id == *active_api_key_id)
+                .and_then(|key| key.base_url.as_ref())
+            {
+                assignments.insert("NEWAPI_BASE_URL".to_string(), base_url.clone());
+            }
+        }
     }
 
     assignments
@@ -297,8 +318,8 @@ fn home_dir() -> Option<PathBuf> {
         .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from))
 }
 
-fn supported_provider_ids() -> [&'static str; 3] {
-    ["openai", "anthropic", "openrouter"]
+fn supported_provider_ids() -> [&'static str; 4] {
+    ["openai", "anthropic", "openrouter", "newapi"]
 }
 
 fn parse_provider_id(provider_id: &str) -> Option<ProviderId> {
@@ -306,10 +327,55 @@ fn parse_provider_id(provider_id: &str) -> Option<ProviderId> {
         "openai" => Some(ProviderId::OpenAI),
         "anthropic" => Some(ProviderId::Anthropic),
         "openrouter" => Some(ProviderId::OpenRouter),
+        "newapi" => Some(ProviderId::NewApi),
         _ => None,
     }
 }
 
 fn api_key_storage_key(provider_id: &str, key_id: &str) -> String {
     format!("{}::api_key::{}", provider_id, key_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn new_api_environment_switch_pairs_token_and_site_only_when_managed() {
+        let directory =
+            std::env::temp_dir().join(format!("peekausage-newapi-env-{}", uuid::Uuid::new_v4()));
+        let store = KeyStore::new(directory.clone());
+        store
+            .set_key(&api_key_storage_key("newapi", "a"), "test-token")
+            .await
+            .unwrap();
+        let mut entry: ProviderEntry = serde_json::from_value(serde_json::json!({
+            "providerId": "newapi", "enabled": true,
+            "apiKeys": [{"id": "a", "name": "站点甲", "baseUrl": "https://a.example"}],
+            "activeApiKeyId": "a", "manageApiKeyEnvironment": false
+        }))
+        .unwrap();
+        let mut entries = HashMap::from([("newapi".to_string(), entry.clone())]);
+        assert!(collect_managed_env_names(&entries).is_empty());
+        assert!(collect_active_assignments(&entries, &store)
+            .await
+            .is_empty());
+        entry.manage_api_key_environment = true;
+        entries.insert("newapi".into(), entry.clone());
+        assert_eq!(
+            collect_managed_env_names(&entries),
+            ["NEWAPI_API_KEY", "NEWAPI_BASE_URL"]
+        );
+        let assignments = collect_active_assignments(&entries, &store).await;
+        assert_eq!(assignments["NEWAPI_API_KEY"], "test-token");
+        assert_eq!(assignments["NEWAPI_BASE_URL"], "https://a.example");
+        entry.active_api_key_id = None;
+        entries.insert("newapi".into(), entry);
+        assert_eq!(collect_managed_env_names(&entries).len(), 2);
+        assert!(collect_active_assignments(&entries, &store)
+            .await
+            .is_empty());
+        // 仅验证同步计划，不修改测试机真实环境变量。
+        let _ = std::fs::remove_dir_all(directory);
+    }
 }

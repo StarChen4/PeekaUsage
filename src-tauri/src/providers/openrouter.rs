@@ -75,6 +75,7 @@ impl KeyInfoData {
                 } else {
                     UsageScope::SharedBudget
                 },
+                source: None,
                 total_used: budget.spend_usd.value()?,
                 total_budget: Some(budget.limit_usd.value()?),
                 remaining: Some(budget.remaining_usd.value()?),
@@ -123,6 +124,7 @@ impl KeyInfoData {
         };
         Ok(UsageData {
             scope: UsageScope::Key,
+            source: None,
             total_used,
             total_budget: limit,
             remaining: remaining.or_else(|| limit.map(|limit| (limit - total_used).max(0.0))),
@@ -188,6 +190,7 @@ impl UsageProvider for OpenRouterProvider {
         let total_used = credits.data.total_usage.value()?;
         Ok(UsageData {
             scope: UsageScope::Account,
+            source: None,
             total_used,
             total_budget: Some(total_budget),
             remaining: Some(total_budget - total_used),

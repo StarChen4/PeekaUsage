@@ -2,7 +2,7 @@
 
 [English README](./README.en.md)
 
-> 一个常驻桌面角落的 AI 用量小浮窗。用来快速查看 OpenAI、Anthropic、OpenRouter 的订阅配额、API 用量、预算、余额和速率限制，少敲几次 `/usage`，少切几次 Dashboard。
+> 一个常驻桌面角落的 AI 用量小浮窗。用来快速查看 OpenAI、Anthropic、OpenRouter、New API 的订阅配额、API 用量、预算、余额和速率限制，少敲几次 `/usage`，少切几次 Dashboard。
 
 <p align="center">
   <a href="https://github.com/StarChen4/PeekaUsage/releases/latest"><img alt="Latest Release" src="https://img.shields.io/github/v/release/StarChen4/PeekaUsage?label=release" /></a>
@@ -47,7 +47,8 @@ PeekaUsage 干的事情很简单：**把这些信息钉在桌面角落里，变�
 
 ### 多供应商总览
 
-- OpenAI、Anthropic、OpenRouter 的按量用量，以及接口实际提供的预算与余额
+- OpenAI、Anthropic、OpenRouter、New API 的按量用量，以及接口实际提供的预算与余额
+- New API 支持每把 Key 配置独立站点地址，统一查看多个自建或第三方站点的令牌额度
 - OpenAI、Anthropic 的订阅窗口消耗
 - Anthropic 额外支持展示更多订阅窗口和 Extra Usage
 - 同一个桌面浮窗里统一查看，不用来回切页面
@@ -174,6 +175,7 @@ Linux 打包还需要 `squashfs-tools`。`beforeBundleCommand` 会调用 `script
 | OpenAI | `OPENAI_API_KEY` |
 | Anthropic | `ANTHROPIC_API_KEY` |
 | OpenRouter | `OPENROUTER_API_KEY` |
+| New API | `NEWAPI_API_KEY`（同时设置 `NEWAPI_BASE_URL`） |
 
 说明：
 
@@ -183,6 +185,23 @@ Linux 打包还需要 `squashfs-tools`。`beforeBundleCommand` 会调用 `script
 - 环境变量优先级高于设置页里保存的值
 - 设置页支持把某个已保存的 Key 一键切换为当前系统环境变量
 - Windows 会写入用户级环境变量；Linux / macOS 会同步当前进程并写入应用托管的 Shell 环境脚本，新开的终端会读取新值
+
+### New API 配置与查询
+
+1. 在“设置 → 供应商”中添加 **New API**。
+2. 为每把 Key 填写名称、站点地址与该站点签发的 API 令牌；可添加多把 Key，分别指向不同站点。
+3. 点击“验证”检查真实用量查询权限，再保存配置。
+
+站点地址支持 `https://example.com`、`http://localhost:3000`，也支持反向代理子路径；客户端常用的末尾 `/v1` 会自动移除。地址不能包含账号、密码、查询参数或片段。验证使用尚未保存的地址，保存后重启仍保留每把 Key 的站点配置。
+
+- 用量读取 `GET /api/usage/token`，通过 `Authorization: Bearer <令牌>` 认证，展示当前令牌的累计已用、总额度和剩余额度，**不是账户总余额或模型 Token 数**。
+- 通过不带令牌的 `GET /api/status` 读取 `quota_per_unit`，将原始额度除以站点比例后统一显示美元等值；不沿用站点人民币或自定义币种的展示汇率。
+- 无限额度令牌保留累计已用量，预算与剩余额度标为未提供，精简模式百分比显示 `—`。接口的到期时间不作为用量重置时间。
+- 站点未开放这些接口、未提供有效换算比例、返回认证失败或异常结构时会明确报错，不显示虚假的零用量；不发送模型生成请求。
+- 查询、单卡刷新、自动轮询、拖拽排序、精简/详细视图及统计历史沿用现有供应商流程。更换站点或换算比例时重新建立消费增量基线，保留已有历史。
+- 显式点击“切换环境”才同步 `NEWAPI_API_KEY` 和 `NEWAPI_BASE_URL`；普通保存不会接管系统环境。删除当前激活 Key 时会清除这两个由应用管理的变量。
+
+接口依据：[New API 令牌用量文档](https://doc.newapi.pro/api/token-usage/)、[官方令牌查询实现](https://github.com/QuantumNous/new-api/blob/main/controller/token.go)、[官方站点配置实现](https://github.com/QuantumNous/new-api/blob/main/controller/misc.go)。不同站点或分支可能关闭、修改接口；当前通过本地 HTTP 样本验证，未使用真实站点凭据在线验证。New API 图标取自[官方项目资源](https://github.com/QuantumNous/new-api/blob/main/web/public/logo.png)，统一通过 `ProviderIcon.tsx` 渲染。
 
 ### OAuth Token
 

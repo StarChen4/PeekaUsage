@@ -1,4 +1,4 @@
-﻿# CLAUDE.md - AI 用量监控桌面浮窗
+# CLAUDE.md - AI 用量监控桌面浮窗
 
 ## 补充更新
 
@@ -929,4 +929,14 @@ cargo check
 - 精简模式不显示逐 Key 的金额/余额明细块和 rate limit badge
 - 选择结果通过 `widgetDisplayMode` 持久化，重启后恢复
 
+## New API 用量支持（2026-10-16）
 
+- 供应商 ID 为 `newapi`，Rust 实现在 `src-tauri/src/providers/newapi.rs`，图标为 `src/assets/provider-icons/newapi.png`，仍由 `ProviderIcon.tsx` 统一渲染。
+- 每个命名 API Key 独立保存 `baseUrl`，支持不同站点、HTTP/HTTPS、反向代理子路径及末尾 `/v1` 自动归一化；旧 Key 缺少字段时继续兼容。
+- 只读查询 `/api/usage/token`，使用 Bearer 令牌；通过不带凭据的 `/api/status` 获取 `quota_per_unit`。原始额度除以站点比例，统一显示美元等值；禁止硬编码 500000 或把额度当成模型 Token 数。
+- 展示范围为 `key`：累计已用、令牌总额度和令牌剩余额度，不把可选 `user_quota` 混入当前 Key。无限额度不伪造预算、余额和百分比，到期时间不作为重置时间。
+- 读取真实用量权限完成验证；未开放端点、HTTP 错误、业务失败、缺失字段或无效换算比例要明确报错，不静默补零。
+- `UsageData.source` 与历史样本的可选 `source` 同步；站点或换算比例变化时跳过跨来源消费增量，旧历史继续保留且可读。
+- 显式切换环境时同时管理 `NEWAPI_API_KEY` 与 `NEWAPI_BASE_URL`，普通保存不接管；删除激活 Key 后同时清除。Windows 用户级、Linux/macOS Shell、macOS launchctl 的同步路径沿用共享实现，不覆盖 OpenAI 等供应商的变量。
+- 排序白名单、默认卡片展开状态、配置持久化、单卡刷新、独立轮询与统计支持均包含 New API；无 OAuth 订阅与实时速率限制。
+- `cargo test --lib --manifest-path src-tauri/Cargo.toml` 使用本地 HTTP 样本验证请求、额度、错误、配置重载和环境变量同步计划，不修改测试机真实环境，不消耗模型额度；当前未做真实 New API 站点账号验证。

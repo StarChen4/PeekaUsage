@@ -17,6 +17,7 @@ struct ResolvedApiKey {
     name: String,
     color: String,
     value: String,
+    base_url: Option<String>,
 }
 
 struct ResolvedSubscription {
@@ -122,6 +123,7 @@ pub async fn get_provider_configs(
                 name: key.name,
                 color: key.color,
                 value: mask_value(&key.value),
+                base_url: key.base_url,
             })
             .collect();
         item.environment_variable_name = item.provider_id.env_key_name().to_string();
@@ -198,9 +200,24 @@ pub async fn save_provider_config(
                 name: normalize_key_name(&key.name, index),
                 color: normalize_marker_color(&key.color, index),
                 value,
+                base_url: key.base_url,
             })
         })
         .collect();
+
+    let mut sanitized_api_keys = sanitized_api_keys;
+    for key in &mut sanitized_api_keys {
+        key.base_url = if provider_enum == ProviderId::NewApi {
+            Some(
+                crate::providers::newapi::normalize_base_url(
+                    key.base_url.as_deref().unwrap_or_default(),
+                )
+                .map_err(|error| error.to_string())?,
+            )
+        } else {
+            None
+        };
+    }
 
     let sanitized_subscriptions: Vec<ProviderSubscriptionInput> = subscriptions
         .into_iter()
@@ -236,6 +253,7 @@ pub async fn save_provider_config(
                 id: key.id.clone(),
                 name: key.name.clone(),
                 color: key.color.clone(),
+                base_url: key.base_url.clone(),
             })
             .collect(),
         subscriptions: sanitized_subscriptions
@@ -397,9 +415,12 @@ pub async fn remove_provider_config(
 pub async fn validate_api_key(
     provider_id: String,
     api_key: String,
+    base_url: Option<String>,
     provider_manager: State<'_, ProviderManager>,
 ) -> Result<bool, String> {
-    provider_manager.validate_key(&provider_id, &api_key).await
+    provider_manager
+        .validate_key(&provider_id, &api_key, base_url.as_deref())
+        .await
 }
 
 #[tauri::command]
@@ -410,7 +431,10 @@ pub async fn save_provider_order(
     let mut deduped = Vec::new();
 
     for provider_id in order {
-        if !matches!(provider_id.as_str(), "openai" | "anthropic" | "openrouter") {
+        if !matches!(
+            provider_id.as_str(),
+            "openai" | "anthropic" | "openrouter" | "newapi"
+        ) {
             continue;
         }
 
@@ -481,7 +505,7 @@ async fn build_usage_summary(
 
     for api_key in &api_keys {
         match provider_manager
-            .fetch_api_usage(provider_id, &api_key.value)
+            .fetch_api_usage(provider_id, &api_key.value, api_key.base_url.as_deref())
             .await
         {
             Ok((usage, item_rate_limit)) => {
@@ -597,6 +621,7 @@ async fn load_provider_api_keys(
                     name: normalize_key_name(&key.name, index),
                     color: normalize_marker_color(&key.color, index),
                     value,
+                    base_url: key.base_url.clone(),
                 });
             }
         }
@@ -616,6 +641,11 @@ async fn load_provider_api_keys(
                 name: "默认 Key".to_string(),
                 color: normalize_marker_color("", 0),
                 value: legacy_value,
+                base_url: if *provider == ProviderId::NewApi {
+                    std::env::var("NEWAPI_BASE_URL").ok()
+                } else {
+                    None
+                },
             });
         }
     }
@@ -707,6 +737,18 @@ fn aggregate_usage_data(items: &[UsageData]) -> Option<UsageData> {
 
     Some(UsageData {
         scope: first.scope.clone(),
+        source: {
+            let mut sources: Vec<_> = items
+                .iter()
+                .filter_map(|item| item.source.as_ref())
+                .collect();
+            sources.sort();
+            if sources.is_empty() {
+                None
+            } else {
+                serde_json::to_string(&sources).ok()
+            }
+        },
         total_used,
         total_budget,
         remaining,
@@ -739,6 +781,7 @@ fn parse_provider_id(provider_id: &str) -> Result<ProviderId, String> {
         "openai" => Ok(ProviderId::OpenAI),
         "anthropic" => Ok(ProviderId::Anthropic),
         "openrouter" => Ok(ProviderId::OpenRouter),
+        "newapi" => Ok(ProviderId::NewApi),
         _ => Err(format!("未知供应商: {}", provider_id)),
     }
 }
@@ -800,6 +843,7 @@ fn default_subscription_name(provider: &ProviderId) -> String {
         ProviderId::OpenAI => "OpenAI 订阅".to_string(),
         ProviderId::Anthropic => "Anthropic 订阅".to_string(),
         ProviderId::OpenRouter => "OpenRouter 订阅".to_string(),
+        ProviderId::NewApi => "New API 订阅".to_string(),
     }
 }
 
@@ -822,6 +866,7 @@ mod usage_tests {
     fn sample(scope: UsageScope) -> UsageData {
         UsageData {
             scope,
+            source: None,
             total_used: 10.0,
             total_budget: Some(100.0),
             remaining: Some(90.0),
@@ -856,5 +901,57 @@ mod usage_tests {
             serde_json::from_value::<UsageData>(value).unwrap().scope,
             UsageScope::Key
         );
+    }
+
+    #[tokio::test]
+    async fn new_api_saved_keys_use_their_own_sites_and_preserve_partial_success() {
+        use crate::providers::MockServer;
+
+        let first = MockServer::start(vec![
+            (200, r#"{"code":true,"data":{"total_used":125000,"total_granted":1000000,"total_available":875000,"unlimited_quota":false}}"#),
+            (200, r#"{"success":true,"data":{"quota_per_unit":500000}}"#),
+        ]).await;
+        let second = MockServer::start(vec![(401, "{}")]).await;
+        let directory = std::env::temp_dir().join(format!(
+            "peekausage-newapi-summary-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let store = KeyStore::new(directory.clone());
+        store
+            .set_key(&api_key_storage_key("newapi", "a"), "test-key-a")
+            .await
+            .unwrap();
+        store
+            .set_key(&api_key_storage_key("newapi", "b"), "test-key-b")
+            .await
+            .unwrap();
+        let entry: ProviderEntry = serde_json::from_value(serde_json::json!({
+            "providerId": "newapi", "enabled": true,
+            "apiKeys": [
+                {"id": "a", "name": "站点甲", "baseUrl": first.url},
+                {"id": "b", "name": "站点乙", "baseUrl": second.url}
+            ]
+        }))
+        .unwrap();
+        let summary = build_usage_summary("newapi", Some(entry), &ProviderManager::new(), &store)
+            .await
+            .unwrap();
+        assert!(matches!(summary.status, ProviderStatus::Success));
+        assert_eq!(summary.usage.unwrap().total_used, 0.25);
+        assert!(summary.error_message.is_none());
+        assert_eq!(summary.api_key_usages.len(), 2);
+        assert_eq!(summary.api_key_usages[0].key_name, "站点甲");
+        assert!(matches!(
+            summary.api_key_usages[1].status,
+            ProviderStatus::Error
+        ));
+        assert!(summary.api_key_usages[1]
+            .error_message
+            .as_ref()
+            .unwrap()
+            .contains("认证失败"));
+        assert_eq!(first.finish().await.len(), 2);
+        assert_eq!(second.finish().await.len(), 1);
+        let _ = std::fs::remove_dir_all(directory);
     }
 }
