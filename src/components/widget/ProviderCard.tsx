@@ -43,7 +43,7 @@ export default function ProviderCard({
   const useApiColorMarkers = useCompactColorMarkers && compactApiItems.length > 1;
 
   function usagePercent(item: ApiKeyUsageSummary) {
-    if (!item.usage || item.usage.totalBudget == null || item.usage.totalBudget <= 0) {
+    if (!item.usage || item.usage.isUnlimited || item.usage.totalBudget == null || item.usage.totalBudget <= 0) {
       return null;
     }
 
@@ -151,7 +151,7 @@ export default function ProviderCard({
                     <>
                       <span className="compact-metric-marker" aria-hidden="true" />
                       <div className="compact-metric-bar">
-                        <UsageProgressBar percent={usagePercent(item)} />
+                        <UsageProgressBar percent={usagePercent(item)} isUnlimited={item.usage?.isUnlimited} />
                       </div>
                     </>
                   ) : (
@@ -160,7 +160,7 @@ export default function ProviderCard({
                         {formatCompactApiLabel(item.keyName, t("widget.providerCard.apiShort"))}
                       </span>
                       <div className="compact-metric-bar">
-                        <UsageProgressBar percent={usagePercent(item)} />
+                        <UsageProgressBar percent={usagePercent(item)} isUnlimited={item.usage?.isUnlimited} />
                       </div>
                     </>
                   )}
@@ -229,6 +229,9 @@ export default function ProviderCard({
                   {item.usage && (
                     <div className="api-key-meta">
                       <span>{t(`widget.providerCard.usageScopes.${item.usage.scope ?? "key"}`)}</span>
+                      {item.usage.isUnlimited && (
+                        <span title={t("widget.providerCard.unlimitedQuotaHint")}>{t("widget.providerCard.unlimitedQuota")}</span>
+                      )}
                       {item.usage.remaining != null && (
                         <span className="balance-info">
                           {t("widget.providerCard.balance")}: {formatCurrency(item.usage.remaining, item.usage.currency)}
@@ -237,8 +240,8 @@ export default function ProviderCard({
                     </div>
                   )}
 
-                  {item.usage?.totalBudget && (
-                    <UsageProgressBar percent={usagePercent(item)} />
+                  {(item.usage?.totalBudget || item.usage?.isUnlimited) && (
+                    <UsageProgressBar percent={usagePercent(item)} isUnlimited={item.usage?.isUnlimited} />
                   )}
 
                   {item.errorMessage && (

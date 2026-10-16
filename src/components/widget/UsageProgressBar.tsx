@@ -3,16 +3,18 @@ import { useI18n } from "../../i18n";
 
 type UsageProgressBarProps = {
   percent: number | null;
+  isUnlimited?: boolean;
 };
 
-export default function UsageProgressBar({ percent }: UsageProgressBarProps) {
+export default function UsageProgressBar({ percent, isUnlimited = false }: UsageProgressBarProps) {
   const { t } = useI18n();
-  const hasValue = percent != null && Number.isFinite(percent);
+  const hasValue = !isUnlimited && percent != null && Number.isFinite(percent);
   const clampedPercent = hasValue ? Math.max(0, Math.min(100, percent)) : 0;
-  const barColor = hasValue ? getUsageColor(clampedPercent) : "var(--text-muted)";
+  const barColor = hasValue ? getUsageColor(clampedPercent) : "var(--color-text-muted)";
+  const unavailableTitle = t(isUnlimited ? "widget.providerCard.unlimitedQuotaHint" : "widget.providerCard.percentageUnavailable");
 
   return (
-    <div className="progress-container" title={hasValue ? undefined : t("widget.providerCard.percentageUnavailable")}>
+    <div className="progress-container" title={hasValue ? undefined : unavailableTitle} aria-label={hasValue ? undefined : unavailableTitle}>
       <div className="progress-track">
         <div
           className="progress-fill"
@@ -23,7 +25,7 @@ export default function UsageProgressBar({ percent }: UsageProgressBarProps) {
         />
       </div>
       <span className="progress-label" style={{ color: barColor }}>
-        {hasValue ? `${Math.round(clampedPercent)}%` : "—"}
+        {isUnlimited ? "∞" : hasValue ? `${Math.round(clampedPercent)}%` : "—"}
       </span>
     </div>
   );

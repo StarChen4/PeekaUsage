@@ -34,6 +34,8 @@ export interface UsageData {
   scope: "key" | "organization" | "account" | "sharedBudget";
   /** 用量来源标识，用于区分不同站点和换算比例 */
   source?: string | null;
+  /** 接口明确返回的无限额度标记，旧数据缺少时按否处理 */
+  isUnlimited?: boolean;
   totalUsed: number;
   totalBudget: number | null;
   remaining: number | null;

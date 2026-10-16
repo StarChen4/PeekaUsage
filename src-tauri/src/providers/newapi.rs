@@ -178,6 +178,7 @@ impl UsageProvider for NewApiProvider {
         Ok(UsageData {
             scope: UsageScope::Key,
             source: Some(format!("{base_url}|{quota_per_unit}")),
+            is_unlimited: token.unlimited_quota,
             total_used,
             total_budget,
             remaining,
@@ -223,6 +224,7 @@ mod tests {
         assert_eq!(usage.scope, UsageScope::Key);
         assert_eq!(usage.total_used, 0.25);
         assert_eq!(usage.total_budget, Some(2.0));
+        assert!(!usage.is_unlimited);
         assert_eq!(usage.remaining, Some(1.75));
         assert_eq!(usage.currency, "USD");
         assert_eq!(usage.period_start, None);
@@ -252,6 +254,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(usage.total_used, 2.5);
+        assert!(usage.is_unlimited);
         assert!(usage.total_budget.is_none());
         assert!(usage.remaining.is_none());
         server.finish().await;

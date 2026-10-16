@@ -737,6 +737,7 @@ fn aggregate_usage_data(items: &[UsageData]) -> Option<UsageData> {
 
     Some(UsageData {
         scope: first.scope.clone(),
+        is_unlimited: items.iter().any(|item| item.is_unlimited),
         source: {
             let mut sources: Vec<_> = items
                 .iter()
@@ -867,6 +868,7 @@ mod usage_tests {
         UsageData {
             scope,
             source: None,
+            is_unlimited: false,
             total_used: 10.0,
             total_budget: Some(100.0),
             remaining: Some(90.0),
@@ -897,10 +899,23 @@ mod usage_tests {
     fn old_usage_without_scope_remains_readable() {
         let mut value = serde_json::to_value(sample(UsageScope::Key)).unwrap();
         value.as_object_mut().unwrap().remove("scope");
-        assert_eq!(
-            serde_json::from_value::<UsageData>(value).unwrap().scope,
-            UsageScope::Key
-        );
+        value.as_object_mut().unwrap().remove("isUnlimited");
+        let legacy = serde_json::from_value::<UsageData>(value).unwrap();
+        assert!(!legacy.is_unlimited);
+        assert_eq!(legacy.scope, UsageScope::Key);
+    }
+
+    #[test]
+    fn unlimited_key_status_survives_aggregation_without_fabricating_a_budget() {
+        let mut unlimited = sample(UsageScope::Key);
+        unlimited.is_unlimited = true;
+        unlimited.total_budget = None;
+        unlimited.remaining = None;
+        let usage = aggregate_usage_data(&[sample(UsageScope::Key), unlimited]).unwrap();
+        assert!(usage.is_unlimited);
+        assert_eq!(usage.total_used, 20.0);
+        assert!(usage.total_budget.is_none());
+        assert!(usage.remaining.is_none());
     }
 
     #[tokio::test]

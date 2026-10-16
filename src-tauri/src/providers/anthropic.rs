@@ -110,6 +110,7 @@ impl UsageProvider for AnthropicProvider {
         Ok(UsageData {
             scope: UsageScope::Organization,
             source: None,
+            is_unlimited: false,
             total_used,
             total_budget: None,
             remaining: None,

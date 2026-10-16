@@ -74,6 +74,9 @@ pub struct UsageData {
     /// 用量来源标识，用于隔离不同站点与额度换算比例的历史增量。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    /// 仅在接口明确返回无限额度时为真，与未提供预算区分。
+    #[serde(default)]
+    pub is_unlimited: bool,
     pub total_used: f64,
     pub total_budget: Option<f64>,
     pub remaining: Option<f64>,
