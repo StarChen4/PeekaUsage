@@ -159,6 +159,8 @@ Linux 本地打包使用 `npm run tauri:build:linux`。项目锁定 Tauri CLI 2.
 
 Linux 桌面入口使用 `Utility` 分类。发版流水线通过 `scripts/check-update-manifest.py` 检查 `latest.json` 的版本、四个平台下载条目及签名格式。
 
+Linux 打包还需要 `squashfs-tools`。`beforeBundleCommand` 会调用 `scripts/prepare-appimage.sh`，校验官方启动器的 SHA-256 并将缓存权限设为 `0755`，避免 Tauri 默认 `0770` 导致挂载后普通用户无法执行 `AppRun.wrapped`。产物检查使用 `unsquashfs` 保留原始权限元数据，检查目录可遍历、文件可读，以及启动器和程序对所有用户可执行；运行时的 `--appimage-extract` 会改变目录权限，不能据此判断实际挂载权限。
+
 发版前还需要先补齐对应版本的发版说明文件，例如 `.github/release-notes/v0.1.0.md`，再打 `v0.1.0` 标签并推送。
 
 ## 凭据来源

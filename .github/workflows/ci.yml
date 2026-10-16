@@ -65,13 +65,18 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            patchelf
+            patchelf \
+            squashfs-tools
 
       - name: Install dependencies
         run: npm ci
 
       - name: Type check frontend
         run: npx tsc --noEmit
+
+      - name: 验证 AppImage 图标、权限与打包脚本
+        if: matrix.platform == 'ubuntu-22.04'
+        run: python3 tests/test_appimage_scripts.py
 
       - name: Check Rust
         run: cargo check

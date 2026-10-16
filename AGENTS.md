@@ -663,6 +663,9 @@ Rust 使用 snake_case，TS 使用 camelCase，通过 serde 做映射。
 - Tauri CLI 当前锁定为 `2.11.4`；不要降至 `2.11.4` 以下，旧版 AppImage 的 `.DirIcon` 可能是指向构建机的绝对链接
 - Linux 本地打包与 Release 通过 `scripts/build-linux.sh` 执行，并用 `scripts/check-appimage.sh` 解包检查本次产物的 `.DirIcon`；要求图标存在、非空、为包内 PNG，且不使用绝对链接
 - Linux 应用分类在 `tauri.linux.conf.json` 中设为 `Utility`，确保桌面入口包含有效的 `Categories`
+- Linux 的 `beforeBundleCommand` 必须通过 `scripts/prepare-appimage.sh` 校验官方启动器 SHA-256 并设为 `0755`，避免 Tauri 下载时设为 `0770`，挂载后普通用户无法执行 `AppRun.wrapped`
+- AppImage 权限检查依赖 `squashfs-tools`，必须使用 `unsquashfs` 检查实际元数据；运行时 `--appimage-extract` 会将目录改为 `0700`，不能用于权限判断
+- `scripts/check-appimage.sh` 要求目录对所有用户可遍历、文件可读、可执行文件对所有用户可执行；Linux CI 同时运行 `python3 tests/test_appimage_scripts.py`，覆盖 `0770` 启动器等异常
 - Release 必须在图标检查通过后才上传 Linux 安装包；CI 在 Linux 上构建不带更新签名的调试安装包执行相同检查
 - 首次启动语言与旧配置兼容测试为 `cargo test config::app_config::tests`，CI 在三个桌面平台均执行
 - 改版本号时，必须同步修改 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`

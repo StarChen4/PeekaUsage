@@ -26,6 +26,9 @@
 - Tauri CLI 锁定为 `2.11.4`，修复 AppImage 中 `.DirIcon` 绝对链接分发后失效的问题；不得降到此修复版本以下
 - Linux 本地构建、CI 和 Release 共用 `scripts/build-linux.sh`，通过 `scripts/check-appimage.sh` 解包检查本次安装包的 `.DirIcon`，检查通过才允许 Release 上传；CI 使用关闭更新签名的调试构建
 - Linux 应用分类在 `tauri.linux.conf.json` 中设为 `Utility`，确保桌面入口的 `Categories` 有效
+- Linux 打包前通过 `beforeBundleCommand` 调用 `scripts/prepare-appimage.sh`，校验官方启动器的 SHA-256 并设为 `0755`；Tauri 默认 `0770` 会让挂载后普通用户无法执行 `AppRun.wrapped`
+- 安装 `squashfs-tools`，使用 `unsquashfs` 保留原始权限元数据检查所有用户的读取/执行权限；不要使用会把目录改成 `0700` 的运行时解包结果判断挂载权限
+- Linux CI 执行 `python3 tests/test_appimage_scripts.py`，覆盖图标、启动器权限、构建失败和校验失败等情况
 - `cargo test config::app_config::tests` 覆盖系统语言映射、首次启动持久化、已保存语言不被覆盖及旧配置缺省兼容；CI 在 Windows、Linux、macOS 上执行
 - 设置页子导航现在包含“更新”分区，支持查看当前版本、检查更新、查看 Release 说明和触发应用内更新安装
 - 自动更新检查配置字段现在是 `updateAutoCheckEnabled`、`updateCheckOnLaunch`、`updateCheckIntervalHours`
