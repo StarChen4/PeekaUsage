@@ -7,7 +7,7 @@ import type {
   UsageForecast,
   UsageStatsSnapshot,
 } from "../../types/stats";
-import { formatCurrency, formatPercent } from "../../utils/formatters";
+import { formatCurrency, formatPercent, languageToLocale } from "../../utils/formatters";
 import { getUsageStatsSnapshot } from "../../utils/ipc";
 import ProviderIcon from "../common/ProviderIcon";
 
@@ -290,18 +290,6 @@ function MetricBlock({ label, value }: { label: string; value: string }) {
       <strong className="stats-metric-value">{value}</strong>
     </div>
   );
-}
-
-function languageToLocale(language: string): string {
-  if (language === "zh-Hant") {
-    return "zh-Hant";
-  }
-
-  if (language === "en") {
-    return "en-US";
-  }
-
-  return "zh-CN";
 }
 
 function formatDateTime(value: string, locale: string): string {

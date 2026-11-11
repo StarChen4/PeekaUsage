@@ -642,6 +642,12 @@
   color: var(--color-text-secondary);
 }
 
+.polling-floor-hint {
+  display: block;
+  margin-top: -4px;
+  color: var(--color-warning);
+}
+
 .advanced-toggle {
   display: flex;
   align-items: center;

@@ -42,14 +42,19 @@ pub(super) fn check_response(
         200..=299 => Ok(response),
         401 | 403 => Err(ProviderError::AuthError(auth_message.into())),
         429 => {
+            // 只接受秒数形式；HTTP 日期形式交给调用方的指数退避处理。
             let retry_after = response
                 .headers()
                 .get("retry-after")
-                .and_then(|v| v.to_str().ok());
-            Err(ProviderError::RateLimited(match retry_after {
-                Some(value) => format!("请求过于频繁，请稍后重试（Retry-After: {value}）"),
-                None => "请求过于频繁，请稍后重试".into(),
-            }))
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.trim().parse::<u64>().ok());
+            Err(ProviderError::RateLimited(
+                match retry_after {
+                    Some(value) => format!("请求过于频繁，请 {value} 秒后重试"),
+                    None => "请求过于频繁，请稍后重试".into(),
+                },
+                retry_after,
+            ))
         }
         _ => Err(ProviderError::RequestError(format!(
             "HTTP {}",

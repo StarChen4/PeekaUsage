@@ -37,6 +37,10 @@
 - GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
 - 发版前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 三处版本号一致
 - CI 现在会额外在 `ubuntu-latest` 上单独执行一次 `cargo fmt --all --check`，用于拦截 Rust 格式漂移
+- 所有用量和订阅请求都经过 `src-tauri/src/providers/throttle.rs`：同一凭据 15 秒内只真实请求一次；429 后按 `Retry-After` 或指数退避冷却；New API 同一站点共享 15 次 / 20 分钟预算（站点默认限制是 20 次 / 20 分钟）。被节流时返回缓存并带 `limitedUntil`，前端显示“限流中”
+- 前端自动刷新按秒设置时最短 15 秒（`MIN_AUTO_POLLING_SECONDS`），与后端节流一致；`usePolling.ts` 只在启用的供应商集合变化时重建定时器
+- New API 的 `/api/status` 换算配置按站点缓存 1 小时；验证令牌也走节流
+- New API 会解析 `user_quota`（钱包余额 / 账户已用，需站点 v1.0.0-rc.45+ 且令牌开启“允许查询用户额度”）、`expires_at`、`model_limits`，并按站点 `quota_display_type` 显示 USD / CNY / 自定义货币。多个令牌合计钱包时，同站点且余额和已用相同的视为同一账户只计一次
 
 ## 项目概览
 

@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { useI18n } from "../../i18n";
 import type { ApiKeyUsageSummary, UsageSummary } from "../../types/provider";
 import type { WidgetDisplayMode } from "../../types/settings";
-import { calcUsagePercent, formatCurrency } from "../../utils/formatters";
+import { calcUsagePercent, formatCurrency, languageToLocale } from "../../utils/formatters";
 import ProviderIcon from "../common/ProviderIcon";
 import RateLimitBadge from "./RateLimitBadge";
 import SubscriptionBadge from "./SubscriptionBadge";
@@ -23,7 +23,8 @@ export default function ProviderCard({
   isRefreshing = false,
   onRefresh,
 }: ProviderCardProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const locale = languageToLocale(language);
   const hasSubscription = provider.subscriptions.length > 0;
   const hasApiUsage = provider.apiKeyUsages.length > 0;
   const hasMultipleApiKeys = provider.apiKeyUsages.length > 1;
@@ -43,11 +44,69 @@ export default function ProviderCard({
   const useApiColorMarkers = useCompactColorMarkers && compactApiItems.length > 1;
 
   function usagePercent(item: ApiKeyUsageSummary) {
-    if (!item.usage || item.usage.isUnlimited || item.usage.totalBudget == null || item.usage.totalBudget <= 0) {
+    const usage = item.usage;
+    if (!usage) {
       return null;
     }
 
-    return calcUsagePercent(item.usage.totalUsed, item.usage.totalBudget);
+    // 无限额令牌改看钱包：账户已用占钱包总额（已用 + 余额）的比例。
+    if (usage.isUnlimited) {
+      const walletTotal = walletTotalOf(item);
+      return walletTotal ? calcUsagePercent(usage.accountUsed ?? 0, walletTotal) : null;
+    }
+
+    if (usage.totalBudget == null || usage.totalBudget <= 0) {
+      return null;
+    }
+
+    return calcUsagePercent(usage.totalUsed, usage.totalBudget);
+  }
+
+  function walletTotalOf(item: ApiKeyUsageSummary) {
+    const usage = item.usage;
+    if (usage?.accountRemaining == null || usage.accountUsed == null) {
+      return null;
+    }
+    const total = usage.accountRemaining + usage.accountUsed;
+    return total > 0 ? total : null;
+  }
+
+  /** 进度条是否显示无穷：只有无限额且没有钱包数据时才没有可算的比例。 */
+  function showsInfinity(item: ApiKeyUsageSummary) {
+    return !!item.usage?.isUnlimited && walletTotalOf(item) == null;
+  }
+
+  function formatTime(value: string) {
+    return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  }
+
+  function limitedText(fetchedAt: string | null | undefined, limitedUntil: string | null | undefined) {
+    if (!limitedUntil) {
+      return null;
+    }
+    return {
+      label: t("widget.providerCard.limited", { time: fetchedAt ? formatTime(fetchedAt) : "—" }),
+      title: t("widget.providerCard.limitedHint", { time: formatTime(limitedUntil) }),
+    };
+  }
+
+  function expiryText(expiresAt: string | null | undefined) {
+    if (!expiresAt) {
+      return null;
+    }
+    const diffMs = new Date(expiresAt).getTime() - Date.now();
+    if (!Number.isFinite(diffMs)) {
+      return null;
+    }
+    if (diffMs <= 0) {
+      return { label: t("widget.providerCard.expired"), tone: "danger" };
+    }
+    const days = Math.ceil(diffMs / 86_400_000);
+    if (days <= 7) {
+      return { label: t("widget.providerCard.expiresSoon", { days }), tone: "warning" };
+    }
+    const date = new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(expiresAt));
+    return { label: t("widget.providerCard.expiresAt", { date }), tone: "muted" };
   }
 
   return (
@@ -141,31 +200,34 @@ export default function ProviderCard({
                 );
               })}
 
-              {compactApiItems.map((item) => (
-                <div
-                  key={item.keyId}
-                  className={`compact-metric-row${useApiColorMarkers ? " has-marker" : ""}`}
-                  style={useApiColorMarkers ? ({ "--compact-marker-color": item.color } as CSSProperties) : undefined}
-                >
-                  {useApiColorMarkers ? (
-                    <>
+              {compactApiItems.map((item) => {
+                const limited = limitedText(item.fetchedAt, item.limitedUntil);
+                const titleParts = [
+                  item.keyName,
+                  t(`widget.providerCard.usageScopes.${item.usage?.scope ?? "key"}`),
+                  item.usage?.isUnlimited && walletTotalOf(item) != null ? t("widget.providerCard.wallet") : null,
+                  limited?.label,
+                ].filter(Boolean);
+                return (
+                  <div
+                    key={item.keyId}
+                    className={`compact-metric-row${useApiColorMarkers ? " has-marker" : ""}${limited ? " is-limited" : ""}`}
+                    style={useApiColorMarkers ? ({ "--compact-marker-color": item.color } as CSSProperties) : undefined}
+                    title={limited?.title}
+                  >
+                    {useApiColorMarkers ? (
                       <span className="compact-metric-marker" aria-hidden="true" />
-                      <div className="compact-metric-bar">
-                        <UsageProgressBar percent={usagePercent(item)} isUnlimited={item.usage?.isUnlimited} />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <span className="compact-metric-label" title={`${item.keyName} · ${t(`widget.providerCard.usageScopes.${item.usage?.scope ?? "key"}`)}`}>
+                    ) : (
+                      <span className="compact-metric-label" title={titleParts.join(" · ")}>
                         {formatCompactApiLabel(item.keyName, t("widget.providerCard.apiShort"))}
                       </span>
-                      <div className="compact-metric-bar">
-                        <UsageProgressBar percent={usagePercent(item)} isUnlimited={item.usage?.isUnlimited} />
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
+                    )}
+                    <div className="compact-metric-bar">
+                      <UsageProgressBar percent={usagePercent(item)} isUnlimited={showsInfinity(item)} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : null}
 
@@ -208,6 +270,11 @@ export default function ProviderCard({
                         {t("widget.providerCard.balance")}: {formatCurrency(provider.usage.remaining, provider.usage.currency)}
                       </span>
                     )}
+                    {hasMultipleApiKeys && provider.usage.accountRemaining != null && (
+                      <span className="balance-info">
+                        {t("widget.providerCard.wallet")}: {formatCurrency(provider.usage.accountRemaining, provider.usage.currency)}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -240,9 +307,60 @@ export default function ProviderCard({
                     </div>
                   )}
 
-                  {(item.usage?.totalBudget || item.usage?.isUnlimited) && (
-                    <UsageProgressBar percent={usagePercent(item)} isUnlimited={item.usage?.isUnlimited} />
+                  {item.usage?.accountRemaining != null && (
+                    <div className="api-key-meta">
+                      <span className="balance-info">
+                        {t("widget.providerCard.wallet")}: {formatCurrency(item.usage.accountRemaining, item.usage.currency)}
+                      </span>
+                      {item.usage.accountUsed != null && (
+                        <span className="balance-info">
+                          {t("widget.providerCard.walletUsed")}: {formatCurrency(item.usage.accountUsed, item.usage.currency)}
+                        </span>
+                      )}
+                    </div>
                   )}
+
+                  {/* 只有可用额度被钱包压低时才单独显示，避免和余额重复。 */}
+                  {item.usage?.effectiveRemaining != null
+                    && item.usage.remaining != null
+                    && item.usage.effectiveRemaining < item.usage.remaining && (
+                    <div className="api-key-meta">
+                      <span className="balance-info is-warning" title={t("widget.providerCard.availableHint")}>
+                        {t("widget.providerCard.available")}: {formatCurrency(item.usage.effectiveRemaining, item.usage.currency)}
+                      </span>
+                    </div>
+                  )}
+
+                  {item.usage?.isUnlimited && item.usage.accountRemaining == null && provider.providerId === "newapi" && (
+                    <div className="api-key-hint">{t("widget.providerCard.walletHint")}</div>
+                  )}
+
+                  {(item.usage?.totalBudget || item.usage?.isUnlimited) && (
+                    <UsageProgressBar percent={usagePercent(item)} isUnlimited={showsInfinity(item)} />
+                  )}
+
+                  {(() => {
+                    const expiry = expiryText(item.usage?.expiresAt);
+                    const models = item.usage?.modelLimits;
+                    if (!expiry && !models?.length) {
+                      return null;
+                    }
+                    return (
+                      <div className="api-key-tags">
+                        {expiry && <span className={`api-key-tag is-${expiry.tone}`} title={item.usage?.expiresAt ?? undefined}>{expiry.label}</span>}
+                        {models && models.length > 0 && (
+                          <span className="api-key-tag is-muted" title={models.join("\n")}>
+                            {t("widget.providerCard.modelLimits", { count: models.length })}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {(() => {
+                    const limited = limitedText(item.fetchedAt, item.limitedUntil);
+                    return limited ? <div className="api-key-hint is-warning" title={limited.title}>{limited.label}</div> : null;
+                  })()}
 
                   {item.errorMessage && (
                     <div className="api-key-error">{item.errorMessage}</div>

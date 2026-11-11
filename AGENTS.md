@@ -936,6 +936,10 @@ cargo check
 - 只读查询 `/api/usage/token`，使用 Bearer 令牌；通过不带凭据的 `/api/status` 获取 `quota_per_unit`。原始额度除以站点比例，统一显示美元等值；禁止硬编码 500000 或把额度当成模型 Token 数。
 - 展示范围为 `key`：累计已用、令牌总额度和令牌剩余额度，不把可选 `user_quota` 混入当前 Key。无限额度不伪造预算、余额和百分比，到期时间不作为重置时间。
 - `UsageData.isUnlimited` 在 Rust 与 TypeScript 中保持同步，仅依据接口明确的无限额度标记；旧数据缺省按否处理。无限额度在详细模式显示“令牌无限额度”，精简模式显示 `∞`；提示需说明不代表账户余额无限，不能复用“未提供可用额度”的未知状态提示。
+- 所有用量和订阅请求都经过 `src-tauri/src/providers/throttle.rs`：同一凭据 15 秒内只真实请求一次；429 后按 `Retry-After` 或指数退避冷却；New API 同一站点共享 15 次 / 20 分钟预算（站点默认限制是 20 次 / 20 分钟）。被节流时返回缓存并带 `limitedUntil`，前端显示“限流中”
+- 前端自动刷新按秒设置时最短 15 秒（`MIN_AUTO_POLLING_SECONDS`），与后端节流一致；`usePolling.ts` 只在启用的供应商集合变化时重建定时器
+- New API 的 `/api/status` 换算配置按站点缓存 1 小时；验证令牌也走节流
+- New API 会解析 `user_quota`（钱包余额 / 账户已用，需站点 v1.0.0-rc.45+ 且令牌开启“允许查询用户额度”）、`expires_at`、`model_limits`，并按站点 `quota_display_type` 显示 USD / CNY / 自定义货币。多个令牌合计钱包时，同站点且余额和已用相同的视为同一账户只计一次
 - 读取真实用量权限完成验证；未开放端点、HTTP 错误、业务失败、缺失字段或无效换算比例要明确报错，不静默补零。
 - `UsageData.source` 与历史样本的可选 `source` 同步；站点或换算比例变化时跳过跨来源消费增量，旧历史继续保留且可读。
 - 显式切换环境时同时管理 `NEWAPI_API_KEY` 与 `NEWAPI_BASE_URL`，普通保存不接管；删除激活 Key 后同时清除。Windows 用户级、Linux/macOS Shell、macOS launchctl 的同步路径沿用共享实现，不覆盖 OpenAI 等供应商的变量。

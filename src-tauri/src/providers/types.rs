@@ -66,7 +66,7 @@ pub enum UsageScope {
 }
 
 /// 用量数据（按量 API）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageData {
     #[serde(default)]
@@ -83,6 +83,21 @@ pub struct UsageData {
     pub currency: String,
     pub period_start: Option<String>,
     pub period_end: Option<String>,
+    /// 令牌所属账户的钱包余额（New API 的 user_quota），与令牌自身额度分开。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_remaining: Option<f64>,
+    /// 令牌所属账户的累计已用。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_used: Option<f64>,
+    /// 实际还能花的金额：令牌剩余与钱包余额取较小值，无限额令牌只看钱包。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_remaining: Option<f64>,
+    /// 凭据到期时间（ISO 8601），None 表示永不过期或未提供。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    /// 凭据启用了模型白名单时的可用模型。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_limits: Option<Vec<String>>,
 }
 
 /// 单个 API Key 的用量摘要
@@ -96,6 +111,12 @@ pub struct ApiKeyUsageSummary {
     pub usage: Option<UsageData>,
     pub rate_limit: Option<RateLimitData>,
     pub error_message: Option<String>,
+    /// 数据实际取得的时间；被节流时早于本次刷新时间。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetched_at: Option<String>,
+    /// 有值表示命中限流保护，显示的是缓存数据，该时间后恢复查询。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limited_until: Option<String>,
 }
 
 /// 订阅用量窗口
@@ -151,6 +172,10 @@ pub struct SubscriptionUsageSummary {
     pub color: String,
     pub source: Option<String>,
     pub usage: SubscriptionUsage,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetched_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limited_until: Option<String>,
 }
 
 /// 速率限制数据

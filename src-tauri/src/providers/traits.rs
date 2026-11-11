@@ -40,8 +40,9 @@ pub enum ProviderError {
     #[error("解析响应失败: {0}")]
     ParseError(String),
 
+    /// 第二个字段是服务端 Retry-After 给出的等待秒数。
     #[error("速率限制: {0}")]
-    RateLimited(String),
+    RateLimited(String, Option<u64>),
 }
 
 impl From<reqwest::Error> for ProviderError {
@@ -52,7 +53,7 @@ impl From<reqwest::Error> for ProviderError {
                     return ProviderError::AuthError(e.to_string());
                 }
                 if status.as_u16() == 429 {
-                    return ProviderError::RateLimited(e.to_string());
+                    return ProviderError::RateLimited(e.to_string(), None);
                 }
             }
         }

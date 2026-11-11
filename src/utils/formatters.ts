@@ -3,6 +3,13 @@ export function formatCurrency(amount: number, currency: string = "USD"): string
   if (currency === "USD") {
     return `$${amount.toFixed(2)}`;
   }
+  if (currency === "CNY") {
+    return `¥${amount.toFixed(2)}`;
+  }
+  // New API 自定义货币直接使用站点配置的符号。
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    return `${currency}${amount.toFixed(2)}`;
+  }
   return `${amount.toFixed(2)} ${currency}`;
 }
 
@@ -41,4 +48,17 @@ export function formatRelativeTime(isoString: string): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}小时前`;
   return `${Math.floor(hours / 24)}天前`;
+}
+
+/** 应用语言对应的日期格式区域 */
+export function languageToLocale(language: string): string {
+  if (language === "zh-Hant") {
+    return "zh-Hant";
+  }
+
+  if (language === "en") {
+    return "en-US";
+  }
+
+  return "zh-CN";
 }

@@ -29,6 +29,8 @@ export type WidgetDisplayMode = "detailed" | "compact";
 export const DEFAULT_POLLING_INTERVAL = 5;
 export const MIN_POLLING_INTERVAL = 1;
 export const MAX_POLLING_INTERVAL = 999;
+/** 自动刷新的最短间隔，与后端每个凭据的节流间隔一致；更短的设置不会多拿到新数据。 */
+export const MIN_AUTO_POLLING_SECONDS = 15;
 export const SUPPORTED_LANGUAGES: AppLanguage[] = ["zh-Hans", "zh-Hant", "en"];
 
 export interface PollingSettings {
@@ -161,7 +163,7 @@ export function getPollingIntervalMs(settings: PollingSettings): number | null {
 
   const interval = normalizePollingInterval(settings.pollingInterval);
   return settings.pollingUnit === "seconds"
-    ? interval * 1000
+    ? Math.max(interval, MIN_AUTO_POLLING_SECONDS) * 1000
     : interval * 60 * 1000;
 }
 

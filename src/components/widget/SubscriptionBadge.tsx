@@ -1,5 +1,6 @@
 import { useI18n } from "../../i18n";
 import type { ExtraUsage, SubscriptionUsageSummary } from "../../types/provider";
+import { languageToLocale } from "../../utils/formatters";
 import UsageProgressBar from "./UsageProgressBar";
 
 type SubscriptionBadgeProps = {
@@ -7,8 +8,12 @@ type SubscriptionBadgeProps = {
 };
 
 export default function SubscriptionBadge({ subscription }: SubscriptionBadgeProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const usage = subscription.usage;
+
+  function formatClock(value: string): string {
+    return new Intl.DateTimeFormat(languageToLocale(language), { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  }
   const planLabel = usage.planName ?? t("widget.subscription.fallbackPlan");
 
   function formatResetTime(isoStr: string): string {
@@ -63,6 +68,14 @@ export default function SubscriptionBadge({ subscription }: SubscriptionBadgePro
         </div>
       )}
       {usage.status === "error" && <div className="sub-error-msg">{usage.errorMessage}</div>}
+      {subscription.limitedUntil && (
+        <div
+          className="api-key-hint is-warning"
+          title={t("widget.providerCard.limitedHint", { time: formatClock(subscription.limitedUntil) })}
+        >
+          {t("widget.providerCard.limited", { time: subscription.fetchedAt ? formatClock(subscription.fetchedAt) : "—" })}
+        </div>
+      )}
     </div>
   );
 }

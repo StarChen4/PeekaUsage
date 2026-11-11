@@ -42,6 +42,16 @@ export interface UsageData {
   currency: string;
   periodStart: string | null;
   periodEnd: string | null;
+  /** 令牌所属账户的钱包余额（New API user_quota），与令牌额度分开 */
+  accountRemaining?: number | null;
+  /** 令牌所属账户的累计已用 */
+  accountUsed?: number | null;
+  /** 实际可用：令牌剩余与钱包余额取较小值，无限额令牌只看钱包 */
+  effectiveRemaining?: number | null;
+  /** 凭据到期时间（ISO 8601），缺省表示永不过期或未提供 */
+  expiresAt?: string | null;
+  /** 启用了模型白名单时的可用模型 */
+  modelLimits?: string[] | null;
 }
 
 /** 订阅用量窗口 */
@@ -76,6 +86,8 @@ export interface SubscriptionUsageSummary {
   color: string;
   source: string | null;
   usage: SubscriptionUsage;
+  fetchedAt?: string | null;
+  limitedUntil?: string | null;
 }
 
 /** 速率限制数据 */
@@ -98,6 +110,10 @@ export interface ApiKeyUsageSummary {
   usage: UsageData | null;
   rateLimit: RateLimitData | null;
   errorMessage: string | null;
+  /** 数据实际取得的时间；命中限流保护时早于本次刷新 */
+  fetchedAt?: string | null;
+  /** 有值表示命中限流保护，显示的是缓存数据 */
+  limitedUntil?: string | null;
 }
 
 /** 供应商用量摘要（从后端返回） */

@@ -126,6 +126,7 @@ impl UsageProvider for OpenAIProvider {
             currency: "USD".into(),
             period_start: Some(start.to_rfc3339()),
             period_end: Some(end.to_rfc3339()),
+            ..Default::default()
         })
     }
 

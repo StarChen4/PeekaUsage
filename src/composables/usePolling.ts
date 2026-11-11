@@ -11,7 +11,14 @@ export function usePolling() {
   const [isActive, setIsActive] = useState(false);
   const shouldRunRef = useRef(false);
   const timersRef = useRef(new Map<ProviderId, ReturnType<typeof setInterval>>());
-  const providers = useProviderStore((state) => state.providers);
+  // 只在启用的供应商集合变化时重建定时器；每次刷新都会替换 providers 数组，
+  // 直接依赖它会不断重置计时，间隔长的供应商永远等不到触发。
+  const enabledProviderKey = useProviderStore((state) =>
+    state.providers
+      .filter((provider) => provider.enabled)
+      .map((provider) => provider.providerId)
+      .join(","),
+  );
   const settings = useSettingsStore((state) => state.settings);
 
   function clearTimer(providerId: ProviderId) {
@@ -78,7 +85,7 @@ export function usePolling() {
       syncTimers();
     }
   }, [
-    providers,
+    enabledProviderKey,
     settings.pollingInterval,
     settings.pollingMode,
     settings.pollingUnit,

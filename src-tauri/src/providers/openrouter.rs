@@ -83,6 +83,7 @@ impl KeyInfoData {
                 currency: "USD".into(),
                 period_start: None,
                 period_end: budget.resets_at.clone(),
+                ..Default::default()
             });
         }
         let limit = self.limit.as_ref().map(ApiNumber::value).transpose()?;
@@ -133,6 +134,7 @@ impl KeyInfoData {
             currency: "USD".into(),
             period_start: None,
             period_end: None,
+            ..Default::default()
         })
     }
 }
@@ -200,6 +202,7 @@ impl UsageProvider for OpenRouterProvider {
             currency: "USD".into(),
             period_start: None,
             period_end: None,
+            ..Default::default()
         })
     }
 

@@ -334,6 +334,46 @@
   color: var(--color-danger);
 }
 
+.balance-info.is-warning {
+  color: var(--color-warning);
+}
+
+.api-key-hint {
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.api-key-hint.is-warning {
+  color: var(--color-warning);
+}
+
+.api-key-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.api-key-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  color: var(--color-text-muted);
+}
+
+.api-key-tag.is-warning {
+  color: var(--color-warning);
+}
+
+.api-key-tag.is-danger {
+  color: var(--color-danger);
+}
+
+.compact-metric-row.is-limited {
+  opacity: 0.6;
+}
+
 .compact-error-msg {
   font-size: 10px;
   color: var(--color-danger);

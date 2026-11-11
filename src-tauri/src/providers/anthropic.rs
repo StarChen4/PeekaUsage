@@ -117,6 +117,7 @@ impl UsageProvider for AnthropicProvider {
             currency: "USD".into(),
             period_start: Some(starting_at),
             period_end: Some(end.to_rfc3339_opts(SecondsFormat::Secs, true)),
+            ..Default::default()
         })
     }
 

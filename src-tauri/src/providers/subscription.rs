@@ -57,7 +57,10 @@ impl SubscriptionFetcher {
         }
     }
 
-    pub async fn fetch_anthropic(&self, oauth_token: &str) -> SubscriptionUsage {
+    pub async fn fetch_anthropic(
+        &self,
+        oauth_token: &str,
+    ) -> Result<SubscriptionUsage, ProviderError> {
         fetch_subscription(
             self.client
                 .get("https://api.anthropic.com/api/oauth/usage")
@@ -69,7 +72,10 @@ impl SubscriptionFetcher {
         .await
     }
 
-    pub async fn fetch_openai(&self, oauth_token: &str) -> SubscriptionUsage {
+    pub async fn fetch_openai(
+        &self,
+        oauth_token: &str,
+    ) -> Result<SubscriptionUsage, ProviderError> {
         fetch_subscription(
             self.client
                 .get("https://chatgpt.com/backend-api/wham/usage")
@@ -81,29 +87,30 @@ impl SubscriptionFetcher {
     }
 }
 
+/// 保留错误类型，调用方据此区分限流和其他失败。
 async fn fetch_subscription(
     request: RequestBuilder,
     parse: fn(Value) -> Result<SubscriptionUsage, ProviderError>,
-) -> SubscriptionUsage {
-    let result = async {
-        let response = check_response(
-            request.send().await?,
-            "OAuth Token 无效、已过期或缺少订阅查询权限",
-        )?;
-        let value = response
-            .json::<Value>()
-            .await
-            .map_err(|error| ProviderError::ParseError(error.to_string()))?;
-        parse(value)
-    }
-    .await;
-    result.unwrap_or_else(|error| SubscriptionUsage {
+) -> Result<SubscriptionUsage, ProviderError> {
+    let response = check_response(
+        request.send().await?,
+        "OAuth Token 无效、已过期或缺少订阅查询权限",
+    )?;
+    let value = response
+        .json::<Value>()
+        .await
+        .map_err(|error| ProviderError::ParseError(error.to_string()))?;
+    parse(value)
+}
+
+pub fn subscription_error(error: &ProviderError) -> SubscriptionUsage {
+    SubscriptionUsage {
         plan_name: None,
         windows: vec![],
         extra_usage: None,
         status: ProviderStatus::Error,
         error_message: Some(error.to_string()),
-    })
+    }
 }
 
 fn parse_anthropic(value: Value) -> Result<SubscriptionUsage, ProviderError> {

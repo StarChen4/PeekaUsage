@@ -3,6 +3,7 @@ import { useI18n } from "../../i18n";
 import type { ProviderConfigItem, ProviderId } from "../../types/provider";
 import {
   MAX_POLLING_INTERVAL,
+  MIN_AUTO_POLLING_SECONDS,
   MIN_POLLING_INTERVAL,
   getEffectivePollingSettings,
   normalizePollingInterval,
@@ -397,6 +398,11 @@ export default function SettingsPanel({ onBack }: SettingsPanelProps) {
             )}
           </div>
         </div>
+        {!isManualPolling && settings.pollingUnit === "seconds" && settings.pollingInterval < MIN_AUTO_POLLING_SECONDS && (
+          <span className="setting-hint polling-floor-hint">
+            {t("settings.polling.minIntervalHint", { seconds: MIN_AUTO_POLLING_SECONDS })}
+          </span>
+        )}
 
         <div className="setting-row setting-row-slider">
           <label htmlFor="window-opacity-range">{t("settings.opacity.label")}</label>

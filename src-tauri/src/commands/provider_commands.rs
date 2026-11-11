@@ -508,20 +508,23 @@ async fn build_usage_summary(
             .fetch_api_usage(provider_id, &api_key.value, api_key.base_url.as_deref())
             .await
         {
-            Ok((usage, item_rate_limit)) => {
+            Ok(result) => {
+                let item_rate_limit = result.rate_limit;
                 if api_keys.len() == 1 {
                     rate_limit = item_rate_limit.clone();
                 }
 
-                successful_usages.push(usage.clone());
+                successful_usages.push(result.usage.clone());
                 api_key_usages.push(ApiKeyUsageSummary {
                     key_id: api_key.id.clone(),
                     key_name: api_key.name.clone(),
                     color: api_key.color.clone(),
                     status: ProviderStatus::Success,
-                    usage: Some(usage),
+                    usage: Some(result.usage),
                     rate_limit: item_rate_limit,
                     error_message: None,
+                    fetched_at: Some(result.fetched_at),
+                    limited_until: result.limited_until,
                 });
             }
             Err(error) => {
@@ -534,6 +537,8 @@ async fn build_usage_summary(
                     usage: None,
                     rate_limit: None,
                     error_message: Some(error),
+                    fetched_at: None,
+                    limited_until: None,
                 });
             }
         }
@@ -543,9 +548,10 @@ async fn build_usage_summary(
     let mut subscription_summaries = Vec::new();
 
     for subscription in subscriptions {
-        let usage = provider_manager
+        let result = provider_manager
             .fetch_subscription_usage(provider_id, &subscription.value)
             .await;
+        let usage = result.usage;
         if matches!(usage.status, ProviderStatus::Error) {
             if let Some(error_message) = usage.error_message.clone() {
                 subscription_errors.push(format!("{}: {}", subscription.name, error_message));
@@ -557,6 +563,8 @@ async fn build_usage_summary(
             color: subscription.color,
             source: subscription.source,
             usage,
+            fetched_at: result.fetched_at,
+            limited_until: result.limited_until,
         });
     }
 
@@ -712,6 +720,7 @@ fn aggregate_usage_data(items: &[UsageData]) -> Option<UsageData> {
         return None;
     }
     let currency = first.currency.clone();
+    let wallet = aggregate_wallet(items);
     let mut total_used = 0.0;
     let mut total_budget = Some(0.0);
     let mut remaining = Some(0.0);
@@ -756,7 +765,41 @@ fn aggregate_usage_data(items: &[UsageData]) -> Option<UsageData> {
         currency,
         period_start,
         period_end,
+        account_remaining: wallet.map(|(remaining, _)| remaining),
+        account_used: wallet.map(|(_, used)| used),
+        ..Default::default()
     })
+}
+
+/// 同一站点同一账户的多个令牌共用一个钱包，只计一次。
+///
+/// 接口不返回账户 ID，这里把“站点相同且余额、已用都相同”视为同一账户；
+/// 只要有一个令牌没有返回钱包数据，合计就不显示钱包，避免给出偏小的数字。
+fn aggregate_wallet(items: &[UsageData]) -> Option<(f64, f64)> {
+    let mut seen: Vec<(&str, f64, f64)> = Vec::new();
+    for item in items {
+        let remaining = item.account_remaining?;
+        let used = item.account_used?;
+        let site = item
+            .source
+            .as_deref()
+            .and_then(|source| source.split('|').next())
+            .unwrap_or("");
+        let duplicate = seen.iter().any(|(seen_site, seen_remaining, seen_used)| {
+            *seen_site == site
+                && (seen_remaining - remaining).abs() < 1e-9
+                && (seen_used - used).abs() < 1e-9
+        });
+        if !duplicate {
+            seen.push((site, remaining, used));
+        }
+    }
+    Some(
+        seen.iter()
+            .fold((0.0, 0.0), |(remaining, used), (_, r, u)| {
+                (remaining + r, used + u)
+            }),
+    )
 }
 
 fn min_optional_iso(current: Option<String>, next: Option<String>) -> Option<String> {
@@ -875,7 +918,36 @@ mod usage_tests {
             currency: "USD".into(),
             period_start: None,
             period_end: None,
+            ..Default::default()
         }
+    }
+
+    fn wallet(source: &str, remaining: f64, used: f64) -> UsageData {
+        UsageData {
+            source: Some(source.into()),
+            account_remaining: Some(remaining),
+            account_used: Some(used),
+            ..sample(UsageScope::Key)
+        }
+    }
+
+    #[test]
+    fn tokens_of_one_account_count_the_wallet_once() {
+        let aggregate = aggregate_usage_data(&[
+            wallet("https://a.example|500000", 12.0, 88.0),
+            wallet("https://a.example|500000", 12.0, 88.0),
+            wallet("https://b.example|500000", 3.0, 1.0),
+        ])
+        .unwrap();
+        assert_eq!(aggregate.account_remaining, Some(15.0));
+        assert_eq!(aggregate.account_used, Some(89.0));
+        // 有令牌缺少钱包数据时不显示合计钱包。
+        let partial = aggregate_usage_data(&[
+            wallet("https://a.example|1", 1.0, 1.0),
+            sample(UsageScope::Key),
+        ])
+        .unwrap();
+        assert!(partial.account_remaining.is_none());
     }
 
     #[test]
