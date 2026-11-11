@@ -37,6 +37,7 @@
 - GitHub Actions 已接入 Windows + Linux + macOS Release 自动发布，推送 `v*` 标签会构建并发布 Windows NSIS、Linux `x86_64` 的 `deb` / `AppImage`，以及 macOS `x86_64` / `arm64` 的 `app` / `dmg`
 - 发版前会校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 三处版本号一致
 - CI 现在会额外在 `ubuntu-latest` 上单独执行一次 `cargo fmt --all --check`，用于拦截 Rust 格式漂移
+- 应用内更新优先读 `https://starchen4.cn/peekausage/latest.json`（服务器 `/var/www/peekausage-updates/`，nginx 片段 `/etc/nginx/snippets/peekausage.conf`），GitHub Release 作为备用端点。v0.1.16 起换了 updater 签名密钥，私钥在本机 `~/.tauri/peekausage.key`（密码在同目录 `.password` 文件），GitHub Secrets 需要同步更新，否则 CI 产物签名无法通过校验
 - 所有用量和订阅请求都经过 `src-tauri/src/providers/throttle.rs`：同一凭据 15 秒内只真实请求一次；429 后按 `Retry-After` 或指数退避冷却；New API 同一站点共享 15 次 / 20 分钟预算（站点默认限制是 20 次 / 20 分钟）。被节流时返回缓存并带 `limitedUntil`，前端显示“限流中”
 - 前端自动刷新按秒设置时最短 15 秒（`MIN_AUTO_POLLING_SECONDS`），与后端节流一致；`usePolling.ts` 只在启用的供应商集合变化时重建定时器
 - New API 的 `/api/status` 换算配置按站点缓存 1 小时；验证令牌也走节流

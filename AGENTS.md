@@ -936,6 +936,7 @@ cargo check
 - 只读查询 `/api/usage/token`，使用 Bearer 令牌；通过不带凭据的 `/api/status` 获取 `quota_per_unit`。原始额度除以站点比例，统一显示美元等值；禁止硬编码 500000 或把额度当成模型 Token 数。
 - 展示范围为 `key`：累计已用、令牌总额度和令牌剩余额度，不把可选 `user_quota` 混入当前 Key。无限额度不伪造预算、余额和百分比，到期时间不作为重置时间。
 - `UsageData.isUnlimited` 在 Rust 与 TypeScript 中保持同步，仅依据接口明确的无限额度标记；旧数据缺省按否处理。无限额度在详细模式显示“令牌无限额度”，精简模式显示 `∞`；提示需说明不代表账户余额无限，不能复用“未提供可用额度”的未知状态提示。
+- 应用内更新优先读 `https://starchen4.cn/peekausage/latest.json`（服务器 `/var/www/peekausage-updates/`，nginx 片段 `/etc/nginx/snippets/peekausage.conf`），GitHub Release 作为备用端点。v0.1.16 起换了 updater 签名密钥，私钥在本机 `~/.tauri/peekausage.key`（密码在同目录 `.password` 文件），GitHub Secrets 需要同步更新，否则 CI 产物签名无法通过校验
 - 所有用量和订阅请求都经过 `src-tauri/src/providers/throttle.rs`：同一凭据 15 秒内只真实请求一次；429 后按 `Retry-After` 或指数退避冷却；New API 同一站点共享 15 次 / 20 分钟预算（站点默认限制是 20 次 / 20 分钟）。被节流时返回缓存并带 `limitedUntil`，前端显示“限流中”
 - 前端自动刷新按秒设置时最短 15 秒（`MIN_AUTO_POLLING_SECONDS`），与后端节流一致；`usePolling.ts` 只在启用的供应商集合变化时重建定时器
 - New API 的 `/api/status` 换算配置按站点缓存 1 小时；验证令牌也走节流
